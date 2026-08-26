@@ -1,0 +1,8 @@
+{
+  "name": "Remix-v2 mathforge platform chaser",
+  "description": "this one broke off another version. this is a stabel build.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

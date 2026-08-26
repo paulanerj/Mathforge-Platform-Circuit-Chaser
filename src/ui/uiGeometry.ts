@@ -1,0 +1,81 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
+ * SPEEDMATH UI GEOMETRY AUTHORITY
+ * 
+ * This is the single source of truth for all gameplay layout dimensions.
+ * No other file may define geometry values.
+ */
+
+// Step 1: Define Base Geometry (Phone Baseline)
+const BASE_GEOMETRY = {
+  BASE_CENTER_CIRCLE: 200,
+  BASE_ANSWER_BUTTON_HEIGHT: 60,
+  BASE_ANSWER_STAGE_GAP: 12,
+  BASE_CONTROL_BUTTON_SIZE: 52,
+  BASE_BOTTOM_BAND_MIN_HEIGHT: 180,
+  BASE_PLAY_SURFACE_MIN_HEIGHT: 380,
+};
+
+// Step 2: Device Scale Detection
+const getDeviceScale = () => {
+  if (typeof window === 'undefined') return 1.0;
+  const width = window.innerWidth;
+  if (width < 768) return 1.0; // PHONE_SCALE
+  if (width < 1200) return 1.45; // TABLET_SCALE
+  return 1.75; // DESKTOP_SCALE
+};
+
+const SCALE = getDeviceScale();
+
+const SHARED_GEOMETRY = {
+  CENTER_CIRCLE_BORDER_WIDTH: 8,
+  CIRCLE_NUMERAL_SCALE: '85%',
+  ANSWER_STAGE_ROWS: 2,
+  ANSWER_STAGE_COLS: 2,
+  ANSWER_STAGE_CENTER_BUTTON_WIDTH_MOBILE: 'calc(50% - 4px)',
+  ANSWER_STAGE_CENTER_BUTTON_WIDTH_DESKTOP: 'calc(50% - 8px)',
+  CONTROL_BAND_GAP: 32,
+  HEADER_HEIGHT: 56,
+  HEADER_MAX_WIDTH: 448,
+  PROGRESS_PILL_HEIGHT: 32,
+  LABEL_CONTAINER_HEIGHT: 24,
+  CONTEXT_OVERLAY_OFFSET: 8,
+  HEADER_FONT_SIZE: 10,
+  LABEL_FONT_SIZE: 9,
+  TOP_BAND_MIN_HEIGHT: 140,
+  ANSWER_STAGE_MAX_WIDTH: 440,
+  GAME_CONTAINER_MAX_WIDTH: 720,
+  
+  // Profile-specific overrides that don't scale linearly
+  CIRCLE_VERTICAL_OFFSET: SCALE > 1.0 ? -40 : -20,
+  BOTTOM_BAND_BASIS: SCALE > 1.0 ? 30 : 40,
+  BOTTOM_BAND_NEGATIVE_MARGIN: SCALE > 1.0 ? -100 : -10,
+  MODIFIER_BUBBLE_MIN_WIDTH: SCALE > 1.0 ? 85 : 80,
+};
+
+// Step 3: Generate Final Geometry
+const CENTER_CIRCLE_SIZE = BASE_GEOMETRY.BASE_CENTER_CIRCLE * SCALE;
+const MODIFIER_RADIUS_RATIO = 110 / 200;
+
+export const UI_GEOMETRY = {
+  ...SHARED_GEOMETRY,
+  CENTER_CIRCLE_SIZE,
+  MODIFIER_RING_RADIUS: Math.round(CENTER_CIRCLE_SIZE * MODIFIER_RADIUS_RATIO),
+  ANSWER_BUTTON_HEIGHT: BASE_GEOMETRY.BASE_ANSWER_BUTTON_HEIGHT * SCALE,
+  ANSWER_STAGE_GAP: BASE_GEOMETRY.BASE_ANSWER_STAGE_GAP * SCALE,
+  CONTROL_BUTTON_SIZE: BASE_GEOMETRY.BASE_CONTROL_BUTTON_SIZE * SCALE,
+  BOTTOM_BAND_MIN_HEIGHT: BASE_GEOMETRY.BASE_BOTTOM_BAND_MIN_HEIGHT * SCALE,
+  PLAY_SURFACE_MIN_HEIGHT: BASE_GEOMETRY.BASE_PLAY_SURFACE_MIN_HEIGHT * SCALE,
+};
+
+/**
+ * DIFFICULTY VISUALIZATION SYSTEM (Placeholder)
+ * Reserved for Phase U3
+ */
+export const DIFFICULTY_COLOR_SCALE = {
+  // To be implemented in Phase U3
+};

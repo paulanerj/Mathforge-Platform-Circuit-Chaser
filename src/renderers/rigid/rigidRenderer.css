@@ -1,0 +1,118 @@
+/* src/renderers/rigid/rigidRenderer.css */
+
+.rigid-renderer-root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: transparent;
+}
+
+.rigid-perspective {
+  perspective: 900px;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-style: preserve-3d;
+}
+
+/* --- CENTER COIN --- */
+.rigid-coin-wrapper {
+  position: relative;
+  width: var(--mf-coin-size, 220px);
+  height: var(--mf-coin-size, 220px);
+  border-radius: 50%;
+  transform-style: preserve-3d;
+  /* Heavy mechanical turn: firm start, controlled acceleration, confident stop */
+  transition: transform 320ms cubic-bezier(0.35, 0.0, 0.15, 1);
+}
+
+.rigid-coin-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #334155;
+  border: 1px solid #0f172a;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+  pointer-events: none;
+}
+
+.rigid-coin-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  /* Metallic Machined Rim */
+  background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 50%, #64748b 100%);
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.7),
+              inset 0 -2px 6px rgba(0,0,0,0.6),
+              0 6px 14px rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backface-visibility: hidden;
+}
+
+.rigid-coin-enamel {
+  position: absolute;
+  /* Proportional mechanical inset */
+  inset: calc(var(--mf-coin-size, 220px) * 0.04);
+  border-radius: 50%;
+  /* Bright glossy enamel fill */
+  background: linear-gradient(180deg, #0ea5e9 0%, #0284c7 100%);
+  box-shadow: inset 0 6px 12px rgba(0,0,0,0.6), 
+              0 2px 4px rgba(255,255,255,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--mf-coin-size, 220px) * 0.38);
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 3px 6px rgba(0,0,0,0.5);
+  font-family: 'Fredoka', 'Varela Round', sans-serif;
+}
+
+/* --- MODIFIER (TOP, BOTTOM, LEFT, RIGHT) --- */
+.rigid-modifier-wrapper {
+  position: relative;
+  width: var(--mf-modifier-width, 140px);
+  height: var(--mf-modifier-height, 56px);
+  border-radius: calc(var(--mf-modifier-height, 56px) / 2);
+  transform-style: preserve-3d;
+  /* Snappier flip to convey lighter physical mass */
+  transition: transform 260ms cubic-bezier(0.25, 0.0, 0.2, 1);
+}
+
+.rigid-modifier-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--mf-modifier-height, 56px) / 2);
+  background: #1e293b;
+  border: 1px solid #0f172a;
+  pointer-events: none;
+}
+
+.rigid-modifier-face {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--mf-modifier-height, 56px) / 2);
+  /* Metallic Machined Body */
+  background: linear-gradient(180deg, #38bdf8 0%, #0369a1 100%);
+  border: 3px solid #cbd5e1;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.5),
+              inset 0 -2px 6px rgba(0,0,0,0.5),
+              0 4px 10px rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--mf-modifier-height, 56px) * 0.55);
+  font-weight: 800;
+  color: #ffffff;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  backface-visibility: hidden;
+  font-family: 'Fredoka', 'Varela Round', sans-serif;
+}
