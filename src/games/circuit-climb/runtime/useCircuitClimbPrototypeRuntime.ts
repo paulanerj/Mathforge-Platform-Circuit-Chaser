@@ -75,11 +75,6 @@ export function useCircuitClimbPrototypeRuntime() {
     if (!ctx) return;
 
     // --- GAME ENGINE INTERNAL CONFIGURATION & VARIABLES ---
-    
-    const LOGICAL_WIDTH = 768;
-    const NAVIGATION_SAFETY_MARGIN = 8;
-    const ROW_STAGGER_OFFSET = 64;
-
     const CONFIG = {
       grid: 16,
       rowGap: 205,
@@ -225,10 +220,6 @@ export function useCircuitClimbPrototypeRuntime() {
     let viewScalePercentInternal = 100;
     let routeTurnCountInternal = 8;
     let settingsWasPaused = false;
-    
-    let worldScale = 1;
-    let worldOffsetX = 0;
-    let worldHeight = 0;
 
     // Load High Scores
     try {
@@ -478,20 +469,14 @@ export function useCircuitClimbPrototypeRuntime() {
     }
 
 
-        function makeRow(index: number) {
+    function makeRow(index: number) {
       const y = -index * CONFIG.rowGap;
-      const alignType = index % 3;
-      let staggerOffset = 0;
-      let alignName = 'CENTERED';
-      if (alignType === 1) { staggerOffset = -ROW_STAGGER_OFFSET; alignName = 'LEFT_SHIFTED'; }
-      if (alignType === 2) { staggerOffset = ROW_STAGGER_OFFSET; alignName = 'RIGHT_SHIFTED'; }
-
       const platforms = CONFIG.columns.map((fraction, column) => ({
         row: index,
         column,
-        x: fraction * LOGICAL_WIDTH + staggerOffset,
+        x: fraction * width,
         y,
-        width: CONFIG.platformWidth,
+        width: Math.min(CONFIG.platformWidth, width * 0.30),
         height: CONFIG.platformHeight,
         value: null as number | null,
         correct: false,
@@ -500,53 +485,71 @@ export function useCircuitClimbPrototypeRuntime() {
         selected: false,
         litAt: -1000,
       }));
+
       const row: any = {
         index,
         y,
         platforms,
         id: `row-${index}`,
-        problemSnapshot: null,
-        targetValue: 0,
-        staggerOffset,
-        alignName,
+        disabledOptionIndexes: [] as number[],
+        status: 'future' as 'buffer' | 'future' | 'active' | 'resolved-correct' | 'resolved-wrong' | 'passed',
       };
 
-      if (index === 0) {
-        row.resultingPlayerValue = 4;
-        row.targetValue = targetFor(index);
-        row.incomingPlayerValue = 4;
-      } else {
-        const prev = rows.find((r) => r.index === index - 1);
-        const incomingPlayerValue = prev && prev.resultingPlayerValue !== undefined 
-          ? prev.resultingPlayerValue 
-          : 4;
-          
-        const targetBandId = targetBandFor(index);
-        const maxTargetValue = targetFor(index);
-        
-        const snapshot = CircuitClimbMathAdapter.requestAdditionProblem(
-          index, 
-          incomingPlayerValue, 
-          maxTargetValue, 
-          targetBandId
-        );
-        
-        row.problemSnapshot = snapshot;
-        row.incomingPlayerValue = incomingPlayerValue;
-        
-        if (snapshot) {
-          row.targetValue = snapshot.targetValue;
-          row.targetEventId = snapshot.targetEventId;
-          row.correctPlatformValue = snapshot.correctPlatformValue;
-          row.options = snapshot.choices;
-          row.correctOptionIndex = snapshot.correctChoiceIndex;
-          row.resultingPlayerValue = snapshot.targetValue;
-          
-          row.platforms.forEach((platform: any, colIdx: number) => {
-             platform.value = snapshot.choices[colIdx];
-             platform.correct = colIdx === snapshot.correctChoiceIndex;
-          });
+      if (index >= 1) {
+        const targetEventId = targetBandFor(index);
+        const maxTargetValue = Math.min(20, 10 + 2 * targetEventId);
+
+        let incomingPlayerValue = 0;
+        if (index === 1) {
+          incomingPlayerValue = randomInt(1, Math.max(2, maxTargetValue - 1));
+        } else {
+          const prev = rows[index - 1];
+          if (prev && prev.problemSnapshot) {
+            incomingPlayerValue = randomInt(1, Math.max(2, maxTargetValue - 1));
+          } else {
+            incomingPlayerValue = randomInt(1, Math.max(2, maxTargetValue - 1));
+          }
         }
+        
+        let snapshot = CircuitClimbMathAdapter.requestAdditionProblem(
+          index,
+          incomingPlayerValue,
+          maxTargetValue,
+          targetEventId
+        );
+
+        if (!snapshot) {
+          console.error("CIRCUIT_CLIMB_MATH_ENGINE_FAILURE", { index, incomingPlayerValue, maxTargetValue });
+          snapshot = {
+            problemId: `fallback-${index}`,
+            operation: "addition",
+            rowIndex: index,
+            targetEventId,
+            playerValue: incomingPlayerValue,
+            targetValue: incomingPlayerValue + 1,
+            choices: [1, 2, 3],
+            correctChoiceIndex: 0,
+            correctPlatformValue: 1
+          };
+          snapshot.choices[0] = 1;
+          snapshot.choices[1] = 2;
+          snapshot.choices[2] = 3;
+        }
+
+        row.problemSnapshot = snapshot;
+        row.targetEventId = snapshot.targetEventId;
+        row.targetValue = snapshot.targetValue;
+        row.incomingPlayerValue = snapshot.playerValue;
+        row.correctPlatformValue = snapshot.correctPlatformValue;
+        row.correctOptionIndex = snapshot.correctChoiceIndex;
+        row.options = snapshot.choices;
+
+        row.platforms.forEach((platform: any, colIdx: number) => {
+          if (colIdx < 3) {
+            platform.value = snapshot!.choices[colIdx];
+            platform.correct = colIdx === snapshot!.correctChoiceIndex;
+          }
+        });
       }
 
       return row;
@@ -694,36 +697,42 @@ export function useCircuitClimbPrototypeRuntime() {
       },
     };
 
-        function resize() {
+    function resize() { console.log("resize CALLED!", {app: !!app, rect: app?.getBoundingClientRect()});
       const rect = app.getBoundingClientRect();
       if (!rect.width || !rect.height) return;
 
+      const oldWidth = width;
       width = rect.width;
       height = rect.height;
       dpr = Math.min(window.devicePixelRatio || 1, 2);
-
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
-
-      worldScale = Math.min(1, width / LOGICAL_WIDTH);
-      const worldDisplayWidth = LOGICAL_WIDTH * worldScale;
-      worldOffsetX = (width - worldDisplayWidth) / 2;
-      worldHeight = height / worldScale;
-
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       if (rows.length > 0) {
+        const ratio = oldWidth > 0 ? width / oldWidth : 1;
         rows.forEach((row) => {
           row.platforms.forEach((platform: any) => {
-            platform.x = CONFIG.columns[platform.column] * LOGICAL_WIDTH + row.staggerOffset;
-            platform.width = CONFIG.platformWidth;
+            platform.x = CONFIG.columns[platform.column] * width;
+            platform.width = Math.min(CONFIG.platformWidth, width * 0.30);
           });
         });
+
+        if (oldWidth > 0 && ratio !== 1) {
+          traces.forEach((trace) => trace.points.forEach((point: any) => { point.x *= ratio; }));
+          particles.forEach((particle) => { particle.x *= ratio; });
+          if (travel) {
+            if (travel.points) travel.points.forEach((point: any) => { point.x *= ratio; });
+            if (travel.from) travel.from.x *= ratio;
+            if (travel.to) travel.to.x *= ratio;
+          }
+        }
+        if (!travel && player.platform) player.x = player.platform.x;
+        else player.x *= ratio;
       }
-      
-      if (!engineStarted || player.row === 0) cameraY = player.y - worldHeight * CONFIG.cameraAnchor;
+      if (!engineStarted || player.row === 0) cameraY = player.y - height * CONFIG.cameraAnchor;
     }
 
     function restart({ preserveOverlay = false } = {}) {
@@ -858,51 +867,49 @@ export function useCircuitClimbPrototypeRuntime() {
       return out;
     }
 
-        function getInflatedObstacles(row: any) {
-      const inflation = CONFIG.playerRadius + NAVIGATION_SAFETY_MARGIN;
-      return row.platforms.map((platform: any) => ({
-        left: platform.x - platform.width / 2 - inflation,
-        right: platform.x + platform.width / 2 + inflation,
-        top: platform.y - platform.height / 2 - inflation,
-        bottom: platform.y + platform.height / 2 + inflation,
-      }));
-    }
-
     function destinationCorridors(row: any) {
-      const obstacles = getInflatedObstacles(row)
-        .sort((a: any, b: any) => a.left - b.left);
-      
+      const padding = CONFIG.routePlatformPadding;
+      const rectangles = row.platforms
+        .map((platform: any) => ({
+          left: platform.x - platform.width / 2 - padding,
+          right: platform.x + platform.width / 2 + padding,
+        }))
+        .sort((first: any, second: any) => first.left - second.left);
+
       const corridors: any[] = [];
-      let cursor = 0; 
-      
-      obstacles.forEach((obs: any, index: number) => {
-        if (obs.left - cursor >= 1) {
+      let cursor = 2;
+
+      rectangles.forEach((rectangle: any) => {
+        if (rectangle.left - cursor >= 12) {
           corridors.push({
-            id: index === 0 ? 'A' : (index === 1 ? 'B' : 'C'),
             left: cursor,
-            right: obs.left,
-            center: (cursor + obs.left) / 2,
+            right: rectangle.left,
+            center: (cursor + rectangle.left) / 2,
           });
         }
-        cursor = Math.max(cursor, obs.right);
+        cursor = Math.max(cursor, rectangle.right);
       });
-      
-      if (LOGICAL_WIDTH - cursor >= 1) {
+
+      const rightEdge = width - 2;
+      if (rightEdge - cursor >= 12) {
         corridors.push({
-          id: 'D',
           left: cursor,
-          right: LOGICAL_WIDTH,
-          center: (cursor + LOGICAL_WIDTH) / 2,
+          right: rightEdge,
+          center: (cursor + rightEdge) / 2,
         });
       }
       return corridors;
     }
 
-        function chooseDestinationCorridor(row: any, targetX: number, startX: number) {
+    function chooseDestinationCorridor(row: any, targetX: number, startX: number) {
       const corridors = destinationCorridors(row);
       if (!corridors.length) {
-        console.warn('NO VALID CORRIDORS!');
-        return { center: LOGICAL_WIDTH / 2 };
+        const edge = targetX < width / 2 ? width * 0.965 : width * 0.035;
+        return {
+          left: edge - 12,
+          right: edge + 12,
+          center: edge,
+        };
       }
       return corridors
         .slice()
@@ -924,7 +931,6 @@ export function useCircuitClimbPrototypeRuntime() {
       const destinationRow = getRow(destinationPlatform.row);
 
       const landingY = to.y;
-      const crossX = corridor.center;
       const apexY =
         destinationRow.y -
         CONFIG.playerRadius -
@@ -933,8 +939,8 @@ export function useCircuitClimbPrototypeRuntime() {
       const crossingStartY =
         destinationRow.y +
         CONFIG.platformHeight +
-        CONFIG.playerRadius + 
-        NAVIGATION_SAFETY_MARGIN + 2;
+        CONFIG.routePlatformPadding +
+        9;
 
       const midCrossY =
         destinationRow.y +
@@ -1042,7 +1048,7 @@ export function useCircuitClimbPrototypeRuntime() {
       return cleanCircuitPath(points);
     }
 
-        function buildCircuitPath(from: any, to: any, destinationPlatform: any = null) {
+    function buildCircuitPath(from: any, to: any, destinationPlatform: any = null) {
       const platform = destinationPlatform || rowAbove()?.platforms.find(
         (candidate) => candidate.x === to.x,
       );
@@ -1063,6 +1069,7 @@ export function useCircuitClimbPrototypeRuntime() {
         platform.x,
         from.x,
       );
+
       const orderedCorridors = [
         preferred,
         ...corridors.filter((corridor) => corridor !== preferred),
@@ -1080,12 +1087,17 @@ export function useCircuitClimbPrototypeRuntime() {
         }
       }
 
-      console.warn("No clear circuit path found to platform!");
+      const edgeCorridor = {
+        left: from.x < width / 2 ? 1 : width - 15,
+        right: from.x < width / 2 ? 15 : width - 1,
+        center: from.x < width / 2 ? 8 : width - 8,
+      };
+
       return buildSteppedRoute(
         from,
         to,
         platform,
-        preferred,
+        edgeCorridor,
       );
     }
 
@@ -1379,7 +1391,7 @@ export function useCircuitClimbPrototypeRuntime() {
       updateTimerLine(delta);
       updateParticles(delta);
 
-      const desiredCamera = player.y - worldHeight * CONFIG.cameraAnchor;
+      const desiredCamera = player.y - height * CONFIG.cameraAnchor;
       cameraY += (desiredCamera - cameraY) * (1 - Math.pow(0.0008, delta / 1000));
 
       cullWorld();
@@ -1427,44 +1439,7 @@ export function useCircuitClimbPrototypeRuntime() {
       ctx.closePath();
     }
 
-    
-    function drawGeometryOverlay() {
-      ctx.save();
-      
-      // Draw corridors
-      const row = getRow(player.row + 1) || getRow(player.row);
-      if (row) {
-        const corridors = destinationCorridors(row);
-        corridors.forEach((corr: any) => {
-          ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
-          ctx.fillRect(corr.left, player.y - 200, corr.right - corr.left, 400);
-          ctx.strokeStyle = '#00FF00';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(corr.center, player.y - 200);
-          ctx.lineTo(corr.center, player.y + 200);
-          ctx.stroke();
-          
-          ctx.fillStyle = '#00FF00';
-          ctx.font = '16px monospace';
-          ctx.textAlign = 'center';
-          ctx.fillText(corr.id, corr.center, player.y - 100);
-        });
-        
-        // Draw inflated obstacles
-        const obstacles = getInflatedObstacles(row);
-        obstacles.forEach((obs: any) => {
-          ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
-          ctx.fillRect(obs.left, obs.top, obs.right - obs.left, obs.bottom - obs.top);
-          ctx.strokeStyle = '#FF0000';
-          ctx.lineWidth = 1;
-          ctx.strokeRect(obs.left, obs.top, obs.right - obs.left, obs.bottom - obs.top);
-        });
-      }
-      
-      ctx.restore();
-    }
-function drawTargetPresentation() {
+    function drawTargetPresentation() {
       const p = targetPresentation;
       const targetAge = elapsed - p.phaseStartedAt;
       let alpha = 0.22;
@@ -1614,19 +1589,10 @@ function drawTargetPresentation() {
       ctx.restore();
     }
 
-        function drawBackground() {
+    function drawBackground() {
+      ctx.fillStyle = COLORS.bg;
+      ctx.fillRect(0, 0, width, height);
       drawFarParallax();
-      
-      if (showSumToCue ) {
-        ctx.save();
-        ctx.fillStyle = 'rgba(255,255,255,0.03)';
-        ctx.font = 'bold 240px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(`SUM TO ${targetValue}`, LOGICAL_WIDTH / 2, worldHeight * 0.5);
-        ctx.restore();
-      }
-      
       drawTargetPresentation();
       drawMidParallax();
     }
@@ -1891,17 +1857,7 @@ function drawTargetPresentation() {
       ctx.restore();
     }
 
-        function render() {
-      ctx.save();
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = '#0a0a0a';
-      ctx.fillRect(0, 0, width, height);
-      ctx.restore();
-
-      ctx.save();
-      ctx.translate(worldOffsetX, 0);
-      ctx.scale(worldScale, worldScale);
-
+    function render() {
       drawBackground();
       drawTraces();
       drawPlatforms();
@@ -1909,12 +1865,6 @@ function drawTargetPresentation() {
       drawParticles();
       drawPlayer();
       drawForegroundParallax();
-      
-      if (showCollisionHitboxes) {
-        drawGeometryOverlay();
-      }
-
-      ctx.restore();
     }
 
     function endGame(title: string) {
@@ -1958,15 +1908,14 @@ function drawTargetPresentation() {
       if (platform) selectPlatform(platform);
     }
 
-        function pointerPosition(event: any) {
+    function pointerPosition(event: any) {
       const rect = canvas.getBoundingClientRect();
-      const clientX = event.touches ? event.touches[0].clientX : event.clientX;
-      const clientY = event.touches ? event.touches[0].clientY : event.clientY;
-      const displayX = clientX - rect.left;
-      const displayY = clientY - rect.top;
+      const touch = event.touches && event.touches[0];
+      const clientX = touch ? touch.clientX : event.clientX;
+      const clientY = touch ? touch.clientY : event.clientY;
       return {
-        x: (displayX - worldOffsetX) / worldScale,
-        y: displayY / worldScale,
+        x: clientX - rect.left,
+        y: clientY - rect.top,
       };
     }
 

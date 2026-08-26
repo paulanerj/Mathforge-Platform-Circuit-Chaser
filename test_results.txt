@@ -23552,7 +23552,7 @@
   }
 ]
 
- [32m✓[39m src/games/circuit-climb/tests/circuitClimbMathAdapter.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 100[2mms[22m[39m
+ [32m✓[39m src/games/circuit-climb/tests/circuitClimbMathAdapter.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 88[2mms[22m[39m
 [90mstdout[2m | src/games/circuit-climb/tests/circuitClimbSequenceStress.test.ts[2m > [22m[2mCircuit Climb Sequence Stress Test[2m > [22m[2mSimulates 15 runs of 30 rows each
 [22m[39m[GEN CONFIG TRACE] {
   mode: [32m'standard'[39m,
@@ -44705,17 +44705,15 @@
   }
 ]
 
- [32m✓[39m src/games/circuit-climb/tests/circuitClimbSequenceStress.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 146[2mms[22m[39m
- [32m✓[39m src/theme/themeRegistry.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 10[2mms[22m[39m
- [32m✓[39m src/theme/resolveTheme.test.ts [2m([22m[2m15 tests[22m[2m)[22m[32m 13[2mms[22m[39m
- [32m✓[39m src/games/circuit-climb/tests/circuitClimbGameLogic.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 11[2mms[22m[39m
- [32m✓[39m src/games/circuit-climb/tests/circuitClimbNumberTransition.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 8[2mms[22m[39m
- [32m✓[39m src/games/circuit-climb/tests/circuitClimbCollision.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 28[2mms[22m[39m
- [32m✓[39m src/games/circuit-climb/tests/canvasPalette.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
- [32m✓[39m src/games/circuit-climb/tests/circuitClimbTargetReveal.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/games/circuit-climb/tests/circuitClimbSequenceStress.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 94[2mms[22m[39m
+ [32m✓[39m src/games/circuit-climb/tests/circuitClimbGameLogic.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 9[2mms[22m[39m
+ [32m✓[39m src/games/circuit-climb/tests/circuitClimbNumberTransition.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/games/circuit-climb/tests/circuitClimbTargetReveal.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/games/circuit-climb/tests/circuitClimbCollision.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/games/circuit-climb/tests/canvasPalette.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
 
-[2m Test Files [22m [1m[32m9 passed[39m[22m[90m (9)[39m
-[2m      Tests [22m [1m[32m59 passed[39m[22m[90m (59)[39m
-[2m   Start at [22m 16:45:02
-[2m   Duration [22m 15.08s[2m (transform 345ms, setup 0ms, import 594ms, tests 329ms, environment 11.76s)[22m
+[2m Test Files [22m [1m[32m7 passed[39m[22m[90m (7)[39m
+[2m      Tests [22m [1m[32m34 passed[39m[22m[90m (34)[39m
+[2m   Start at [22m 18:37:55
+[2m   Duration [22m 10.76s[2m (transform 230ms, setup 0ms, import 452ms, tests 215ms, environment 8.33s)[22m
 
