@@ -510,6 +510,45 @@ export function useCircuitClimbPrototypeRuntime() {
         staggerOffset,
         alignName,
       };
+
+      if (index === 0) {
+        row.resultingPlayerValue = 4;
+        row.targetValue = targetFor(index);
+        row.incomingPlayerValue = 4;
+      } else {
+        const prev = rows.find((r) => r.index === index - 1);
+        const incomingPlayerValue = prev && prev.resultingPlayerValue !== undefined 
+          ? prev.resultingPlayerValue 
+          : 4;
+          
+        const targetBandId = targetBandFor(index);
+        const maxTargetValue = targetFor(index);
+        
+        const snapshot = CircuitClimbMathAdapter.requestAdditionProblem(
+          index, 
+          incomingPlayerValue, 
+          maxTargetValue, 
+          targetBandId
+        );
+        
+        row.problemSnapshot = snapshot;
+        row.incomingPlayerValue = incomingPlayerValue;
+        
+        if (snapshot) {
+          row.targetValue = snapshot.targetValue;
+          row.targetEventId = snapshot.targetEventId;
+          row.correctPlatformValue = snapshot.correctPlatformValue;
+          row.options = snapshot.choices;
+          row.correctOptionIndex = snapshot.correctChoiceIndex;
+          row.resultingPlayerValue = snapshot.targetValue;
+          
+          row.platforms.forEach((platform: any, colIdx: number) => {
+             platform.value = snapshot.choices[colIdx];
+             platform.correct = colIdx === snapshot.correctChoiceIndex;
+          });
+        }
+      }
+
       return row;
     }
 
