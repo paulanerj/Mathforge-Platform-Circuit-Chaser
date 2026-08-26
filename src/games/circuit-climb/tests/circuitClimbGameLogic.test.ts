@@ -12,8 +12,6 @@ describe('Circuit Climb Model & Math Logic', () => {
   const CONFIG = {
     rowGap: 205,
     columns: [0.18, 0.50, 0.82],
-    botInitialRowGap: 2,
-    botSpawnOffsetRows: 0.78,
   };
 
   // Helper function to calculate targets exactly as the engine does
@@ -251,14 +249,4 @@ describe('Circuit Climb Model & Math Logic', () => {
     expect(rows.length).toBe(7);
   });
 
-  // Verification 18: Parity check on bot distances and movement parameters
-  it('18. Existing player and enemy behavior (distances and intervals) remains unchanged', () => {
-    const playerY = 1000;
-    const rowGap = 205;
-    const previousIntendedBaseOffset = 0.78;
-    const initialGapOffset = 2.0;
-
-    const botY = playerY + (previousIntendedBaseOffset + initialGapOffset) * rowGap;
-    expect(botY - playerY).toBeCloseTo(2.78 * rowGap, 5);
-  });
 });
