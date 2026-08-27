@@ -98,13 +98,6 @@ export function useCircuitClimbPrototypeRuntime() {
       cullMargin: 240,
       resolveDelay: 520,
 
-      timerBaseSpeed: 0.018,
-      timerRamp: 0.0000015,
-      timerCatchGapRows: 2.3,
-      timerStartRows: 1.15,
-      wrongPenalty: 56,
-
-      timerBaseOffsetRows: 0.55,
       difficulty: 'NORMAL',
 
       cameraAnchor: 0.25,
@@ -121,7 +114,6 @@ export function useCircuitClimbPrototypeRuntime() {
       routeHorizontalJitter: 46,
       routePlatformPadding: 8,
       hopHeight: 82,
-      wrongPenalty: 56,
     });
 
     const COLORS = {
@@ -197,8 +189,6 @@ export function useCircuitClimbPrototypeRuntime() {
     let travel: any = null;
     let resolveAt = 0;
     let cameraY = 0;
-    let timerLineY = 0;
-    let timerSpeed = CONFIG.timerBaseSpeed;
     let engineBestRow = 0;
     let viewScalePercentInternal = 100;
     let routeTurnCountInternal = 8;
@@ -337,7 +327,6 @@ export function useCircuitClimbPrototypeRuntime() {
       }
 
       player.y *= verticalRatio;
-      timerLineY *= verticalRatio;
 
       if (!travel && player.platform) {
         player.x = player.platform.x;
@@ -367,7 +356,6 @@ export function useCircuitClimbPrototypeRuntime() {
       CONFIG.routeHorizontalJitter = BASE_VIEW.routeHorizontalJitter * zoom;
       CONFIG.routePlatformPadding = BASE_VIEW.routePlatformPadding;
       CONFIG.hopHeight = BASE_VIEW.hopHeight * zoom;
-      CONFIG.wrongPenalty = BASE_VIEW.wrongPenalty * zoom;
 
       CONFIG.routeTurnCount = routeTurnCountInternal;
       CONFIG.cameraAnchor = lerp(0.585, 0.615, (nextPercent - 80) / 40);
@@ -738,8 +726,6 @@ export function useCircuitClimbPrototypeRuntime() {
       targetPresentation.phaseStartedAt = 0;
       targetPresentation.progress = 0;
 
-      timerSpeed = CONFIG.timerBaseSpeed;
-      timerLineY = player.y + CONFIG.rowGap * CONFIG.timerStartRows;
       cameraY = player.y - height * CONFIG.cameraAnchor;
 
       ensureRows();
@@ -1091,16 +1077,6 @@ export function useCircuitClimbPrototypeRuntime() {
 
 
 
-    function updateTimerLine(delta: number) {
-      timerSpeed += CONFIG.timerRamp * delta;
-      const gap = timerLineY - player.y;
-      const hurry = gap > CONFIG.rowGap * CONFIG.timerCatchGapRows ? 2.1 : 1;
-      timerLineY -= timerSpeed * hurry * delta;
-
-      const closestLine = player.y + (CONFIG.timerBaseOffsetRows + 0.65) * CONFIG.rowGap;
-      if (timerLineY < closestLine) timerLineY = closestLine;
-    }
-
     function selectPlatform(platform: any) {
       if (!engineStarted || !engineAlive || enginePaused || travel || resolveAt || platform.dead) return;
       if (platform.row !== player.row + 1) return;
@@ -1229,7 +1205,6 @@ export function useCircuitClimbPrototypeRuntime() {
 
       platform.dead = true;
       platform.selected = false;
-      timerLineY -= CONFIG.wrongPenalty;
       spawnBurst(player.x, player.y, COLORS.red, 32, 0.25);
       sound.wrong();
       setMessage('Short circuit. The red timing spark gained ground.', 'error', 1300);
@@ -1327,7 +1302,6 @@ export function useCircuitClimbPrototypeRuntime() {
       targetPresentation.progress = clamp(targetAge / 1500, 0, 1);
 
       updateTravel(delta);
-      updateTimerLine(delta);
       updateParticles(delta);
 
       const desiredCamera = player.y - height * CONFIG.cameraAnchor;
