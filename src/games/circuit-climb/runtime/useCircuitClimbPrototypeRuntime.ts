@@ -1178,6 +1178,7 @@ export function useCircuitClimbPrototypeRuntime() {
         updateHud();
 
         spawnBurst(player.x, player.y, COLORS.lime, 30, 0.22);
+        spawnBurst(player.x, player.y, COLORS.cyanCore, 12, 0.12);
         sound.correct();
         return;
       }
@@ -1568,6 +1569,8 @@ export function useCircuitClimbPrototypeRuntime() {
       let bottomBar = '#D8E4F7';
       let textColor = '#0E1B33';
       let shadowColor = 'rgba(14, 27, 51, 0.04)';
+      let shimmer = false;
+      const isPoweredActivation = platform.powered && platform.row > 0;
       
       if (platform.dead) {
         fill = '#f1f5f9';
@@ -1575,6 +1578,13 @@ export function useCircuitClimbPrototypeRuntime() {
         bottomBar = '#cbd5e1';
         textColor = '#94a3b8';
         shadowColor = 'transparent';
+      } else if (isPoweredActivation) {
+        fill = '#ffffff';
+        border = COLORS.cyan;
+        bottomBar = COLORS.lime;
+        textColor = COLORS.cyan;
+        shadowColor = 'rgba(14, 165, 233, 0.15)';
+        shimmer = true;
       } else if (platform.powered || platform.selected) {
         fill = '#ffffff';
         border = '#007BFF';
@@ -1602,6 +1612,53 @@ export function useCircuitClimbPrototypeRuntime() {
       ctx.strokeStyle = border;
       ctx.stroke();
 
+      // Plasma/shimmer effect
+      if (shimmer) {
+         const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+         if (!prefersReducedMotion) {
+             const age = elapsed - (platform.litAt || elapsed);
+             
+             // Activation pulse
+             if (age < 180) {
+                 ctx.save();
+                 roundedRectPath(ctx, x, drawY, platform.width, platform.height, cornerRadius);
+                 ctx.clip();
+                 ctx.fillStyle = 'rgba(14, 165, 233, ' + (1 - age/180) * 0.25 + ')';
+                 ctx.fill();
+                 ctx.restore();
+             }
+             
+             // Steady internal shimmer
+             ctx.save();
+             roundedRectPath(ctx, x, drawY, platform.width, platform.height, cornerRadius);
+             ctx.clip();
+             
+             const phase1 = elapsed * 0.002 + platform.column;
+             const phase2 = elapsed * 0.0015 + platform.row;
+             const yOff = Math.sin(phase1) * 8;
+             const xOff = Math.cos(phase2) * 12;
+             
+             ctx.beginPath();
+             ctx.moveTo(platform.x - 20 + xOff, drawY + 10 + yOff);
+             ctx.quadraticCurveTo(platform.x + xOff, drawY + 20, platform.x + 20 - xOff, drawY + 30 - yOff);
+             ctx.strokeStyle = 'rgba(14, 165, 233, 0.12)';
+             ctx.lineWidth = 2;
+             ctx.stroke();
+
+             const phase3 = elapsed * 0.0025 - platform.column;
+             const yOff2 = Math.cos(phase3) * 10;
+             const xOff2 = Math.sin(phase1) * 10;
+             ctx.beginPath();
+             ctx.moveTo(platform.x + 15 + xOff2, drawY + 15 + yOff2);
+             ctx.quadraticCurveTo(platform.x - 5 - xOff2, drawY + 25 - yOff2, platform.x - 25, drawY + 10 + yOff2);
+             ctx.strokeStyle = 'rgba(37, 99, 235, 0.08)';
+             ctx.lineWidth = 1.5;
+             ctx.stroke();
+             
+             ctx.restore();
+         }
+      }
+
       // Draw Bottom Bar
       ctx.shadowBlur = 0;
       ctx.shadowOffsetY = 0;
@@ -1618,25 +1675,55 @@ export function useCircuitClimbPrototypeRuntime() {
       ctx.lineTo(x, drawY + platform.height - 4);
       ctx.fill();
 
-      // Draw Text
+      // Draw Text or Power Symbol
       if (platform.value !== null && platform.row > 0) {
-        if (platform.dead) {
-          ctx.strokeStyle = '#ef4444';
-          ctx.lineWidth = 1.6;
-          ctx.beginPath();
-          ctx.moveTo(platform.x - 18, drawY + 13);
-          ctx.lineTo(platform.x - 4, drawY + 26);
-          ctx.lineTo(platform.x - 12, drawY + platform.height - 11);
-          ctx.moveTo(platform.x + 16, drawY + 12);
-          ctx.lineTo(platform.x + 3, drawY + 25);
-          ctx.lineTo(platform.x + 14, drawY + platform.height - 11);
-          ctx.stroke();
+        if (isPoweredActivation) {
+           const age = elapsed - (platform.litAt || elapsed);
+           let alpha = 1;
+           if (age < 260) {
+             alpha = Math.max(0, (age - 60) / 200);
+           }
+           if (alpha > 0) {
+               ctx.save();
+               ctx.globalAlpha = alpha;
+               ctx.strokeStyle = textColor;
+               ctx.lineWidth = 3;
+               ctx.lineCap = 'round';
+               const cx = platform.x;
+               const cy = drawY + platform.height / 2;
+               
+               // arc
+               ctx.beginPath();
+               ctx.arc(cx, cy, 10, -Math.PI * 0.4, Math.PI * 1.4);
+               ctx.stroke();
+               
+               // vertical line
+               ctx.beginPath();
+               ctx.moveTo(cx, cy - 12);
+               ctx.lineTo(cx, cy);
+               ctx.stroke();
+               
+               ctx.restore();
+           }
+        } else {
+          if (platform.dead) {
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.moveTo(platform.x - 18, drawY + 13);
+            ctx.lineTo(platform.x - 4, drawY + 26);
+            ctx.lineTo(platform.x - 12, drawY + platform.height - 11);
+            ctx.moveTo(platform.x + 16, drawY + 12);
+            ctx.lineTo(platform.x + 3, drawY + 25);
+            ctx.lineTo(platform.x + 14, drawY + platform.height - 11);
+            ctx.stroke();
+          }
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.font = `700 ${Math.max(22, Math.min(29, platform.width * 0.26))}px ui-sans-serif, system-ui, sans-serif`;
+          ctx.fillStyle = textColor;
+          ctx.fillText(String(platform.value), platform.x, drawY + platform.height / 2);
         }
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.font = `700 ${Math.max(22, Math.min(29, platform.width * 0.26))}px ui-sans-serif, system-ui, sans-serif`;
-        ctx.fillStyle = textColor;
-        ctx.fillText(String(platform.value), platform.x, drawY + platform.height / 2);
       }
 
       ctx.restore();
