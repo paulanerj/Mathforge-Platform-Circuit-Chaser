@@ -113,7 +113,6 @@ export function useCircuitClimbPrototypeRuntime() {
       text: '#0E1B33',
       player: '#2563eb',
       playerHighlight: '#93c5fd',
-      enemy: '#ff3830',
       target: '#0f172a',
       targetGlow: 'rgba(37, 99, 235, 0.15)',
       cueSurface: '#ffffff',

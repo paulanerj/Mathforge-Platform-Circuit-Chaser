@@ -91,36 +91,6 @@
   box-shadow: 0 2px 8px rgba(14, 27, 51, 0.04);
 }
 
-.circuit-climb-surface .mathforge-level-pill {
-  height: 32px;
-  padding: 0 16px;
-  background: #007BFF;
-  color: #ffffff;
-  border-radius: 999px;
-  display: flex;
-  align-items: center;
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
-}
-
-.circuit-climb-surface .mathforge-timer {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 12px;
-  background: #ffffff;
-  color: #0E1B33;
-  border: 1px solid #D8E4F7;
-  border-radius: 999px;
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-}
-
 .circuit-climb-surface .mathforge-icon-btn {
   pointer-events: auto;
   display: flex;
@@ -134,51 +104,6 @@
   border-radius: 50%;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(14, 27, 51, 0.04);
-}
-
-.circuit-climb-surface .mathforge-progress-row {
-  margin-bottom: 12px;
-}
-
-.circuit-climb-surface .mathforge-progress-bar {
-  position: relative;
-  height: 24px;
-  background: #ffffff;
-  border: 1px solid #D8E4F7;
-  border-radius: 999px;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-}
-
-.circuit-climb-surface .mathforge-progress-fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  background: linear-gradient(90deg, #007BFF 0%, #00E5FF 100%);
-  border-radius: 999px;
-  transition: width 0.3s ease;
-}
-
-.circuit-climb-surface .mathforge-progress-text {
-  position: relative;
-  z-index: 1;
-  color: #ffffff;
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.circuit-climb-surface .mathforge-star-icon {
-  position: absolute;
-  right: 8px;
-  z-index: 1;
-  color: #0E1B33;
-  font-size: 12px;
 }
 
 .circuit-climb-surface .mathforge-prompt-row {
@@ -393,18 +318,6 @@
   font-size: 10px;
   letter-spacing: 0.09em;
   line-height: 1.5;
-}
-
-.circuit-climb-surface #gameOverTitle {
-  color: #ef4444;
-  text-shadow: 0 0 26px rgba(239, 68, 68, 0.2);
-}
-
-.circuit-climb-surface #finalScore {
-  margin-top: 15px;
-  color: #64748b;
-  font-size: 18px;
-  line-height: 1.7;
 }
 
 .circuit-climb-surface #pauseOverlay {
@@ -652,7 +565,6 @@
   --circuit-climb-text: #0f172a;
   --circuit-climb-player: #2563eb;
   --circuit-climb-player-highlight: #93c5fd;
-  --circuit-climb-enemy: #ef4444;
   --circuit-climb-target: #0f172a;
   --circuit-climb-target-glow: rgba(37, 99, 235, 0.25);
   --circuit-climb-cue-surface: #ffffff;
