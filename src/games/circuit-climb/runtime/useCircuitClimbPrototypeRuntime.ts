@@ -655,18 +655,6 @@ export function useCircuitClimbPrototypeRuntime() {
         tone(230, 0.28, 0.055, 'sawtooth');
         tone(174, 0.35, 0.045, 'triangle', 0.08);
       },
-      scan() {
-        tone(760, 0.34, 0.026, 'sine');
-        tone(770, 0.38, 0.018, 'sine');
-      },
-      lock() {
-        tone(1046, 0.16, 0.048, 'triangle');
-        tone(1318, 0.22, 0.035, 'sine', 0.05);
-      },
-      danger() {
-        tone(90, 0.7, 0.07, 'sine');
-        tone(55, 0.9, 0.05, 'triangle');
-      },
     };
 
     function resize() { console.log("resize CALLED!", {app: !!app, rect: app?.getBoundingClientRect()});
