@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from 'react';
 
 export interface CircuitClimbViewModel {
   started: boolean;
-  alive: boolean;
   paused: boolean;
   score: number;
   bestRow: number;
@@ -20,7 +19,6 @@ export interface CircuitClimbViewModel {
   showSumToCue: boolean;
   showConfig: boolean;
   configText: string;
-  difficulty: 'EASY' | 'NORMAL' | 'HARD';
   debug?: any;
 }
 
@@ -30,7 +28,6 @@ export function useCircuitClimbPrototypeRuntime() {
 
   // React state to feed back into the HUD overlays
   const [started, setStarted] = useState(false);
-  const [alive, setAlive] = useState(true);
   const [paused, setPaused] = useState(false);
   const [score, setScore] = useState(0);
   const [bestRow, setBestRow] = useState(0);
@@ -47,7 +44,6 @@ export function useCircuitClimbPrototypeRuntime() {
   const [showViewSettings, setShowViewSettings] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [configText, setConfigText] = useState('');
-  const [difficulty, setDifficultyState] = useState<'EASY' | 'NORMAL' | 'HARD'>('NORMAL');
   const settingsWasPausedRef = useRef(false);
 
   // Control reference to trigger game engine actions from React components
@@ -60,7 +56,6 @@ export function useCircuitClimbPrototypeRuntime() {
     selectByIndex?: (idx: number) => void;
     applyViewScale?: (val: number, opts?: { reflow?: boolean; persist?: boolean }) => void;
     applyRouteTurnCount?: (val: number, opts?: { persist?: boolean }) => void;
-    applyDifficulty?: (diff: 'EASY' | 'NORMAL' | 'HARD') => void;
     resetViewSettings?: () => void;
     exportSettings?: () => void;
     closeViewSettings?: () => void;
@@ -69,21 +64,19 @@ export function useCircuitClimbPrototypeRuntime() {
   useEffect(() => {
     const canvas = canvasRef.current;
     const app = appRef.current;
-    if (!canvas || !app) { console.log("SUCCESS!", {canvas: !!canvas, app: !!app}); return; }
+    if (!canvas || !app) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     // --- GAME ENGINE INTERNAL CONFIGURATION & VARIABLES ---
     const CONFIG = {
-      grid: 16,
       rowGap: 205,
       routeSegmentGrid: 14,
       routeTurnCount: 8,
       routeMaxStraightRun: 72,
       routeHorizontalJitter: 46,
       routePlatformPadding: 8,
-      targetFlashDuration: 1500,
       farParallax: 0.08,
       midParallax: 0.24,
       foregroundParallax: 0.62,
@@ -96,9 +89,6 @@ export function useCircuitClimbPrototypeRuntime() {
       hopHeight: 82,
       returnDuration: 360,
       cullMargin: 240,
-      resolveDelay: 520,
-
-      difficulty: 'NORMAL',
 
       cameraAnchor: 0.25,
     };
@@ -177,7 +167,6 @@ export function useCircuitClimbPrototypeRuntime() {
     let lastTimestamp = 0;
     let elapsed = 0;
     let engineStarted = false;
-    let engineAlive = true;
     let enginePaused = false;
     let engineSoundEnabled = true;
     let engineMovementMode: 'circuit' | 'hop' = 'circuit';
@@ -187,12 +176,10 @@ export function useCircuitClimbPrototypeRuntime() {
     let traces: any[] = [];
     let particles: any[] = [];
     let travel: any = null;
-    let resolveAt = 0;
     let cameraY = 0;
     let engineBestRow = 0;
     let viewScalePercentInternal = 100;
     let routeTurnCountInternal = 8;
-    let settingsWasPaused = false;
 
     // Load High Scores
     try {
@@ -424,9 +411,6 @@ export function useCircuitClimbPrototypeRuntime() {
     function targetBandFor(rowIndex: number) {
       return Math.floor(Math.max(0, rowIndex - 1) / 6);
     }
-    function targetFor(rowIndex: number) {
-      return Math.min(20, 10 + 2 * targetBandFor(rowIndex));
-    }
 
 
     function makeRow(index: number) {
@@ -645,7 +629,7 @@ export function useCircuitClimbPrototypeRuntime() {
       },
     };
 
-    function resize() { console.log("resize CALLED!", {app: !!app, rect: app?.getBoundingClientRect()});
+    function resize() {
       const rect = app.getBoundingClientRect();
       if (!rect.width || !rect.height) return;
 
@@ -690,14 +674,11 @@ export function useCircuitClimbPrototypeRuntime() {
       traces = [];
       particles = [];
       travel = null;
-      resolveAt = 0;
       nextRowIndex = 0;
       elapsed = 0;
       lastTimestamp = 0;
       
-      engineAlive = true;
       enginePaused = false;
-      setAlive(true);
       setPaused(false);
 
       ensureRows();
@@ -1078,7 +1059,7 @@ export function useCircuitClimbPrototypeRuntime() {
 
 
     function selectPlatform(platform: any) {
-      if (!engineStarted || !engineAlive || enginePaused || travel || resolveAt || platform.dead) return;
+      if (!engineStarted || enginePaused || travel || platform.dead) return;
       if (platform.row !== player.row + 1) return;
 
       getAudioContext();
@@ -1174,7 +1155,6 @@ export function useCircuitClimbPrototypeRuntime() {
         }
         
         travel = null;
-        resolveAt = 0; // Clear resolve block to allow immediate input
 
         ensureRows();
         const nextActiveRow = getRow(player.row + 1);
@@ -1207,7 +1187,7 @@ export function useCircuitClimbPrototypeRuntime() {
       platform.selected = false;
       spawnBurst(player.x, player.y, COLORS.red, 32, 0.25);
       sound.wrong();
-      setMessage('Short circuit. The red timing spark gained ground.', 'error', 1300);
+      setMessage('Short circuit. That platform is offline. Choose another.', 'error', 1300);
 
       const back = landingPoint(player.platform);
       travel = {
@@ -1281,7 +1261,7 @@ export function useCircuitClimbPrototypeRuntime() {
       elapsed += delta;
       if (messageTimer && elapsed >= messageTimer) {
         messageTimer = 0;
-        if (!resolveAt) setMessage('Tap the platform that completes the equation.');
+        setMessage('Tap the platform that completes the equation.');
       }
 
       if (playerNumberPresentation.phase === 'clearing') {
@@ -1356,7 +1336,6 @@ export function useCircuitClimbPrototypeRuntime() {
       const p = targetPresentation;
       const targetAge = elapsed - p.phaseStartedAt;
       let alpha = 0.22;
-      let sizeScale = 1;
       let yOffset = 0;
       
       const restSize = Math.min(width * 0.62, height * 0.31);
@@ -1785,14 +1764,14 @@ export function useCircuitClimbPrototypeRuntime() {
       if (!showViewSettings) {
         closeViewSettings();
       }
-      if (!engineStarted || !engineAlive) return;
+      if (!engineStarted) return;
       enginePaused = typeof force === 'boolean' ? force : !enginePaused;
       setPaused(enginePaused);
       if (!enginePaused) lastTimestamp = performance.now();
     }
 
     function toggleMode() {
-      if (travel || resolveAt) {
+      if (travel) {
         setMessage('Change movement after the current jump.');
         return;
       }
@@ -1826,7 +1805,7 @@ export function useCircuitClimbPrototypeRuntime() {
     }
 
     function handlePointer(event: any) {
-      if (!engineStarted || !engineAlive || enginePaused || travel || resolveAt) return;
+      if (!engineStarted || enginePaused || travel) return;
       const point = pointerPosition(event);
       const row = rowAbove();
       if (!row) return;
@@ -1851,7 +1830,7 @@ export function useCircuitClimbPrototypeRuntime() {
       const delta = clamp(timestamp - lastTimestamp, 0, 34);
       lastTimestamp = timestamp;
 
-      if (engineStarted && engineAlive && !enginePaused) update(delta);
+      if (engineStarted && !enginePaused) update(delta);
       render();
     }
 
@@ -1884,11 +1863,6 @@ export function useCircuitClimbPrototypeRuntime() {
       applyRouteTurnCount(val, opts) {
         applyRouteTurnCount(val, opts);
       },
-      applyDifficulty(diff) {
-        setDifficultyState(diff);
-        CONFIG.difficulty = diff;
-        applyViewScale(viewScalePercentInternal, { reflow: false, persist: false });
-      },
       resetViewSettings() {
         applyRouteTurnCount(8, { persist: false });
         applyViewScale(100);
@@ -1905,7 +1879,6 @@ export function useCircuitClimbPrototypeRuntime() {
       debugGetPlayerPresentation: () => playerNumberPresentation,
       debugGetCONFIG: () => CONFIG,
       debugGetTravel: () => travel,
-      debugGetResolveAt: () => resolveAt,
       setShowSumToCue: (v: boolean) => setShowSumToCue(v),
       debugGetElapsed: () => elapsed,
       debugMakeRow: makeRow,
@@ -1981,10 +1954,6 @@ export function useCircuitClimbPrototypeRuntime() {
     if (showConfig) loopControlRef.current.exportSettings?.();
   };
 
-  const setDifficulty = (val: 'EASY' | 'NORMAL' | 'HARD') => {
-    loopControlRef.current.applyDifficulty?.(val);
-  };
-
   const resetViewSettings = () => {
     loopControlRef.current.resetViewSettings?.();
     if (showConfig) loopControlRef.current.exportSettings?.();
@@ -1999,7 +1968,6 @@ export function useCircuitClimbPrototypeRuntime() {
     appRef,
     viewModel: {
       started,
-      alive,
       paused,
       score,
       bestRow,
@@ -2016,7 +1984,6 @@ export function useCircuitClimbPrototypeRuntime() {
       showSumToCue,
       showConfig,
       configText,
-      difficulty,
     } as CircuitClimbViewModel,
     beginGame,
     restartGame,
@@ -2028,7 +1995,6 @@ export function useCircuitClimbPrototypeRuntime() {
     closeViewSettings,
     setViewScale,
     setRouteTurns,
-    setDifficulty,
     resetViewSettings,
     exportViewConfig,
     setShowConfig,
@@ -2040,7 +2006,6 @@ export function useCircuitClimbPrototypeRuntime() {
       getPlayerPresentation: () => (loopControlRef.current as any).debugGetPlayerPresentation?.() || null,
       getCONFIG: () => (loopControlRef.current as any).debugGetCONFIG?.() || null,
       getTravel: () => (loopControlRef.current as any).debugGetTravel?.() || null,
-      getResolveAt: () => (loopControlRef.current as any).debugGetResolveAt?.() || 0,
       getElapsed: () => (loopControlRef.current as any).debugGetElapsed?.() || 0,
       makeRow: (idx: number) => (loopControlRef.current as any).debugMakeRow?.(idx),
       ensureRows: () => (loopControlRef.current as any).debugEnsureRows?.(),
