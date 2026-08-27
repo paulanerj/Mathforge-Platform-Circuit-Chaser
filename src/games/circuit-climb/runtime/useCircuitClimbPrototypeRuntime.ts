@@ -104,7 +104,7 @@ export function useCircuitClimbPrototypeRuntime() {
       timerStartRows: 1.15,
       wrongPenalty: 56,
 
-      botBaseOffsetRows: 0.55,
+      timerBaseOffsetRows: 0.55,
       difficulty: 'NORMAL',
 
       cameraAnchor: 0.25,
@@ -1109,7 +1109,7 @@ export function useCircuitClimbPrototypeRuntime() {
       const hurry = gap > CONFIG.rowGap * CONFIG.timerCatchGapRows ? 2.1 : 1;
       timerLineY -= timerSpeed * hurry * delta;
 
-      const closestLine = player.y + (CONFIG.botBaseOffsetRows + 0.65) * CONFIG.rowGap;
+      const closestLine = player.y + (CONFIG.timerBaseOffsetRows + 0.65) * CONFIG.rowGap;
       if (timerLineY < closestLine) timerLineY = closestLine;
     }
 
