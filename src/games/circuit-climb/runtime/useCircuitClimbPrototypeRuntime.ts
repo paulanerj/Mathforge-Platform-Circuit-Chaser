@@ -104,20 +104,7 @@ export function useCircuitClimbPrototypeRuntime() {
       timerStartRows: 1.15,
       wrongPenalty: 56,
 
-      botSpawnOffsetRows: 0.78,
-      botInitialRowGap: 2, // represents complete platform-row intervals, not pixels
       botBaseOffsetRows: 0.55,
-      botPatrolSpeed: 0.18,
-      botLockSpeed: 0.46,
-      botRepathMs: 620,
-      botSweepMs: 1450,
-      proximityRadius: 112,
-      contactRadius: 54,
-      contactFuseMs: 360,
-      scanPeriodMs: 2700,
-      scanDurationMs: 680,
-      scanMaxRadius: 235,
-      botRadius: 30,
       difficulty: 'NORMAL',
 
       cameraAnchor: 0.25,
@@ -128,7 +115,6 @@ export function useCircuitClimbPrototypeRuntime() {
       platformWidth: 104,
       platformHeight: 62,
       playerRadius: 32,
-      botRadius: 30,
       routeSegmentGrid: 14,
       routeTurnCount: 8,
       routeMaxStraightRun: 72,
@@ -136,9 +122,6 @@ export function useCircuitClimbPrototypeRuntime() {
       routePlatformPadding: 8,
       hopHeight: 82,
       wrongPenalty: 56,
-      proximityRadius: 112,
-      contactRadius: 54,
-      scanMaxRadius: 235,
     });
 
     const COLORS = {
@@ -420,14 +403,10 @@ export function useCircuitClimbPrototypeRuntime() {
           platformWidth: roundTo(CONFIG.platformWidth),
           platformHeight: roundTo(CONFIG.platformHeight),
           playerRadius: roundTo(CONFIG.playerRadius),
-          botRadius: roundTo(CONFIG.botRadius),
           routeSegmentGrid: roundTo(CONFIG.routeSegmentGrid),
           routeTurnCount: CONFIG.routeTurnCount,
           routeMaxStraightRun: roundTo(CONFIG.routeMaxStraightRun),
           cameraAnchor: roundTo(CONFIG.cameraAnchor, 3),
-          proximityRadius: roundTo(CONFIG.proximityRadius),
-          contactRadius: roundTo(CONFIG.contactRadius),
-          scanMaxRadius: roundTo(CONFIG.scanMaxRadius),
         },
         instruction: 'Paste this JSON back into the project-manager chat so the framing and corner count can be frozen into the next build.',
       };
@@ -442,13 +421,6 @@ export function useCircuitClimbPrototypeRuntime() {
       return Math.floor(min + Math.random() * (max - min + 1));
     }
 
-    function shuffle(values: any[]) {
-      for (let i = values.length - 1; i > 0; i -= 1) {
-        const j = randomInt(0, i);
-        [values[i], values[j]] = [values[j], values[i]];
-      }
-      return values;
-    }
 
     function roundedRectPath(context: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) {
       const r = Math.min(radius, w / 2, h / 2);
@@ -1128,27 +1100,6 @@ export function useCircuitClimbPrototypeRuntime() {
       return { x: end.x, y: end.y, segment: currentTravel.lengths.length - 1 };
     }
 
-    function obstacleRectsNear(y0: number, y1: number) {
-      const padding = 6;
-      const rects: any[] = [];
-      rows.forEach((row) => {
-        if (row.y < y0 - CONFIG.rowGap || row.y > y1 + CONFIG.rowGap) return;
-        row.platforms.forEach((platform: any) => {
-          if (platform.row === 0 && platform.column !== 1) return;
-          rects.push({
-            left: platform.x - platform.width / 2 - padding,
-            right: platform.x + platform.width / 2 + padding,
-            top: platform.y - padding,
-            bottom: platform.y + platform.height + padding,
-          });
-        });
-      });
-      return rects;
-    }
-
-    function cellBlocked(x: number, y: number, rects: any[]) {
-      return rects.some((rect) => x > rect.left && x < rect.right && y > rect.top && y < rect.bottom);
-    }
 
 
 
@@ -1867,13 +1818,6 @@ export function useCircuitClimbPrototypeRuntime() {
       drawForegroundParallax();
     }
 
-    function endGame(title: string) {
-      if (!engineAlive) return;
-      engineAlive = false;
-      travel = null;
-      setAlive(false);
-      sound.danger();
-    }
 
     function togglePause(force?: boolean) {
       if (!showViewSettings) {
