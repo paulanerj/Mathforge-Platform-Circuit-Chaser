@@ -736,7 +736,10 @@ export function useCircuitClimbPrototypeRuntime() {
     function isPathClear(points: any[], destinationPlatform?: any) {
       const activePlatforms = getActivePlatforms();
       const rects = computePlatformCollisionRects(activePlatforms, CONFIG.playerRadius);
-      return pathIsClear(points, rects, destinationPlatform);
+      const options = destinationPlatform 
+        ? { destinationPlatform, landingPoint: landingPoint(destinationPlatform) } 
+        : undefined;
+      return pathIsClear(points, rects, options);
     }
 
     function cleanCircuitPath(points: any[]) {
@@ -1002,7 +1005,7 @@ export function useCircuitClimbPrototypeRuntime() {
         return fallbackRoute;
       }
       
-      return [from, from];
+      return null;
     }
 
     function pathMetrics(points: any[]) {
@@ -1045,7 +1048,11 @@ export function useCircuitClimbPrototypeRuntime() {
       const from = { x: player.x, y: player.y };
 
       if (engineMovementMode === 'circuit') {
-        const points = buildCircuitPath(from, destination);
+        const points = buildCircuitPath(from, destination, platform);
+        if (!points) {
+          platform.selected = false;
+          return;
+        }
         const metrics = pathMetrics(points);
         travel = {
           type: 'circuit',
