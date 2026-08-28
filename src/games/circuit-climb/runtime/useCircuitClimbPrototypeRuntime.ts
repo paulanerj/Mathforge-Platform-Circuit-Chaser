@@ -1,5 +1,6 @@
 import { CircuitClimbMathAdapter } from '../services/CircuitClimbMathAdapter';
 import { useState, useEffect, useRef } from 'react';
+import { CIRCUIT_CLIMB_GEOMETRY, computeActorSafeCorridors, computeInversePointerTransform } from '../geometry/circuitClimbGeometry';
 
 export interface CircuitClimbViewModel {
   started: boolean;
@@ -71,20 +72,20 @@ export function useCircuitClimbPrototypeRuntime() {
 
     // --- GAME ENGINE INTERNAL CONFIGURATION & VARIABLES ---
     const CONFIG = {
-      logicalWidth: 600,
-      rowGap: 205,
+      logicalWidth: CIRCUIT_CLIMB_GEOMETRY.logicalWidth,
+      rowGap: CIRCUIT_CLIMB_GEOMETRY.rowGap,
       routeSegmentGrid: 14,
       routeTurnCount: 8,
       routeMaxStraightRun: 72,
       routeHorizontalJitter: 44,
-      routePlatformPadding: 8,
+      routePlatformPadding: CIRCUIT_CLIMB_GEOMETRY.routePlatformPadding,
       farParallax: 0.08,
       midParallax: 0.24,
       foregroundParallax: 0.62,
-      platformWidth: 104,
-      platformHeight: 62,
-      columns: [110 / 600, 300 / 600, 490 / 600],
-      playerRadius: 32,
+      platformWidth: CIRCUIT_CLIMB_GEOMETRY.platformWidth,
+      platformHeight: CIRCUIT_CLIMB_GEOMETRY.platformHeight,
+      columns: CIRCUIT_CLIMB_GEOMETRY.columns,
+      playerRadius: CIRCUIT_CLIMB_GEOMETRY.playerRadius,
       routeSpeed: 0.62,
       hopDuration: 470,
       hopHeight: 76,
@@ -95,15 +96,15 @@ export function useCircuitClimbPrototypeRuntime() {
     };
 
     const BASE_VIEW = Object.freeze({
-      rowGap: 205,
-      platformWidth: 104,
-      platformHeight: 62,
-      playerRadius: 32,
+      rowGap: CIRCUIT_CLIMB_GEOMETRY.rowGap,
+      platformWidth: CIRCUIT_CLIMB_GEOMETRY.platformWidth,
+      platformHeight: CIRCUIT_CLIMB_GEOMETRY.platformHeight,
+      playerRadius: CIRCUIT_CLIMB_GEOMETRY.playerRadius,
       routeSegmentGrid: 14,
       routeTurnCount: 8,
       routeMaxStraightRun: 72,
       routeHorizontalJitter: 44,
-      routePlatformPadding: 8,
+      routePlatformPadding: CIRCUIT_CLIMB_GEOMETRY.routePlatformPadding,
       hopHeight: 76,
     });
 
@@ -723,8 +724,8 @@ export function useCircuitClimbPrototypeRuntime() {
       };
     }
 
-    function platformCollisionRects() {
-      const pad = CONFIG.routePlatformPadding;
+    function platformCollisionRects(actorRadius = CONFIG.playerRadius) {
+      const pad = CONFIG.routePlatformPadding + actorRadius;
       const rects: any[] = [];
       rows.forEach((row) => row.platforms.forEach((platform) => {
         if (platform.row === 0 && platform.column !== 1) return;
@@ -784,65 +785,22 @@ export function useCircuitClimbPrototypeRuntime() {
     }
 
     function destinationCorridors(row: any) {
-      const padding = CONFIG.routePlatformPadding;
-      const minActorClearance = CONFIG.playerRadius + 4;
-      const rectangles = row.platforms
-        .map((platform: any) => ({
-          left: platform.x - platform.width / 2 - padding,
-          right: platform.x + platform.width / 2 + padding,
-          platform,
-        }))
-        .sort((first: any, second: any) => first.left - second.left);
-
-      const corridors: any[] = [];
-      
-      // Corridor A (Exterior Left)
-      const leftBound = minActorClearance;
-      if (rectangles[0].left - leftBound >= 12) {
-        corridors.push({
-          id: 'A',
-          type: 'exterior',
-          left: leftBound,
-          right: rectangles[0].left,
-          center: (leftBound + rectangles[0].left) / 2,
-        });
-      }
-
-      // Corridor B (Between LEFT and CENTER)
-      if (rectangles[1].left - rectangles[0].right >= 12) {
-        corridors.push({
-          id: 'B',
-          type: 'interior',
-          left: rectangles[0].right,
-          right: rectangles[1].left,
-          center: (rectangles[0].right + rectangles[1].left) / 2,
-        });
-      }
-
-      // Corridor C (Between CENTER and RIGHT)
-      if (rectangles[2].left - rectangles[1].right >= 12) {
-        corridors.push({
-          id: 'C',
-          type: 'interior',
-          left: rectangles[1].right,
-          right: rectangles[2].left,
-          center: (rectangles[1].right + rectangles[2].left) / 2,
-        });
-      }
-
-      // Corridor D (Exterior Right)
-      const rightBound = CONFIG.logicalWidth - minActorClearance;
-      if (rightBound - rectangles[2].right >= 12) {
-        corridors.push({
-          id: 'D',
-          type: 'exterior',
-          left: rectangles[2].right,
-          right: rightBound,
-          center: (rectangles[2].right + rightBound) / 2,
-        });
-      }
-
-      return corridors;
+      const p0 = {
+        center: row.platforms[0].x,
+        left: row.platforms[0].x - row.platforms[0].width / 2,
+        right: row.platforms[0].x + row.platforms[0].width / 2,
+      };
+      const p1 = {
+        center: row.platforms[1].x,
+        left: row.platforms[1].x - row.platforms[1].width / 2,
+        right: row.platforms[1].x + row.platforms[1].width / 2,
+      };
+      const p2 = {
+        center: row.platforms[2].x,
+        left: row.platforms[2].x - row.platforms[2].width / 2,
+        right: row.platforms[2].x + row.platforms[2].width / 2,
+      };
+      return computeActorSafeCorridors(p0, p1, p2);
     }
 
     function chooseDestinationCorridor(row: any, targetX: number, startX: number) {
@@ -853,9 +811,10 @@ export function useCircuitClimbPrototypeRuntime() {
         return {
           id: targetX < CONFIG.logicalWidth / 2 ? 'A' : 'D',
           type: 'exterior',
-          left: edge - 12,
-          right: edge + 12,
+          left: edge,
+          right: edge,
           center: edge,
+          width: 0,
         };
       }
       return corridors
@@ -907,29 +866,34 @@ export function useCircuitClimbPrototypeRuntime() {
       }
       verticalEndpoints.push(midCrossY, apexY, landingY);
 
+      const corridorWidth = Math.max(0, corridor.right - corridor.left);
       const corridorInset = Math.min(
         14,
-        Math.max(3, (corridor.right - corridor.left) * 0.2),
+        Math.max(3, corridorWidth * 0.2),
       );
+
+      const minBound = corridor.left + Math.min(2, corridorWidth / 2);
+      const maxBound = corridor.right - Math.min(2, corridorWidth / 2);
 
       let corridorA = clamp(
         corridor.center - corridorInset,
-        corridor.left + 2,
-        corridor.right - 2,
+        minBound,
+        maxBound,
       );
 
       let corridorB = clamp(
         corridor.center + corridorInset,
-        corridor.left + 2,
-        corridor.right - 2,
+        minBound,
+        maxBound,
       );
 
       if (Math.abs(corridorB - corridorA) < 4) {
         corridorA = corridor.center;
+        const bShift = Math.min(4, corridorWidth / 2);
         corridorB = clamp(
-          corridor.center + (to.x < corridor.center ? -4 : 4),
-          corridor.left + 1.5,
-          corridor.right - 1.5,
+          corridor.center + (to.x < corridor.center ? -bShift : bShift),
+          corridor.left,
+          corridor.right,
         );
       }
 
@@ -2045,10 +2009,8 @@ export function useCircuitClimbPrototypeRuntime() {
       const clientX = touch ? touch.clientX : event.clientX;
       const clientY = touch ? touch.clientY : event.clientY;
       const effectiveScale = worldScale > 0 ? worldScale : 1;
-      return {
-        x: (clientX - rect.left) / effectiveScale,
-        y: (clientY - rect.top) / effectiveScale,
-      };
+      const { logicalX, logicalY } = computeInversePointerTransform(clientX, clientY, rect, effectiveScale);
+      return { x: logicalX, y: logicalY };
     }
 
     function handlePointer(event: any) {
