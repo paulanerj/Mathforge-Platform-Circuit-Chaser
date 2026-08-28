@@ -71,22 +71,23 @@ export function useCircuitClimbPrototypeRuntime() {
 
     // --- GAME ENGINE INTERNAL CONFIGURATION & VARIABLES ---
     const CONFIG = {
+      logicalWidth: 600,
       rowGap: 205,
       routeSegmentGrid: 14,
       routeTurnCount: 8,
       routeMaxStraightRun: 72,
-      routeHorizontalJitter: 46,
+      routeHorizontalJitter: 44,
       routePlatformPadding: 8,
       farParallax: 0.08,
       midParallax: 0.24,
       foregroundParallax: 0.62,
       platformWidth: 104,
       platformHeight: 62,
-      columns: [0.18, 0.50, 0.82],
+      columns: [110 / 600, 300 / 600, 490 / 600],
       playerRadius: 32,
       routeSpeed: 0.62,
       hopDuration: 470,
-      hopHeight: 82,
+      hopHeight: 76,
       returnDuration: 360,
       cullMargin: 240,
 
@@ -101,9 +102,9 @@ export function useCircuitClimbPrototypeRuntime() {
       routeSegmentGrid: 14,
       routeTurnCount: 8,
       routeMaxStraightRun: 72,
-      routeHorizontalJitter: 46,
+      routeHorizontalJitter: 44,
       routePlatformPadding: 8,
-      hopHeight: 82,
+      hopHeight: 76,
     });
 
     const COLORS = {
@@ -162,6 +163,8 @@ export function useCircuitClimbPrototypeRuntime() {
     let width = 0;
     let height = 0;
     let dpr = 1;
+    let worldScale = 1;
+    let logicalHeight = 600;
     let animationFrame = 0;
     let lastTimestamp = 0;
     let elapsed = 0;
@@ -289,7 +292,7 @@ export function useCircuitClimbPrototypeRuntime() {
         row.y = -row.index * CONFIG.rowGap;
         row.platforms.forEach((platform: any) => {
           platform.y = row.y;
-          platform.width = Math.min(CONFIG.platformWidth, width * 0.30);
+          platform.width = CONFIG.platformWidth;
           platform.height = CONFIG.platformHeight;
         });
       });
@@ -318,7 +321,7 @@ export function useCircuitClimbPrototypeRuntime() {
         player.x = player.platform.x;
         player.y = landingPoint(player.platform).y;
       }
-      cameraY = player.y - height * CONFIG.cameraAnchor;
+      cameraY = player.y - logicalHeight * CONFIG.cameraAnchor;
     }
 
     function updateViewReadouts() {
@@ -412,14 +415,16 @@ export function useCircuitClimbPrototypeRuntime() {
     }
 
 
-    function makeRow(index: number) {
+    function makeRow(index: number, shift: 'left' | 'center' | 'right' = 'center') {
       const y = -index * CONFIG.rowGap;
+      const shiftOffset = shift === 'left' ? -24 : (shift === 'right' ? 24 : 0);
+
       const platforms = CONFIG.columns.map((fraction, column) => ({
         row: index,
         column,
-        x: fraction * width,
+        x: fraction * CONFIG.logicalWidth + shiftOffset,
         y,
-        width: Math.min(CONFIG.platformWidth, width * 0.30),
+        width: CONFIG.platformWidth,
         height: CONFIG.platformHeight,
         value: null as number | null,
         correct: false,
@@ -432,6 +437,8 @@ export function useCircuitClimbPrototypeRuntime() {
       const row: any = {
         index,
         y,
+        shift,
+        shiftOffset,
         platforms,
         id: `row-${index}`,
         disabledOptionIndexes: [] as number[],
@@ -632,38 +639,21 @@ export function useCircuitClimbPrototypeRuntime() {
       const rect = app.getBoundingClientRect();
       if (!rect.width || !rect.height) return;
 
-      const oldWidth = width;
       width = rect.width;
       height = rect.height;
       dpr = Math.min(window.devicePixelRatio || 1, 2);
+      worldScale = width / CONFIG.logicalWidth;
+      logicalHeight = height / worldScale;
+
       canvas.width = Math.round(width * dpr);
       canvas.height = Math.round(height * dpr);
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.setTransform(dpr * worldScale, 0, 0, dpr * worldScale, 0, 0);
 
-      if (rows.length > 0) {
-        const ratio = oldWidth > 0 ? width / oldWidth : 1;
-        rows.forEach((row) => {
-          row.platforms.forEach((platform: any) => {
-            platform.x = CONFIG.columns[platform.column] * width;
-            platform.width = Math.min(CONFIG.platformWidth, width * 0.30);
-          });
-        });
-
-        if (oldWidth > 0 && ratio !== 1) {
-          traces.forEach((trace) => trace.points.forEach((point: any) => { point.x *= ratio; }));
-          particles.forEach((particle) => { particle.x *= ratio; });
-          if (travel) {
-            if (travel.points) travel.points.forEach((point: any) => { point.x *= ratio; });
-            if (travel.from) travel.from.x *= ratio;
-            if (travel.to) travel.to.x *= ratio;
-          }
-        }
-        if (!travel && player.platform) player.x = player.platform.x;
-        else player.x *= ratio;
+      if (!engineStarted || player.row === 0) {
+        cameraY = player.y - logicalHeight * CONFIG.cameraAnchor;
       }
-      if (!engineStarted || player.row === 0) cameraY = player.y - height * CONFIG.cameraAnchor;
     }
 
     function restart({ preserveOverlay = false } = {}) {
@@ -706,7 +696,7 @@ export function useCircuitClimbPrototypeRuntime() {
       targetPresentation.phaseStartedAt = 0;
       targetPresentation.progress = 0;
 
-      cameraY = player.y - height * CONFIG.cameraAnchor;
+      cameraY = player.y - logicalHeight * CONFIG.cameraAnchor;
 
       ensureRows();
       armNextRow();
@@ -795,43 +785,74 @@ export function useCircuitClimbPrototypeRuntime() {
 
     function destinationCorridors(row: any) {
       const padding = CONFIG.routePlatformPadding;
+      const minActorClearance = CONFIG.playerRadius + 4;
       const rectangles = row.platforms
         .map((platform: any) => ({
           left: platform.x - platform.width / 2 - padding,
           right: platform.x + platform.width / 2 + padding,
+          platform,
         }))
         .sort((first: any, second: any) => first.left - second.left);
 
       const corridors: any[] = [];
-      let cursor = 2;
-
-      rectangles.forEach((rectangle: any) => {
-        if (rectangle.left - cursor >= 12) {
-          corridors.push({
-            left: cursor,
-            right: rectangle.left,
-            center: (cursor + rectangle.left) / 2,
-          });
-        }
-        cursor = Math.max(cursor, rectangle.right);
-      });
-
-      const rightEdge = width - 2;
-      if (rightEdge - cursor >= 12) {
+      
+      // Corridor A (Exterior Left)
+      const leftBound = minActorClearance;
+      if (rectangles[0].left - leftBound >= 12) {
         corridors.push({
-          left: cursor,
-          right: rightEdge,
-          center: (cursor + rightEdge) / 2,
+          id: 'A',
+          type: 'exterior',
+          left: leftBound,
+          right: rectangles[0].left,
+          center: (leftBound + rectangles[0].left) / 2,
         });
       }
+
+      // Corridor B (Between LEFT and CENTER)
+      if (rectangles[1].left - rectangles[0].right >= 12) {
+        corridors.push({
+          id: 'B',
+          type: 'interior',
+          left: rectangles[0].right,
+          right: rectangles[1].left,
+          center: (rectangles[0].right + rectangles[1].left) / 2,
+        });
+      }
+
+      // Corridor C (Between CENTER and RIGHT)
+      if (rectangles[2].left - rectangles[1].right >= 12) {
+        corridors.push({
+          id: 'C',
+          type: 'interior',
+          left: rectangles[1].right,
+          right: rectangles[2].left,
+          center: (rectangles[1].right + rectangles[2].left) / 2,
+        });
+      }
+
+      // Corridor D (Exterior Right)
+      const rightBound = CONFIG.logicalWidth - minActorClearance;
+      if (rightBound - rectangles[2].right >= 12) {
+        corridors.push({
+          id: 'D',
+          type: 'exterior',
+          left: rectangles[2].right,
+          right: rightBound,
+          center: (rectangles[2].right + rightBound) / 2,
+        });
+      }
+
       return corridors;
     }
 
     function chooseDestinationCorridor(row: any, targetX: number, startX: number) {
       const corridors = destinationCorridors(row);
       if (!corridors.length) {
-        const edge = targetX < width / 2 ? width * 0.965 : width * 0.035;
+        const minActorClearance = CONFIG.playerRadius + 6;
+        const edge = targetX < CONFIG.logicalWidth / 2 ? minActorClearance : CONFIG.logicalWidth - minActorClearance;
         return {
+          id: targetX < CONFIG.logicalWidth / 2 ? 'A' : 'D',
+          type: 'exterior',
           left: edge - 12,
           right: edge + 12,
           center: edge,
@@ -840,12 +861,16 @@ export function useCircuitClimbPrototypeRuntime() {
       return corridors
         .slice()
         .sort((first, second) => {
+          const firstBonus = first.type === 'interior' ? -20 : 0;
+          const secondBonus = second.type === 'interior' ? -20 : 0;
           const firstScore =
             Math.abs(first.center - targetX) * 0.72 +
-            Math.abs(first.center - startX) * 0.28;
+            Math.abs(first.center - startX) * 0.28 +
+            firstBonus;
           const secondScore =
             Math.abs(second.center - targetX) * 0.72 +
-            Math.abs(second.center - startX) * 0.28;
+            Math.abs(second.center - startX) * 0.28 +
+            secondBonus;
           return firstScore - secondScore;
         })[0];
     }
@@ -860,7 +885,7 @@ export function useCircuitClimbPrototypeRuntime() {
       const apexY =
         destinationRow.y -
         CONFIG.playerRadius -
-        Math.max(18, CONFIG.routePlatformPadding * 1.8);
+        Math.max(16, CONFIG.routePlatformPadding * 1.8);
 
       const crossingStartY =
         destinationRow.y +
@@ -883,7 +908,7 @@ export function useCircuitClimbPrototypeRuntime() {
       verticalEndpoints.push(midCrossY, apexY, landingY);
 
       const corridorInset = Math.min(
-        16,
+        14,
         Math.max(3, (corridor.right - corridor.left) * 0.2),
       );
 
@@ -916,6 +941,9 @@ export function useCircuitClimbPrototypeRuntime() {
       const freeHorizontalCount = horizontalCount - 3;
       let currentX = from.x;
 
+      const minScreenX = CONFIG.playerRadius + 6;
+      const maxScreenX = CONFIG.logicalWidth - (CONFIG.playerRadius + 6);
+
       for (let index = 0; index < freeHorizontalCount; index += 1) {
         const progress = (index + 1) / (freeHorizontalCount + 1);
         const guide = lerp(from.x, corridorA, progress);
@@ -930,19 +958,19 @@ export function useCircuitClimbPrototypeRuntime() {
 
         candidate = clamp(
           candidate,
-          width * 0.045,
-          width * 0.955,
+          minScreenX,
+          maxScreenX,
         );
 
         const deltaX = candidate - currentX;
         const maximumRun = CONFIG.routeMaxStraightRun;
-        const minimumRun = Math.min(24, maximumRun * 0.42);
+        const minimumRun = Math.min(22, maximumRun * 0.40);
 
         if (Math.abs(deltaX) > maximumRun) {
           candidate = currentX + Math.sign(deltaX) * maximumRun;
         } else if (Math.abs(deltaX) < minimumRun) {
           candidate = currentX + alternatingDirection * minimumRun;
-          candidate = clamp(candidate, width * 0.045, width * 0.955);
+          candidate = clamp(candidate, minScreenX, maxScreenX);
         }
 
         horizontalEndpoints.push(candidate);
@@ -1013,10 +1041,15 @@ export function useCircuitClimbPrototypeRuntime() {
         }
       }
 
+      const minActorClearance = CONFIG.playerRadius + 6;
+      const isLeft = from.x < CONFIG.logicalWidth / 2;
+      const edgeX = isLeft ? minActorClearance : CONFIG.logicalWidth - minActorClearance;
       const edgeCorridor = {
-        left: from.x < width / 2 ? 1 : width - 15,
-        right: from.x < width / 2 ? 15 : width - 1,
-        center: from.x < width / 2 ? 8 : width - 8,
+        id: isLeft ? 'A' : 'D',
+        type: 'exterior',
+        left: edgeX - 8,
+        right: edgeX + 8,
+        center: edgeX,
       };
 
       return buildSteppedRoute(
@@ -1178,7 +1211,7 @@ export function useCircuitClimbPrototypeRuntime() {
         updateHud();
 
         spawnBurst(player.x, player.y, COLORS.lime, 30, 0.22);
-        spawnBurst(player.x, player.y, COLORS.cyanCore, 12, 0.12);
+        spawnBurst(platform.x, platform.y + platform.height / 2, COLORS.cyanCore, 12, 0.12);
         sound.correct();
         return;
       }
@@ -1248,7 +1281,7 @@ export function useCircuitClimbPrototypeRuntime() {
     }
 
     function cullWorld() {
-      const bottom = cameraY + height + CONFIG.cullMargin;
+      const bottom = cameraY + logicalHeight + CONFIG.cullMargin;
       const originalCount = rows.length;
       rows = rows.filter((row) => row.y < bottom || row.index >= player.row - 2);
       if (rows.length !== originalCount) {
@@ -1284,7 +1317,7 @@ export function useCircuitClimbPrototypeRuntime() {
       updateTravel(delta);
       updateParticles(delta);
 
-      const desiredCamera = player.y - height * CONFIG.cameraAnchor;
+      const desiredCamera = player.y - logicalHeight * CONFIG.cameraAnchor;
       cameraY += (desiredCamera - cameraY) * (1 - Math.pow(0.0008, delta / 1000));
 
       cullWorld();
@@ -1308,10 +1341,10 @@ export function useCircuitClimbPrototypeRuntime() {
       for (let i = -1; i < 6; i += 1) {
         const y = i * 260 + offset;
         ctx.beginPath();
-        ctx.arc(width * 0.18, y + 70, 78, 0, Math.PI * 2);
+        ctx.arc(CONFIG.logicalWidth * 0.18, y + 70, 78, 0, Math.PI * 2);
         ctx.stroke();
         ctx.beginPath();
-        ctx.arc(width * 0.82, y + 160, 112, 0, Math.PI * 2);
+        ctx.arc(CONFIG.logicalWidth * 0.82, y + 160, 112, 0, Math.PI * 2);
         ctx.stroke();
       }
       ctx.restore();
@@ -1338,8 +1371,8 @@ export function useCircuitClimbPrototypeRuntime() {
       let alpha = 0.22;
       let yOffset = 0;
       
-      const restSize = Math.min(width * 0.62, height * 0.31);
-      const domSize = Math.min(width * 0.75, height * 0.45);
+      const restSize = Math.min(CONFIG.logicalWidth * 0.62, logicalHeight * 0.31);
+      const domSize = Math.min(CONFIG.logicalWidth * 0.75, logicalHeight * 0.45);
       let size = restSize;
       
       let flash = 0;
@@ -1377,7 +1410,7 @@ export function useCircuitClimbPrototypeRuntime() {
         size = restSize + (size - restSize) * 0.3; // Less scale
       }
       const drift = prefersReducedMotion ? 0 : parallaxOffset(CONFIG.farParallax, 420) - 210;
-      const baseY = height * 0.42 + drift * 0.10 + yOffset;
+      const baseY = logicalHeight * 0.42 + drift * 0.10 + yOffset;
       
       ctx.save();
       ctx.textAlign = 'center';
@@ -1387,7 +1420,7 @@ export function useCircuitClimbPrototypeRuntime() {
       ctx.fillStyle = flash > 0.25 ? COLORS.text : '#bacde6';
       ctx.shadowColor = flash > 0.25 ? COLORS.targetGlow : COLORS.gridDot;
       ctx.shadowBlur = 12 + flash * 46;
-      ctx.fillText(String(p.targetValue), width / 2, baseY);
+      ctx.fillText(String(p.targetValue), CONFIG.logicalWidth / 2, baseY);
       ctx.restore();
 
       // SUM TO cue
@@ -1404,7 +1437,7 @@ export function useCircuitClimbPrototypeRuntime() {
         // Background chip
         const chipW = 90;
         const chipH = 28;
-        const chipX = width / 2 - chipW / 2;
+        const chipX = CONFIG.logicalWidth / 2 - chipW / 2;
         const chipY = cueY - chipH / 2;
         
         ctx.shadowColor = 'rgba(0,0,0,0.15)';
@@ -1425,7 +1458,7 @@ export function useCircuitClimbPrototypeRuntime() {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.letterSpacing = '1px';
-        ctx.fillText('SUM TO', width / 2, cueY + 1);
+        ctx.fillText('SUM TO', CONFIG.logicalWidth / 2, cueY + 1);
         ctx.restore();
       }
     }
@@ -1437,19 +1470,19 @@ export function useCircuitClimbPrototypeRuntime() {
       ctx.strokeStyle = COLORS.gridLine;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      for (let x = 0; x <= width; x += grid) {
+      for (let x = 0; x <= CONFIG.logicalWidth; x += grid) {
         ctx.moveTo(x + 0.5, 0);
-        ctx.lineTo(x + 0.5, height);
+        ctx.lineTo(x + 0.5, logicalHeight);
       }
-      for (let y = offsetY; y <= height; y += grid) {
+      for (let y = offsetY; y <= logicalHeight; y += grid) {
         ctx.moveTo(0, y + 0.5);
-        ctx.lineTo(width, y + 0.5);
+        ctx.lineTo(CONFIG.logicalWidth, y + 0.5);
       }
       ctx.stroke();
 
       ctx.fillStyle = COLORS.gridDot;
-      for (let x = 15; x < width; x += grid) {
-        for (let y = offsetY + 15; y < height; y += grid) {
+      for (let x = 15; x < CONFIG.logicalWidth; x += grid) {
+        for (let y = offsetY + 15; y < logicalHeight; y += grid) {
           ctx.globalAlpha = 0.24 + 0.10 * Math.sin((x + y + elapsed * 0.02) * 0.04);
           ctx.beginPath();
           ctx.arc(x, y, 1.15, 0, Math.PI * 2);
@@ -1473,9 +1506,9 @@ export function useCircuitClimbPrototypeRuntime() {
         ctx.lineTo(30, y + 68);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(width - 8, y + 92);
-        ctx.lineTo(width - 8, y + 162);
-        ctx.lineTo(width - 32, y + 162);
+        ctx.moveTo(CONFIG.logicalWidth - 8, y + 92);
+        ctx.lineTo(CONFIG.logicalWidth - 8, y + 162);
+        ctx.lineTo(CONFIG.logicalWidth - 32, y + 162);
         ctx.stroke();
       }
       ctx.restore();
@@ -1483,13 +1516,13 @@ export function useCircuitClimbPrototypeRuntime() {
 
     function drawBackground() {
       ctx.fillStyle = COLORS.bg;
-      ctx.fillRect(0, 0, width, height);
+      ctx.fillRect(0, 0, CONFIG.logicalWidth, logicalHeight);
       drawFarParallax();
       drawTargetPresentation();
       drawMidParallax();
     }
 
-    function drawTrace(points: any[], alpha = 1, color = '#007BFF') {
+    function drawTrace(points: any[], alpha = 1, color = '#007BFF', isPowered = false) {
       if (!points || points.length < 2) return;
       ctx.save();
       ctx.translate(0, -cameraY);
@@ -1498,21 +1531,85 @@ export function useCircuitClimbPrototypeRuntime() {
 
       ctx.globalAlpha = alpha;
       
-      // Outline
-      ctx.strokeStyle = '#0E1B33';
-      ctx.lineWidth = 6;
-      ctx.beginPath();
-      ctx.moveTo(points[0].x, points[0].y);
-      points.slice(1).forEach((point) => ctx.lineTo(point.x, point.y));
-      ctx.stroke();
+      if (isPowered) {
+        // Outer broad blue bloom
+        ctx.strokeStyle = 'rgba(0, 168, 255, 0.35)';
+        ctx.lineWidth = 16;
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        points.slice(1).forEach((point) => ctx.lineTo(point.x, point.y));
+        ctx.stroke();
 
-      // Inner fill
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(points[0].x, points[0].y);
-      points.slice(1).forEach((point) => ctx.lineTo(point.x, point.y));
-      ctx.stroke();
+        // Mid cyan bloom
+        ctx.strokeStyle = 'rgba(14, 165, 233, 0.65)';
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        points.slice(1).forEach((point) => ctx.lineTo(point.x, point.y));
+        ctx.stroke();
+
+        // Cyan main filament
+        ctx.strokeStyle = '#00d2ff';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // White hot core
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+
+        // Dynamic electric plasma micro-arcs along the filament
+        const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (!prefersReducedMotion && points.length >= 2) {
+          ctx.save();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+
+          for (let i = 0; i < points.length - 1; i++) {
+            const p1 = points[i];
+            const p2 = points[i + 1];
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < 10) continue;
+
+            const steps = Math.max(2, Math.floor(dist / 22));
+            const nx = -dy / dist;
+            const ny = dx / dist;
+
+            for (let s = 1; s < steps; s++) {
+              const t = s / steps;
+              const baseX = p1.x + dx * t;
+              const baseY = p1.y + dy * t;
+              const jitter = Math.sin(elapsed * 0.02 + i * 5.3 + s * 3.1) * 3.5;
+              const jitter2 = Math.cos(elapsed * 0.025 + i * 2.7 + s * 4.3) * 2.5;
+
+              ctx.moveTo(baseX, baseY);
+              ctx.lineTo(baseX + nx * jitter, baseY + ny * jitter);
+              ctx.lineTo(baseX + dx * (0.5 / steps) + nx * jitter2, baseY + dy * (0.5 / steps) + ny * jitter2);
+            }
+          }
+          ctx.stroke();
+          ctx.restore();
+        }
+      } else {
+        // Outline
+        ctx.strokeStyle = '#0E1B33';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        points.slice(1).forEach((point) => ctx.lineTo(point.x, point.y));
+        ctx.stroke();
+
+        // Inner fill
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        points.slice(1).forEach((point) => ctx.lineTo(point.x, point.y));
+        ctx.stroke();
+      }
 
       ctx.restore();
     }
@@ -1521,7 +1618,7 @@ export function useCircuitClimbPrototypeRuntime() {
       traces.forEach((trace) => {
         const age = elapsed - trace.born;
         const alpha = clamp(age / 240, 0.32, 0.88);
-        drawTrace(trace.points, alpha, '#007BFF');
+        drawTrace(trace.points, alpha, '#0ea5e9', true);
       });
 
       if (travel && travel.type === 'circuit') {
@@ -1539,7 +1636,7 @@ export function useCircuitClimbPrototypeRuntime() {
             break;
           }
         }
-        drawTrace(partial, 1, '#007BFF');
+        drawTrace(partial, 1, '#0ea5e9', true);
       }
     }
 
@@ -1561,16 +1658,21 @@ export function useCircuitClimbPrototypeRuntime() {
 
       const drawY = y + bob;
       const cornerRadius = 4;
+      const cx = platform.x;
+      const cy = drawY + platform.height / 2;
 
       ctx.save();
       
-      let fill = '#ffffff';
+      let fill: any = '#ffffff';
       let border = '#D8E4F7';
       let bottomBar = '#D8E4F7';
       let textColor = '#0E1B33';
       let shadowColor = 'rgba(14, 27, 51, 0.04)';
       let shimmer = false;
-      const isPoweredActivation = platform.powered && platform.row > 0;
+      const isPoweredActivation =
+        platform.powered &&
+        !platform.dead &&
+        platform.row > 0;
       
       if (platform.dead) {
         fill = '#f1f5f9';
@@ -1579,11 +1681,16 @@ export function useCircuitClimbPrototypeRuntime() {
         textColor = '#94a3b8';
         shadowColor = 'transparent';
       } else if (isPoweredActivation) {
-        fill = '#ffffff';
-        border = COLORS.cyan;
-        bottomBar = COLORS.lime;
-        textColor = COLORS.cyan;
-        shadowColor = 'rgba(14, 165, 233, 0.15)';
+        // Vibrant emerald / electric green gradient
+        const bgGrad = ctx.createLinearGradient(x, drawY, x, drawY + platform.height);
+        bgGrad.addColorStop(0, '#15803d');
+        bgGrad.addColorStop(0.5, '#16a34a');
+        bgGrad.addColorStop(1, '#14532d');
+        fill = bgGrad;
+        border = '#22c55e';
+        bottomBar = '#4ade80';
+        textColor = '#14532d'; // Dark green power symbol for extreme contrast against white/green aura
+        shadowColor = 'rgba(34, 197, 94, 0.65)';
         shimmer = true;
       } else if (platform.powered || platform.selected) {
         fill = '#ffffff';
@@ -1600,63 +1707,116 @@ export function useCircuitClimbPrototypeRuntime() {
       }
 
       ctx.shadowColor = shadowColor;
-      ctx.shadowBlur = platform.dead ? 0 : 8;
-      ctx.shadowOffsetY = platform.dead ? 0 : 4;
+      ctx.shadowBlur = platform.dead ? 0 : (isPoweredActivation ? 16 : 8);
+      ctx.shadowOffsetY = platform.dead ? 0 : (isPoweredActivation ? 0 : 4);
 
       // Draw Main Box
       roundedRectPath(ctx, x, drawY, platform.width, platform.height, cornerRadius);
       ctx.fillStyle = fill;
       ctx.fill();
       
-      ctx.lineWidth = 2;
+      ctx.lineWidth = isPoweredActivation ? 2.5 : 2;
       ctx.strokeStyle = border;
       ctx.stroke();
 
-      // Plasma/shimmer effect
+      // Plasma/shimmer & circuit effect for powered activation
       if (shimmer) {
-         const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-         if (!prefersReducedMotion) {
-             const age = elapsed - (platform.litAt || elapsed);
-             
-             // Activation pulse
-             if (age < 180) {
-                 ctx.save();
-                 roundedRectPath(ctx, x, drawY, platform.width, platform.height, cornerRadius);
-                 ctx.clip();
-                 ctx.fillStyle = 'rgba(14, 165, 233, ' + (1 - age/180) * 0.25 + ')';
-                 ctx.fill();
-                 ctx.restore();
-             }
-             
-             // Steady internal shimmer
-             ctx.save();
-             roundedRectPath(ctx, x, drawY, platform.width, platform.height, cornerRadius);
-             ctx.clip();
-             
-             const phase1 = elapsed * 0.002 + platform.column;
-             const phase2 = elapsed * 0.0015 + platform.row;
-             const yOff = Math.sin(phase1) * 8;
-             const xOff = Math.cos(phase2) * 12;
-             
-             ctx.beginPath();
-             ctx.moveTo(platform.x - 20 + xOff, drawY + 10 + yOff);
-             ctx.quadraticCurveTo(platform.x + xOff, drawY + 20, platform.x + 20 - xOff, drawY + 30 - yOff);
-             ctx.strokeStyle = 'rgba(14, 165, 233, 0.12)';
-             ctx.lineWidth = 2;
-             ctx.stroke();
+         ctx.save();
+         roundedRectPath(ctx, x, drawY, platform.width, platform.height, cornerRadius);
+         ctx.clip();
 
-             const phase3 = elapsed * 0.0025 - platform.column;
-             const yOff2 = Math.cos(phase3) * 10;
-             const xOff2 = Math.sin(phase1) * 10;
-             ctx.beginPath();
-             ctx.moveTo(platform.x + 15 + xOff2, drawY + 15 + yOff2);
-             ctx.quadraticCurveTo(platform.x - 5 - xOff2, drawY + 25 - yOff2, platform.x - 25, drawY + 10 + yOff2);
-             ctx.strokeStyle = 'rgba(37, 99, 235, 0.08)';
-             ctx.lineWidth = 1.5;
-             ctx.stroke();
-             
-             ctx.restore();
+         // 1. Central glowing radial aura behind power symbol
+         const radGlow = ctx.createRadialGradient(cx, cy, 2, cx, cy, platform.width * 0.32);
+         radGlow.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
+         radGlow.addColorStop(0.35, 'rgba(220, 252, 231, 0.92)');
+         radGlow.addColorStop(0.65, 'rgba(134, 239, 172, 0.6)');
+         radGlow.addColorStop(1, 'rgba(34, 197, 94, 0)');
+         ctx.fillStyle = radGlow;
+         ctx.beginPath();
+         ctx.arc(cx, cy, platform.width * 0.32, 0, Math.PI * 2);
+         ctx.fill();
+
+         const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+         const pulsePhase = prefersReducedMotion ? 0 : elapsed * 0.005;
+         const jitterPhase = prefersReducedMotion ? 0 : Math.sin(elapsed * 0.02 + platform.row) * 1.5;
+
+         // 2. Branching electric plasma & circuit tendrils radiating to corners & edges
+         ctx.lineWidth = 1.5;
+
+         // Top-left tendril
+         ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+         ctx.beginPath();
+         ctx.moveTo(cx - 14, cy - 6);
+         ctx.lineTo(cx - 28 + jitterPhase, cy - 12);
+         ctx.lineTo(x + 12, drawY + 12);
+         ctx.lineTo(x + 4, drawY + 18);
+         ctx.stroke();
+
+         // Node dot
+         ctx.fillStyle = '#ffffff';
+         ctx.beginPath();
+         ctx.arc(cx - 28 + jitterPhase, cy - 12, 2, 0, Math.PI * 2);
+         ctx.fill();
+
+         // Top-right tendril
+         ctx.strokeStyle = 'rgba(187, 247, 208, 0.9)';
+         ctx.beginPath();
+         ctx.moveTo(cx + 14, cy - 8);
+         ctx.lineTo(cx + 26, cy - 14 + jitterPhase);
+         ctx.lineTo(x + platform.width - 18, drawY + 10);
+         ctx.lineTo(x + platform.width - 6, drawY + 16);
+         ctx.stroke();
+
+         // Node dot
+         ctx.beginPath();
+         ctx.arc(x + platform.width - 18, drawY + 10, 2, 0, Math.PI * 2);
+         ctx.fill();
+
+         // Bottom-left tendril
+         ctx.strokeStyle = 'rgba(187, 247, 208, 0.85)';
+         ctx.beginPath();
+         ctx.moveTo(cx - 12, cy + 10);
+         ctx.lineTo(cx - 24, cy + 18 - jitterPhase);
+         ctx.lineTo(x + 16, drawY + platform.height - 12);
+         ctx.lineTo(x + 6, drawY + platform.height - 8);
+         ctx.stroke();
+
+         // Node dot
+         ctx.beginPath();
+         ctx.arc(cx - 24, cy + 18 - jitterPhase, 2, 0, Math.PI * 2);
+         ctx.fill();
+
+         // Bottom-right tendril
+         ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+         ctx.beginPath();
+         ctx.moveTo(cx + 12, cy + 8);
+         ctx.lineTo(cx + 28 - jitterPhase, cy + 16);
+         ctx.lineTo(x + platform.width - 14, drawY + platform.height - 14);
+         ctx.lineTo(x + platform.width - 4, drawY + platform.height - 10);
+         ctx.stroke();
+
+         // Node dot
+         ctx.beginPath();
+         ctx.arc(cx + 28 - jitterPhase, cy + 16, 2, 0, Math.PI * 2);
+         ctx.fill();
+
+         // Horizontal plasma bursts
+         ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 + Math.sin(pulsePhase) * 0.25})`;
+         ctx.beginPath();
+         ctx.moveTo(cx - 18, cy);
+         ctx.lineTo(x + 6, cy + jitterPhase);
+         ctx.moveTo(cx + 18, cy);
+         ctx.lineTo(x + platform.width - 6, cy - jitterPhase);
+         ctx.stroke();
+
+         // Initial landing surge flash
+         const age = elapsed - (platform.litAt || elapsed);
+         if (age < 180 && !prefersReducedMotion) {
+           ctx.fillStyle = `rgba(255, 255, 255, ${(1 - age / 180) * 0.4})`;
+           ctx.fillRect(x, drawY, platform.width, platform.height);
          }
+
+         ctx.restore();
       }
 
       // Draw Bottom Bar
@@ -1686,21 +1846,21 @@ export function useCircuitClimbPrototypeRuntime() {
            if (alpha > 0) {
                ctx.save();
                ctx.globalAlpha = alpha;
+               
+               // High-contrast deep green power symbol centered in the white/green aura
                ctx.strokeStyle = textColor;
-               ctx.lineWidth = 3;
+               ctx.lineWidth = 3.8;
                ctx.lineCap = 'round';
-               const cx = platform.x;
-               const cy = drawY + platform.height / 2;
                
                // arc
                ctx.beginPath();
-               ctx.arc(cx, cy, 10, -Math.PI * 0.4, Math.PI * 1.4);
+               ctx.arc(cx, cy, 12.5, -Math.PI * 0.35, Math.PI * 1.35);
                ctx.stroke();
                
                // vertical line
                ctx.beginPath();
-               ctx.moveTo(cx, cy - 12);
-               ctx.lineTo(cx, cy);
+               ctx.moveTo(cx, cy - 13);
+               ctx.lineTo(cx, cy - 2);
                ctx.stroke();
                
                ctx.restore();
@@ -1825,13 +1985,13 @@ export function useCircuitClimbPrototypeRuntime() {
       const row = rowAbove();
       if (!row) return;
       const y = worldToScreenY(row.y) - 23;
-      if (y < 105 || y > height - 80) return;
+      if (y < 105 || y > logicalHeight - 80) return;
       ctx.save();
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.font = '800 9px ui-monospace, monospace';
       ctx.fillStyle = COLORS.structure;
-      ctx.fillText(`TARGET ${row.targetValue}`, width / 2, y);
+      ctx.fillText(`TARGET ${row.targetValue}`, CONFIG.logicalWidth / 2, y);
       ctx.restore();
     }
 
@@ -1884,9 +2044,10 @@ export function useCircuitClimbPrototypeRuntime() {
       const touch = event.touches && event.touches[0];
       const clientX = touch ? touch.clientX : event.clientX;
       const clientY = touch ? touch.clientY : event.clientY;
+      const effectiveScale = worldScale > 0 ? worldScale : 1;
       return {
-        x: clientX - rect.left,
-        y: clientY - rect.top,
+        x: (clientX - rect.left) / effectiveScale,
+        y: (clientY - rect.top) / effectiveScale,
       };
     }
 
@@ -1971,7 +2132,8 @@ export function useCircuitClimbPrototypeRuntime() {
       debugEnsureRows: ensureRows,
       debugGetRow: getRow,
       debugArrive: arrive,
-      
+      debugDestinationCorridors: destinationCorridors,
+      debugGetWorldMetrics: () => ({ width, height, worldScale, logicalHeight, logicalWidth: CONFIG.logicalWidth }),
       debugSelectPlatform: selectPlatform,
       debugUpdate: (delta: number) => { update(delta); },
       debugDraw: () => { render(); }
