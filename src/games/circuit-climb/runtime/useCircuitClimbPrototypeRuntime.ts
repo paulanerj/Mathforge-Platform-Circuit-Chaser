@@ -1,6 +1,7 @@
 import { CircuitClimbMathAdapter } from '../services/CircuitClimbMathAdapter';
 import { useState, useEffect, useRef } from 'react';
 import { CIRCUIT_CLIMB_GEOMETRY, computeActorSafeCorridors, computeInversePointerTransform, computePlatformCollisionRects, pathIsClear } from '../geometry/circuitClimbGeometry';
+import { createPursuer, updatePursuer, PursuerState } from '../pursuer/circuitClimbPursuer';
 
 export interface CircuitClimbViewModel {
   started: boolean;
@@ -222,6 +223,8 @@ export function useCircuitClimbPrototypeRuntime() {
       platform: null as any,
       pulseAt: -1000,
     };
+
+    let pursuer: PursuerState | null = null;
 
     function clamp(value: number, min: number, max: number) {
       return Math.max(min, Math.min(max, value));
@@ -696,6 +699,8 @@ export function useCircuitClimbPrototypeRuntime() {
       targetPresentation.phase = 'dominant-enter';
       targetPresentation.phaseStartedAt = 0;
       targetPresentation.progress = 0;
+
+      pursuer = createPursuer(player.x, player.y);
 
       cameraY = player.y - logicalHeight * CONFIG.cameraAnchor;
 
@@ -1268,6 +1273,10 @@ export function useCircuitClimbPrototypeRuntime() {
 
       updateTravel(delta);
       updateParticles(delta);
+
+      if (pursuer) {
+        pursuer = updatePursuer(pursuer, player, getActivePlatforms(), delta);
+      }
 
       const desiredCamera = player.y - logicalHeight * CONFIG.cameraAnchor;
       cameraY += (desiredCamera - cameraY) * (1 - Math.pow(0.0008, delta / 1000));
@@ -1846,6 +1855,44 @@ export function useCircuitClimbPrototypeRuntime() {
       rows.forEach((row) => row.platforms.forEach((platform) => drawPlatform(platform, activeRow)));
     }
 
+    function drawPursuer(p: PursuerState) {
+      if (showCollisionHitboxes) {
+         ctx.save();
+         ctx.strokeStyle = '#FF0000';
+         ctx.lineWidth = 2;
+         ctx.beginPath();
+         ctx.arc(p.x, worldToScreenY(p.y), p.radius, 0, Math.PI * 2);
+         ctx.stroke();
+         ctx.restore();
+      }
+
+      const screenY = worldToScreenY(p.y);
+      const radius = p.radius;
+
+      ctx.save();
+      ctx.translate(p.x, screenY);
+      
+      ctx.shadowColor = '#ff2a2a';
+      ctx.shadowBlur = 24;
+      ctx.fillStyle = '#ff0000';
+      ctx.strokeStyle = '#ff2a2a';
+      ctx.lineWidth = 3;
+      
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      
+      // inner subtle core
+      ctx.fillStyle = '#ff8888';
+      ctx.shadowBlur = 0;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
     function drawPlayer() {
       // draw hitbox if enabled
       if (showCollisionHitboxes) {
@@ -1954,6 +2001,7 @@ export function useCircuitClimbPrototypeRuntime() {
       drawNextRowIndicator();
       drawParticles();
       drawPlayer();
+      if (pursuer) drawPursuer(pursuer);
       drawForegroundParallax();
     }
 
