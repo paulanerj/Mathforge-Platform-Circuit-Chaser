@@ -1,6 +1,6 @@
 import { CircuitClimbMathAdapter } from '../services/CircuitClimbMathAdapter';
 import { useState, useEffect, useRef } from 'react';
-import { CIRCUIT_CLIMB_GEOMETRY, computeActorSafeCorridors, computeInversePointerTransform } from '../geometry/circuitClimbGeometry';
+import { CIRCUIT_CLIMB_GEOMETRY, computeActorSafeCorridors, computeInversePointerTransform, computePlatformCollisionRects, pathIsClear } from '../geometry/circuitClimbGeometry';
 
 export interface CircuitClimbViewModel {
   started: boolean;
@@ -724,45 +724,19 @@ export function useCircuitClimbPrototypeRuntime() {
       };
     }
 
-    function platformCollisionRects(actorRadius = CONFIG.playerRadius) {
-      const pad = CONFIG.routePlatformPadding + actorRadius;
-      const rects: any[] = [];
+    function getActivePlatforms() {
+      const active: any[] = [];
       rows.forEach((row) => row.platforms.forEach((platform) => {
         if (platform.row === 0 && platform.column !== 1) return;
-        rects.push({
-          left: platform.x - platform.width / 2 - pad,
-          right: platform.x + platform.width / 2 + pad,
-          top: platform.y - pad,
-          bottom: platform.y + platform.height + pad,
-        });
+        active.push(platform);
       }));
-      return rects;
+      return active;
     }
 
-    function segmentHitsRect(a: any, b: any, rect: any) {
-      if (a.x === b.x) {
-        if (a.x <= rect.left || a.x >= rect.right) return false;
-        const top = Math.min(a.y, b.y);
-        const bottom = Math.max(a.y, b.y);
-        return bottom > rect.top && top < rect.bottom;
-      }
-      if (a.y === b.y) {
-        if (a.y <= rect.top || a.y >= rect.bottom) return false;
-        const left = Math.min(a.x, b.x);
-        const right = Math.max(a.x, b.x);
-        return right > rect.left && left < rect.right;
-      }
-      return true;
-    }
-
-    function pathIsClear(points: any[]) {
-      const rects = platformCollisionRects();
-      for (let i = 1; i < points.length; i += 1) {
-        for (const rect of rects) {
-          if (segmentHitsRect(points[i - 1], points[i], rect)) return false;
-        }
-      }
-      return true;
+    function isPathClear(points: any[], destinationPlatform?: any) {
+      const activePlatforms = getActivePlatforms();
+      const rects = computePlatformCollisionRects(activePlatforms, CONFIG.playerRadius);
+      return pathIsClear(points, rects, destinationPlatform);
     }
 
     function cleanCircuitPath(points: any[]) {
@@ -1000,7 +974,7 @@ export function useCircuitClimbPrototypeRuntime() {
           platform,
           corridor,
         );
-        if (pathIsClear(candidate)) {
+        if (isPathClear(candidate, platform)) {
           return candidate;
         }
       }
@@ -1011,17 +985,24 @@ export function useCircuitClimbPrototypeRuntime() {
       const edgeCorridor = {
         id: isLeft ? 'A' : 'D',
         type: 'exterior',
-        left: edgeX - 8,
-        right: edgeX + 8,
+        left: edgeX,
+        right: edgeX,
         center: edgeX,
+        width: 0,
       };
 
-      return buildSteppedRoute(
+      const fallbackRoute = buildSteppedRoute(
         from,
         to,
         platform,
         edgeCorridor,
       );
+      
+      if (isPathClear(fallbackRoute, platform)) {
+        return fallbackRoute;
+      }
+      
+      return [from, from];
     }
 
     function pathMetrics(points: any[]) {

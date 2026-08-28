@@ -127,3 +127,62 @@ export function computeInversePointerTransform(
     logicalY: (clientY - rect.top) / worldScale,
   };
 }
+
+export function computePlatformCollisionRects(platforms: any[], actorRadius = CIRCUIT_CLIMB_GEOMETRY.playerRadius) {
+  const pad = CIRCUIT_CLIMB_GEOMETRY.routePlatformPadding + actorRadius;
+  const rects: any[] = [];
+  platforms.forEach((platform) => {
+    // Platform row 0 logic normally handled by caller filtering, but we can do it here if needed.
+    // Or assume caller passes exactly the platforms to check.
+    rects.push({
+      platform,
+      left: platform.x - platform.width / 2 - pad,
+      right: platform.x + platform.width / 2 + pad,
+      top: platform.y - pad,
+      bottom: platform.y + platform.height + pad,
+    });
+  });
+  return rects;
+}
+
+export function segmentHitsRect(a: any, b: any, rect: any) {
+  if (a.x === b.x) {
+    if (a.x <= rect.left || a.x >= rect.right) return false;
+    const top = Math.min(a.y, b.y);
+    const bottom = Math.max(a.y, b.y);
+    return bottom > rect.top && top < rect.bottom;
+  }
+  if (a.y === b.y) {
+    if (a.y <= rect.top || a.y >= rect.bottom) return false;
+    const left = Math.min(a.x, b.x);
+    const right = Math.max(a.x, b.x);
+    return right > rect.left && left < rect.right;
+  }
+  return true;
+}
+
+export function pathIsClear(points: any[], rects: any[], destinationPlatform?: any) {
+  for (let i = 1; i < points.length; i += 1) {
+    const a = points[i - 1];
+    const b = points[i];
+    const isTerminalSegment = i === points.length - 1;
+
+    for (const rect of rects) {
+      if (segmentHitsRect(a, b, rect)) {
+        if (isTerminalSegment && destinationPlatform && rect.platform.id === destinationPlatform.id) {
+          if (a.x === b.x) {
+            const topPointY = Math.min(a.y, b.y);
+            if (topPointY < rect.platform.y) {
+              const stricterRect = { ...rect, top: rect.platform.y };
+              if (!segmentHitsRect(a, b, stricterRect)) {
+                continue;
+              }
+            }
+          }
+        }
+        return false;
+      }
+    }
+  }
+  return true;
+}
