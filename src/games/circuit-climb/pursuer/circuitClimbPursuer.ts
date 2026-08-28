@@ -13,7 +13,7 @@ export function createPursuer(playerX: number, playerY: number): PursuerState {
     x: playerX,
     y: playerY + 2 * CONFIG.rowGap,
     radius: CONFIG.playerRadius,
-    speed: 0.35, // conservative speed (player is ~0.62)
+    speed: 0.08, // Conservative speed within foundation range (0.06 - 0.10)
     state: 'PURSUING',
   };
 }
@@ -38,13 +38,38 @@ export function updatePursuer(
 
   if (nextRowY !== undefined) {
     const rowPlatforms = activePlatforms.filter(p => p.y === nextRowY).sort((a, b) => a.x - b.x);
+    let corridors: { center: number; left: number; right: number }[] = [];
+
     if (rowPlatforms.length === 3) {
       const p0 = { center: rowPlatforms[0].x, left: rowPlatforms[0].x - rowPlatforms[0].width / 2, right: rowPlatforms[0].x + rowPlatforms[0].width / 2 };
       const p1 = { center: rowPlatforms[1].x, left: rowPlatforms[1].x - rowPlatforms[1].width / 2, right: rowPlatforms[1].x + rowPlatforms[1].width / 2 };
       const p2 = { center: rowPlatforms[2].x, left: rowPlatforms[2].x - rowPlatforms[2].width / 2, right: rowPlatforms[2].x + rowPlatforms[2].width / 2 };
       
-      const corridors = computeActorSafeCorridors(p0, p1, p2);
-      
+      corridors = computeActorSafeCorridors(p0, p1, p2);
+    } else if (rowPlatforms.length === 1) {
+      // Row 0 single-platform case
+      const p = rowPlatforms[0];
+      const pLeft = p.x - p.width / 2;
+      const pRight = p.x + p.width / 2;
+      const pad = CONFIG.routePlatformPadding + CONFIG.playerRadius;
+      const minClear = CONFIG.playerRadius + 6;
+
+      // Left exterior corridor
+      const aLeft = minClear;
+      const aRight = pLeft - pad;
+      if (aRight >= aLeft) {
+        corridors.push({ left: aLeft, right: aRight, center: (aLeft + aRight) / 2 });
+      }
+
+      // Right exterior corridor
+      const bLeft = pRight + pad;
+      const bRight = CONFIG.logicalWidth - minClear;
+      if (bRight >= bLeft) {
+        corridors.push({ left: bLeft, right: bRight, center: (bLeft + bRight) / 2 });
+      }
+    }
+
+    if (corridors.length > 0) {
       let bestCorridor = corridors[0];
       let minDiff = Infinity;
       for (const c of corridors) {
@@ -54,67 +79,40 @@ export function updatePursuer(
           bestCorridor = c;
         }
       }
-      
-      if (bestCorridor) {
-        targetX = bestCorridor.center;
-      }
+      targetX = bestCorridor.center;
     }
   }
 
-  // To navigate safely, move towards targetX and also move upwards.
-  // If we are far from targetX, prioritize X alignment so we don't hit the platform from below.
-  const dx = targetX - next.x;
-  
-  // We want to move towards (targetX, next.y - some_amount)
-  // Let's create a local target point.
-  let localTarget = { x: targetX, y: next.y - step };
-  
-  // If we need to move X significantly, move diagonally, but don't move Y so fast that we hit the bottom of the platform before aligning.
-  // Actually, we can just try moving directly to targetX in X, and moving up in Y.
-  let moveX = 0;
-  let moveY = -step; // Upward base movement
-
-  // Normalize diagonal
-  const dist = Math.sqrt(dx * dx + moveY * moveY);
-  if (dist > 0) {
-    moveX = (dx / dist) * step;
-    moveY = (moveY / dist) * step;
-  }
-  
-  // If we are very close to X, just snap to it
-  if (Math.abs(dx) <= Math.abs(moveX)) {
-    moveX = dx;
-    // Recalculate moveY to use the rest of the step
-    moveY = -Math.sqrt(Math.max(0, step * step - moveX * moveX));
-  }
-
-  const candidate = { x: next.x + moveX, y: next.y + moveY };
+  // Purely Orthogonal Movement
+  // We want to align horizontally with targetX, then move vertically.
+  let remainingStep = step;
   const rects = computePlatformCollisionRects(activePlatforms, pursuer.radius);
   
-  if (pathIsClear([{ x: next.x, y: next.y }, candidate], rects)) {
-    next.x = candidate.x;
-    next.y = candidate.y;
-  } else {
-    // Blocked. Try pure horizontal to targetX.
-    const candX = { x: next.x + moveX, y: next.y };
-    if (moveX !== 0 && pathIsClear([{ x: next.x, y: next.y }, candX], rects)) {
-      next.x = candX.x;
+  // 1. Horizontal Movement
+  const dx = targetX - next.x;
+  if (Math.abs(dx) > 0.1) {
+    const moveX = Math.sign(dx) * Math.min(Math.abs(dx), remainingStep);
+    const candX = next.x + moveX;
+    
+    // Validate horizontal segment
+    if (pathIsClear([{ x: next.x, y: next.y }, { x: candX, y: next.y }], rects)) {
+      next.x = candX;
+      remainingStep -= Math.abs(moveX);
     } else {
-      // Try pure vertical (might be blocked by platform, but if not, move)
-      const candY = { x: next.x, y: next.y - step };
-      if (pathIsClear([{ x: next.x, y: next.y }, candY], rects)) {
-        next.y = candY.y;
-      } else {
-        // completely blocked? Try moving away from center of closest rect?
-        // For this minimal version, we can just slide along X if blocked vertically
-        // If dx is very small, we might be stuck directly under a platform.
-        // We shouldn't be under a platform if we aimed for a corridor, unless we started there.
-        // Let's add a fallback: if stuck, just move X towards targetX forcefully if clear.
-        const fallbackX = next.x + (dx > 0 ? step : -step);
-        if (pathIsClear([{ x: next.x, y: next.y }, { x: fallbackX, y: next.y }], rects)) {
-            next.x = fallbackX;
-        }
-      }
+      // If blocked horizontally, we stop horizontal movement for this frame.
+      remainingStep = 0; // or we can just not consume it and try moving vertically anyway
+      // Actually, if we are blocked horizontally, trying to move vertically might be fine if we are sliding along a wall.
+    }
+  }
+
+  // 2. Vertical Movement (Upwards -> negative Y direction)
+  if (remainingStep > 0) {
+    // Only move upwards
+    const moveY = -remainingStep;
+    const candY = next.y + moveY;
+    
+    if (pathIsClear([{ x: next.x, y: next.y }, { x: next.x, y: candY }], rects)) {
+      next.y = candY;
     }
   }
 

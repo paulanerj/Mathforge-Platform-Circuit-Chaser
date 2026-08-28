@@ -1240,7 +1240,10 @@ export function useCircuitClimbPrototypeRuntime() {
     function cullWorld() {
       const bottom = cameraY + logicalHeight + CONFIG.cullMargin;
       const originalCount = rows.length;
-      rows = rows.filter((row) => row.y < bottom || row.index >= player.row - 2);
+      const pursuerRow = pursuer ? Math.max(0, Math.floor(-pursuer.y / CONFIG.rowGap)) : player.row;
+      const keepBehind = Math.min(player.row - 2, pursuerRow - 1);
+      
+      rows = rows.filter((row) => row.y < bottom || row.index >= keepBehind);
       if (rows.length !== originalCount) {
         obstacleRevision += 1;
       }
