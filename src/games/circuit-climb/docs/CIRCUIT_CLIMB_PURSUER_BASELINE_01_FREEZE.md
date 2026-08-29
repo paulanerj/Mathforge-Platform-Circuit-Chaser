@@ -1,7 +1,12 @@
 # CIRCUIT CLIMB — PURSUER BASELINE 01 — FREEZE MANIFEST
 
 **Frozen:** 2026-08-29
-**Tag:** `circuit-climb-pursuer-baseline-01`
+**Freeze commit:** `0eff8f8`
+**Tag:** `circuit-climb-pursuer-baseline-01` — created locally, **not pushed**: this
+session's git credentials cover branch refs only and the remote refused the tag
+with HTTP 403. Create it yourself with
+`git tag -a circuit-climb-pursuer-baseline-01 0eff8f8 -m "..." && git push origin circuit-climb-pursuer-baseline-01`.
+Until then the commit SHA is the authoritative freeze point.
 **Purpose:** lock the first configuration in which the learner can play *and* the
 pursuer navigates and captures, before behavioural work begins.
 
@@ -26,14 +31,15 @@ Everything below was reproduced in a browser, not asserted from source.
 
 | File | SHA-256 |
 |---|---|
-| `geometry/circuitClimbGeometry.ts` | see `git show circuit-climb-pursuer-baseline-01` |
-| `pursuer/circuitClimbPursuer.ts` | " |
-| `pursuer/circuitClimbPursuerTrace.ts` | " |
-| `runtime/useCircuitClimbPrototypeRuntime.ts` | " |
-| `CircuitClimbSurface.tsx` | " |
+Reproducible from the freeze commit:
 
-The tag is the authoritative record; hashes are reproducible from it with
-`git show circuit-climb-pursuer-baseline-01:<path> | sha256sum`.
+```
+git show 0eff8f8:src/games/circuit-climb/geometry/circuitClimbGeometry.ts | sha256sum
+git show 0eff8f8:src/games/circuit-climb/pursuer/circuitClimbPursuer.ts | sha256sum
+git show 0eff8f8:src/games/circuit-climb/pursuer/circuitClimbPursuerTrace.ts | sha256sum
+git show 0eff8f8:src/games/circuit-climb/runtime/useCircuitClimbPrototypeRuntime.ts | sha256sum
+git show 0eff8f8:src/games/circuit-climb/CircuitClimbSurface.tsx | sha256sum
+```
 
 ## Test inventory at freeze
 
@@ -42,14 +48,17 @@ The tag is the authoritative record; hashes are reproducible from it with
 ## Restoring this baseline
 
 ```
-git checkout circuit-climb-pursuer-baseline-01 -- src/games/circuit-climb
+git checkout 0eff8f8 -- src/games/circuit-climb
 ```
 
 Or, to compare only the pursuer:
 
 ```
-git diff circuit-climb-pursuer-baseline-01 -- src/games/circuit-climb/pursuer
+git diff 0eff8f8 -- src/games/circuit-climb/pursuer
 ```
+
+In the running game, the gear panel's **Bot behaviour** selector switches back to
+**Locked baseline** live, without a rebuild.
 
 ## The lock tests are a stop, not a chore
 
