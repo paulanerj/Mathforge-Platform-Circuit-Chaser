@@ -12,6 +12,15 @@ import {
   updatePursuer,
   PURSUER_CAPTURE_DISTANCE,
 } from '../pursuer/circuitClimbPursuer';
+import {
+  planLearnerSelection,
+  selectionRouted,
+} from '../runtime/circuitClimbLearnerRouting';
+import {
+  baseRoutingWorld,
+  standingOn,
+  makeProductionRow as makeProductionRowFixture,
+} from './support/circuitClimbProductionFixtures';
 
 /**
  * CAPABILITY LOCK — CIRCUIT CLIMB PURSUER BASELINE 01
@@ -221,5 +230,73 @@ describe('LOCKED: pursuer navigates and captures', () => {
     const after = updatePursuer(caught, { x: 100, y: -400 }, [], 1000);
     expect(after.x).toBe(caught.x);
     expect(after.y).toBe(caught.y);
+  });
+});
+
+/**
+ * LEARNER SELECTION TRANSACTION
+ *
+ * These run the real production routing transaction, the one that used to be
+ * unreachable inside the runtime hook. Each names the regression it prevents.
+ */
+describe('LOCKED: the learner selection transaction', () => {
+  const columns = [[0, 'LEFT'], [1, 'CENTER'], [2, 'RIGHT']] as const;
+
+  for (const [column, label] of columns) {
+    it(`first-row ${label} is selectable and produces travel`, () => {
+      // SOT-20: every platform was unclickable. buildCircuitPath returned null
+      // for every candidate and selectPlatform swallowed the click in silence.
+      const { world, rows } = baseRoutingWorld();
+      const result = planLearnerSelection(world, standingOn(world.sourcePlatform), rows[1].platforms[column]);
+      expect(selectionRouted(result)).toBe(true);
+      if (selectionRouted(result)) expect(result.travel.total).toBeGreaterThan(0);
+    });
+  }
+
+  it('a mathematically wrong platform is still selectable', () => {
+    // Correctness must never be a precondition for routing; it is resolved on
+    // landing. A wrong platform is a legitimate destination that shorts out.
+    const { world, rows } = baseRoutingWorld();
+    rows[1].platforms[0].correct = true;
+    const wrong = rows[1].platforms[2];
+    const result = planLearnerSelection(world, standingOn(world.sourcePlatform), wrong);
+    expect(selectionRouted(result)).toBe(true);
+    if (selectionRouted(result)) expect(result.travel.correct).toBe(false);
+  });
+
+  it('a failed selection creates no travel and is explicit about why', () => {
+    // The original defect had no name: the click was simply consumed. Failure
+    // must be loud, and must never hand back a travel to run.
+    const { world, rows } = baseRoutingWorld();
+    const orphan = makeProductionRowFixture(9).platforms[1];
+    const result = planLearnerSelection(world, standingOn(rows[0].platforms[1]), orphan);
+    expect(result.ok).toBe(false);
+    expect((result as any).travel).toBeUndefined();
+    if (!selectionRouted(result)) expect(result.reason).toBe('NO_DESTINATION_ROW');
+  });
+
+  it('a routed selection never has zero length', () => {
+    // A total of 0 arrives on the first frame and teleports the spark, which is
+    // how total route failure stayed invisible for an entire era.
+    const { world, rows } = baseRoutingWorld();
+    for (const column of [0, 1, 2]) {
+      const result = planLearnerSelection(world, standingOn(world.sourcePlatform), rows[1].platforms[column]);
+      if (selectionRouted(result)) expect(result.travel.total).toBeGreaterThan(0);
+    }
+  });
+
+  it('no pursuer position at any avoidance can remove a learner destination', () => {
+    // The pursuer may reorder candidate routes. If it could reject them it
+    // could reproduce the dead-click defect by standing in the wrong place.
+    const { world, rows } = baseRoutingWorld();
+    const from = standingOn(world.sourcePlatform);
+    for (const threat of [{ x: 110, y: -205 }, { x: 300, y: -205 }, { x: 490, y: -205 }, { x: 205, y: -100 }, { x: 300, y: 0 }]) {
+      for (const avoidance of [0, 0.5, 1]) {
+        for (const column of [0, 1, 2]) {
+          const result = planLearnerSelection({ ...world, threat, avoidance }, from, rows[1].platforms[column]);
+          expect(selectionRouted(result)).toBe(true);
+        }
+      }
+    }
   });
 });

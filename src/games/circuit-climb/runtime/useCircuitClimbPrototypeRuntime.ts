@@ -5,6 +5,18 @@ import { createPursuer, updatePursuer, PursuerState } from '../pursuer/circuitCl
 import { PursuerTracer } from '../pursuer/circuitClimbPursuerTrace';
 import { parseStoredNumber, computeKeepBehindRow, pursuerRowFromWorldY } from './circuitClimbRuntimeRules';
 import {
+  LearnerRoutingWorld,
+  collectActivePlatforms,
+  landingPointFor,
+  isRouteClear,
+  destinationCorridors,
+  pathMetrics,
+  planLearnerSelection,
+  selectionRouted,
+  threatRadiusFor,
+  threatSkipDistanceFor,
+} from './circuitClimbLearnerRouting';
+import {
   PursuerTuning,
   PursuerTuningPreset,
   PURSUER_TUNING_PRESETS,
@@ -846,31 +858,42 @@ export function useCircuitClimbPrototypeRuntime() {
       try { getAudioContext(); } catch { engineSoundEnabled = false; setSoundEnabled(false); }
     }
 
-    function landingPoint(platform: any) {
+    // The learner routing transaction lives in circuitClimbLearnerRouting so it
+    // can be tested as one real production unit. These are the runtime's thin
+    // bindings to it: the world snapshot it needs, and nothing more.
+    function routingConfig() {
       return {
-        x: platform.x,
-        y: platform.y - CONFIG.playerRadius - 3,
+        logicalWidth: CONFIG.logicalWidth,
+        platformHeight: CONFIG.platformHeight,
+        playerRadius: CONFIG.playerRadius,
+        routePlatformPadding: CONFIG.routePlatformPadding,
+        routeTurnCount: CONFIG.routeTurnCount,
+        routeMaxStraightRun: CONFIG.routeMaxStraightRun,
+        routeHorizontalJitter: CONFIG.routeHorizontalJitter,
       };
+    }
+
+    function routingWorld(): LearnerRoutingWorld {
+      return {
+        config: routingConfig(),
+        activePlatforms: getActivePlatforms(),
+        getRow,
+        sourcePlatform: player.platform,
+        threat: routeThreat(),
+        avoidance: engineSparkAvoidance,
+      };
+    }
+
+    function landingPoint(platform: any) {
+      return landingPointFor(routingConfig(), platform);
     }
 
     function getActivePlatforms() {
-      const active: any[] = [];
-      rows.forEach((row) => row.platforms.forEach((platform) => {
-        if (platform.row === 0 && platform.column !== 1) return;
-        active.push(platform);
-      }));
-      return active;
+      return collectActivePlatforms(rows);
     }
 
     function isPathClear(points: any[], destinationPlatform?: any) {
-      const activePlatforms = getActivePlatforms();
-      const rects = computePlatformCollisionRects(activePlatforms, CONFIG.playerRadius);
-      const options = { 
-        destinationPlatform, 
-        landingPoint: destinationPlatform ? landingPoint(destinationPlatform) : undefined,
-        sourcePlatform: player.platform
-      };
-      return pathIsClear(points, rects, options);
+      return isRouteClear(routingWorld(), points, destinationPlatform);
     }
 
     /**
@@ -883,306 +906,12 @@ export function useCircuitClimbPrototypeRuntime() {
       return { x: pursuer.x, y: pursuer.y };
     }
 
-    /** How near the pursuer a route has to pass before it counts as exposed. */
     function threatRadius() {
-      return CONFIG.playerRadius * 2 + 60;
+      return threatRadiusFor(routingConfig());
     }
 
-    /**
-     * Arc length of the route to ignore when judging exposure. Every candidate
-     * leaves the same platform, so the opening leg is common to all of them and
-     * tells us nothing about which is safer.
-     */
     function threatSkipDistance() {
-      return threatRadius() * 1.5;
-    }
-
-    function cleanCircuitPath(points: any[]) {
-      const out = [points[0]];
-      for (let i = 1; i < points.length; i += 1) {
-        const point = points[i];
-        const last = out[out.length - 1];
-        if (point.x === last.x && point.y === last.y) continue;
-        if (out.length >= 2) {
-          const previous = out[out.length - 2];
-          if ((previous.x === last.x && last.x === point.x) ||
-              (previous.y === last.y && last.y === point.y)) {
-            out[out.length - 1] = point;
-            continue;
-          }
-        }
-        out.push(point);
-      }
-      return out;
-    }
-
-    function destinationCorridors(row: any) {
-      const p0 = {
-        center: row.platforms[0].x,
-        left: row.platforms[0].x - row.platforms[0].width / 2,
-        right: row.platforms[0].x + row.platforms[0].width / 2,
-      };
-      const p1 = {
-        center: row.platforms[1].x,
-        left: row.platforms[1].x - row.platforms[1].width / 2,
-        right: row.platforms[1].x + row.platforms[1].width / 2,
-      };
-      const p2 = {
-        center: row.platforms[2].x,
-        left: row.platforms[2].x - row.platforms[2].width / 2,
-        right: row.platforms[2].x + row.platforms[2].width / 2,
-      };
-      return computeActorSafeCorridors(p0, p1, p2);
-    }
-
-    function chooseDestinationCorridor(row: any, targetX: number, startX: number) {
-      const corridors = destinationCorridors(row);
-      if (!corridors.length) {
-        const minActorClearance = CONFIG.playerRadius + 6;
-        const edge = targetX < CONFIG.logicalWidth / 2 ? minActorClearance : CONFIG.logicalWidth - minActorClearance;
-        return {
-          id: targetX < CONFIG.logicalWidth / 2 ? 'A' : 'D',
-          type: 'exterior',
-          left: edge,
-          right: edge,
-          center: edge,
-          width: 0,
-        };
-      }
-      return corridors
-        .slice()
-        .sort((first, second) => {
-          const firstBonus = first.type === 'interior' ? -20 : 0;
-          const secondBonus = second.type === 'interior' ? -20 : 0;
-          const firstScore =
-            Math.abs(first.center - targetX) * 0.72 +
-            Math.abs(first.center - startX) * 0.28 +
-            firstBonus;
-          const secondScore =
-            Math.abs(second.center - targetX) * 0.72 +
-            Math.abs(second.center - startX) * 0.28 +
-            secondBonus;
-          return firstScore - secondScore;
-        })[0];
-    }
-
-    function buildSteppedRoute(from: any, to: any, destinationPlatform: any, corridor: any) {
-      const turns = clamp(Math.round(CONFIG.routeTurnCount / 2) * 2, 6, 12);
-      const horizontalCount = turns / 2;
-      const verticalCount = horizontalCount + 1;
-      const destinationRow = getRow(destinationPlatform.row);
-
-      const landingY = to.y;
-      const apexY =
-        destinationRow.y -
-        CONFIG.playerRadius -
-        Math.max(16, CONFIG.routePlatformPadding * 1.8);
-
-      const crossingStartY =
-        destinationRow.y + computeRouteCrossingOffset(CONFIG);
-
-      const midCrossY =
-        destinationRow.y +
-        CONFIG.platformHeight * 0.34;
-
-      const verticalEndpoints = [];
-      const preCorridorVerticalCount = verticalCount - 3;
-
-      for (let index = 1; index <= preCorridorVerticalCount; index += 1) {
-        verticalEndpoints.push(
-          lerp(from.y, crossingStartY, index / preCorridorVerticalCount),
-        );
-      }
-      verticalEndpoints.push(midCrossY, apexY, landingY);
-
-      const corridorWidth = Math.max(0, corridor.right - corridor.left);
-      const corridorInset = Math.min(
-        14,
-        Math.max(3, corridorWidth * 0.2),
-      );
-
-      const minBound = corridor.left + Math.min(2, corridorWidth / 2);
-      const maxBound = corridor.right - Math.min(2, corridorWidth / 2);
-
-      let corridorA = clamp(
-        corridor.center - corridorInset,
-        minBound,
-        maxBound,
-      );
-
-      let corridorB = clamp(
-        corridor.center + corridorInset,
-        minBound,
-        maxBound,
-      );
-
-      if (Math.abs(corridorB - corridorA) < 4) {
-        corridorA = corridor.center;
-        const bShift = Math.min(4, corridorWidth / 2);
-        corridorB = clamp(
-          corridor.center + (to.x < corridor.center ? -bShift : bShift),
-          corridor.left,
-          corridor.right,
-        );
-      }
-
-      if (to.x < corridor.center) {
-        [corridorA, corridorB] = [corridorB, corridorA];
-      }
-
-      const horizontalEndpoints = [];
-      const freeHorizontalCount = horizontalCount - 3;
-      let currentX = from.x;
-
-      const minScreenX = CONFIG.playerRadius + 6;
-      const maxScreenX = CONFIG.logicalWidth - (CONFIG.playerRadius + 6);
-
-      for (let index = 0; index < freeHorizontalCount; index += 1) {
-        const progress = (index + 1) / (freeHorizontalCount + 1);
-        const guide = lerp(from.x, corridorA, progress);
-        const alternatingDirection = index % 2 === 0 ? -1 : 1;
-        const targetDirection = Math.sign(corridorA - from.x) || 1;
-
-        let candidate =
-          guide +
-          alternatingDirection *
-            targetDirection *
-            CONFIG.routeHorizontalJitter;
-
-        candidate = clamp(
-          candidate,
-          minScreenX,
-          maxScreenX,
-        );
-
-        const deltaX = candidate - currentX;
-        const maximumRun = CONFIG.routeMaxStraightRun;
-        const minimumRun = Math.min(22, maximumRun * 0.40);
-
-        if (Math.abs(deltaX) > maximumRun) {
-          candidate = currentX + Math.sign(deltaX) * maximumRun;
-        } else if (Math.abs(deltaX) < minimumRun) {
-          candidate = currentX + alternatingDirection * minimumRun;
-          candidate = clamp(candidate, minScreenX, maxScreenX);
-        }
-
-        horizontalEndpoints.push(candidate);
-        currentX = candidate;
-      }
-
-      horizontalEndpoints.push(corridorA, corridorB, to.x);
-
-      const points = [{ x: from.x, y: from.y }];
-      let currentPoint = points[0];
-
-      for (let segmentIndex = 0; segmentIndex < horizontalCount; segmentIndex += 1) {
-        const nextY = verticalEndpoints[segmentIndex];
-        if (nextY !== currentPoint.y) {
-          currentPoint = { x: currentPoint.x, y: nextY };
-          points.push(currentPoint);
-        }
-        const nextX = horizontalEndpoints[segmentIndex];
-        if (nextX !== currentPoint.x) {
-          currentPoint = { x: nextX, y: currentPoint.y };
-          points.push(currentPoint);
-        }
-      }
-
-      const finalY = verticalEndpoints[verticalEndpoints.length - 1];
-      if (finalY !== currentPoint.y) {
-        points.push({ x: currentPoint.x, y: finalY });
-      }
-      return cleanCircuitPath(points);
-    }
-
-    function buildCircuitPath(from: any, to: any, destinationPlatform: any = null) {
-      const platform = destinationPlatform || rowAbove()?.platforms.find(
-        (candidate) => candidate.x === to.x,
-      );
-      const destinationRow = platform ? getRow(platform.row) : rowAbove();
-
-      if (!platform || !destinationRow) {
-        return cleanCircuitPath([
-          { x: from.x, y: from.y },
-          { x: from.x, y: to.y - 24 },
-          { x: to.x, y: to.y - 24 },
-          { x: to.x, y: to.y },
-        ]);
-      }
-
-      const corridors = destinationCorridors(destinationRow);
-      const preferred = chooseDestinationCorridor(
-        destinationRow,
-        platform.x,
-        from.x,
-      );
-
-      const orderedCorridors = [
-        preferred,
-        ...corridors.filter((corridor) => corridor !== preferred),
-      ];
-
-      // Every corridor that collision approves, in natural preference order.
-      // The pursuer gets to pick among these; it never gets to empty the list.
-      const clearCandidates: { points: any[] }[] = [];
-      for (const corridor of orderedCorridors) {
-        const candidate = buildSteppedRoute(
-          from,
-          to,
-          platform,
-          corridor,
-        );
-        if (isPathClear(candidate, platform)) {
-          clearCandidates.push({ points: candidate });
-        }
-      }
-
-      if (clearCandidates.length > 0) {
-        const chosen = chooseRouteAgainstThreat(
-          clearCandidates,
-          routeThreat(),
-          engineSparkAvoidance,
-          threatRadius(),
-          threatSkipDistance(),
-        );
-        return clearCandidates[Math.max(0, chosen)].points;
-      }
-
-      const minActorClearance = CONFIG.playerRadius + 6;
-      const isLeft = from.x < CONFIG.logicalWidth / 2;
-      const edgeX = isLeft ? minActorClearance : CONFIG.logicalWidth - minActorClearance;
-      const edgeCorridor = {
-        id: isLeft ? 'A' : 'D',
-        type: 'exterior',
-        left: edgeX,
-        right: edgeX,
-        center: edgeX,
-        width: 0,
-      };
-
-      const fallbackRoute = buildSteppedRoute(
-        from,
-        to,
-        platform,
-        edgeCorridor,
-      );
-      
-      if (isPathClear(fallbackRoute, platform)) {
-        return fallbackRoute;
-      }
-      
-      return null;
-    }
-
-    function pathMetrics(points: any[]) {
-      const lengths = [];
-      let total = 0;
-      for (let i = 1; i < points.length; i += 1) {
-        const length = Math.abs(points[i].x - points[i - 1].x) + Math.abs(points[i].y - points[i - 1].y);
-        lengths.push(length);
-        total += length;
-      }
-      return { lengths, total };
+      return threatSkipDistanceFor(routingConfig());
     }
 
     function pointOnPath(currentTravel: any) {
@@ -1214,22 +943,22 @@ export function useCircuitClimbPrototypeRuntime() {
       const from = { x: player.x, y: player.y };
 
       if (engineMovementMode === 'circuit') {
-        const points = buildCircuitPath(from, destination, platform);
-        if (!points) {
+        const selection = planLearnerSelection(routingWorld(), from, platform);
+        if (selectionRouted(selection)) {
+          travel = selection.travel;
+        } else {
+          // A learner destination that produces no route is a defect, not a
+          // gameplay outcome, and it used to be silent: the click vanished and
+          // the board sat there. It is now loud, and it leaves no trace on the
+          // platform it failed to reach.
+          console.error('CIRCUIT_CLIMB_LEARNER_ROUTE_FAILED', {
+            reason: selection.reason,
+            platform: { id: platform.id, row: platform.row, column: platform.column },
+            ...selection.diagnostic,
+          });
           platform.selected = false;
           return;
         }
-        const metrics = pathMetrics(points);
-        travel = {
-          type: 'circuit',
-          platform,
-          points,
-          lengths: metrics.lengths,
-          total: metrics.total,
-          distance: 0,
-          segment: 0,
-          correct: platform.correct,
-        };
       } else {
         travel = {
           type: 'hop',
@@ -2461,7 +2190,7 @@ export function useCircuitClimbPrototypeRuntime() {
       debugEnsureRows: ensureRows,
       debugGetRow: getRow,
       debugArrive: arrive,
-      debugDestinationCorridors: destinationCorridors,
+      debugDestinationCorridors: (row: any) => destinationCorridors(row),
       debugGetWorldMetrics: () => ({ width, height, worldScale, logicalHeight, logicalWidth: CONFIG.logicalWidth }),
       debugSelectPlatform: selectPlatform,
       debugUpdate: (delta: number) => { update(delta); },
