@@ -1836,7 +1836,14 @@ export function useCircuitClimbPrototypeRuntime() {
       const x = platform.x - platform.width / 2;
       const y = worldToScreenY(platform.y);
 
-      if (y < -110 || y > height + 110) {
+      // `y` is a LOGICAL screen coordinate, so it has to be bounded by the
+      // logical viewport height, not by `height`, which is CSS pixels. On a
+      // narrow viewport worldScale is well under 1, logicalHeight is far larger
+      // than height, and everything below `height + 110` in logical space was
+      // dropped — including the platform the learner is standing on, which
+      // simply vanished from under them. drawNextRowIndicator already bounds
+      // against logicalHeight; this was the odd one out.
+      if (y < -110 || y > logicalHeight + 110) {
         return;
       }
 
