@@ -12,6 +12,24 @@ interface CircuitClimbSurfaceProps {
   onExit: () => void;
 }
 
+/**
+ * The dev sliders, in the order they matter when tuning: how fast it moves, how
+ * far it can sense, how long it hesitates, then how erratic it looks.
+ */
+const PURSUER_SLIDERS = ([
+  ['searchSpeed', 'Search speed', ' u/ms', 0.01, 0.3, 0.005, (v: number) => v.toFixed(3)],
+  ['chaseSpeed', 'Chase speed', ' u/ms', 0.01, 0.4, 0.005, (v: number) => v.toFixed(3)],
+  ['senseRadius', 'Sense radius', ' u', 60, 900, 10, (v: number) => Math.round(v)],
+  ['loseRadius', 'Lose-lock radius', ' u', 80, 1200, 10, (v: number) => Math.round(v)],
+  ['alertDwellMs', 'Alert hesitation', ' ms', 0, 1200, 20, (v: number) => Math.round(v)],
+  ['wanderAmplitude', 'Search sweep', ' u', 0, 260, 5, (v: number) => Math.round(v)],
+  ['wanderPeriodMs', 'Sweep period', ' ms', 300, 4000, 50, (v: number) => Math.round(v)],
+  ['speedJitter', 'Speed jitter', '', 0, 1, 0.05, (v: number) => v.toFixed(2)],
+  ['climbReserve', 'Climb reserve', '', 0, 0.9, 0.05, (v: number) => v.toFixed(2)],
+] as const).map(([key, label, unit, min, max, step, format]) => ({
+  key: key as any, label, unit, min, max, step, format: format as (v: number) => string | number,
+}));
+
 export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
   runtime,
   onExit,
@@ -49,6 +67,9 @@ export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
     viewScalePercent,
     routeTurnCount,
     showViewSettings,
+    pursuerPreset,
+    pursuerTuning,
+    pursuerBehaviour,
     showCollisionHitboxes,
     showSumToCue,
     showConfig,
@@ -274,6 +295,43 @@ export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
             <div className="liveValue"><span>Player</span><strong>{Math.round(32 * (viewScalePercent / 100))}</strong></div>
             <div className="liveValue"><span>Corners</span><strong>{routeTurnCount}</strong></div>
           </div>
+
+          <div className="rangeHeading secondaryRangeHeading" style={{ marginTop: '20px' }}>
+            <label htmlFor="pursuerPresetSelect">Bot behaviour</label>
+            <output id="pursuerBehaviourReadout">{pursuerBehaviour}</output>
+          </div>
+          <select
+            id="pursuerPresetSelect"
+            value={pursuerPreset}
+            onChange={(e) => runtime.setPursuerPreset(e.target.value as any)}
+            style={{ width: '100%', padding: '7px 8px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '12px' }}
+          >
+            <option value="alive">Alive — searches, locks on, loses the trail</option>
+            <option value="baseline">Locked baseline — always knows where you are</option>
+          </select>
+          <p className="settingsExplanation" style={{ marginTop: '6px' }}>
+            Locked baseline is the frozen pursuer: constant speed, permanent lock,
+            no searching. It is kept so a tuning experiment can always be
+            abandoned without a rebuild. Moving any slider below switches to Alive.
+          </p>
+
+          {PURSUER_SLIDERS.map(({ key, label, unit, min, max, step, format }) => (
+            <React.Fragment key={key}>
+              <div className="rangeHeading secondaryRangeHeading">
+                <label htmlFor={`pursuer-${key}`}>{label}</label>
+                <output>{format(pursuerTuning[key])}{unit}</output>
+              </div>
+              <input
+                id={`pursuer-${key}`}
+                type="range"
+                min={min}
+                max={max}
+                step={step}
+                value={Number.isFinite(pursuerTuning[key]) ? pursuerTuning[key] : max}
+                onChange={(e) => runtime.setPursuerTuning({ [key]: Number(e.target.value) } as any)}
+              />
+            </React.Fragment>
+          ))}
 
           <div className="rangeHeading secondaryRangeHeading" style={{ marginTop: '18px' }}>
             <label htmlFor="downloadBotLogButton">Bot event log</label>

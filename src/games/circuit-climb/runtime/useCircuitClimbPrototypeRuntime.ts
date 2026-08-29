@@ -3,6 +3,13 @@ import { useState, useEffect, useRef } from 'react';
 import { CIRCUIT_CLIMB_GEOMETRY, computeActorSafeCorridors, computeInversePointerTransform, computePlatformCollisionRects, computeRouteCrossingOffset, pathIsClear } from '../geometry/circuitClimbGeometry';
 import { createPursuer, updatePursuer, PursuerState } from '../pursuer/circuitClimbPursuer';
 import { PursuerTracer } from '../pursuer/circuitClimbPursuerTrace';
+import {
+  PursuerTuning,
+  PursuerTuningPreset,
+  PURSUER_TUNING_PRESETS,
+  ALIVE_PURSUER_TUNING,
+  clampTuning,
+} from '../pursuer/circuitClimbPursuerTuning';
 
 export interface CircuitClimbViewModel {
   started: boolean;
@@ -23,6 +30,9 @@ export interface CircuitClimbViewModel {
   showConfig: boolean;
   configText: string;
   captured: boolean;
+  pursuerPreset: PursuerTuningPreset;
+  pursuerTuning: PursuerTuning;
+  pursuerBehaviour: 'SEARCH' | 'ALERT' | 'CHASE' | 'CAUGHT';
   debug?: any;
 }
 
@@ -49,6 +59,9 @@ export function useCircuitClimbPrototypeRuntime() {
   const [showConfig, setShowConfig] = useState(false);
   const [configText, setConfigText] = useState('');
   const [captured, setCaptured] = useState(false);
+  const [pursuerPreset, setPursuerPreset] = useState<PursuerTuningPreset>('alive');
+  const [pursuerTuning, setPursuerTuningState] = useState<PursuerTuning>({ ...ALIVE_PURSUER_TUNING });
+  const [pursuerBehaviour, setPursuerBehaviour] = useState<'SEARCH' | 'ALERT' | 'CHASE' | 'CAUGHT'>('SEARCH');
   const settingsWasPausedRef = useRef(false);
 
   // Control reference to trigger game engine actions from React components
@@ -229,6 +242,57 @@ export function useCircuitClimbPrototypeRuntime() {
 
     let pursuer: PursuerState | null = null;
     let engineCaptured = false;
+
+    function readSavedPursuerTuning(): { preset: PursuerTuningPreset; tuning: PursuerTuning } {
+      try {
+        const preset = window.localStorage.getItem('circuitClimbPursuerPreset');
+        const raw = window.localStorage.getItem('circuitClimbPursuerTuning');
+        if (preset === 'baseline') {
+          return { preset: 'baseline', tuning: { ...PURSUER_TUNING_PRESETS.baseline } };
+        }
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          return { preset: 'alive', tuning: clampTuning({ ...ALIVE_PURSUER_TUNING, ...parsed }) };
+        }
+      } catch {
+        // fall through to the default preset
+      }
+      return { preset: 'alive', tuning: { ...ALIVE_PURSUER_TUNING } };
+    }
+
+    const savedPursuer = readSavedPursuerTuning();
+    let enginePursuerPreset: PursuerTuningPreset = savedPursuer.preset;
+    let enginePursuerTuning: PursuerTuning = savedPursuer.tuning;
+    setPursuerPreset(enginePursuerPreset);
+    setPursuerTuningState(enginePursuerTuning);
+
+    function savePursuerTuning() {
+      try {
+        window.localStorage.setItem('circuitClimbPursuerPreset', enginePursuerPreset);
+        window.localStorage.setItem('circuitClimbPursuerTuning', JSON.stringify(enginePursuerTuning));
+      } catch {
+        // non-fatal
+      }
+    }
+
+    function applyPursuerPreset(name: PursuerTuningPreset) {
+      enginePursuerPreset = name;
+      enginePursuerTuning = { ...PURSUER_TUNING_PRESETS[name] };
+      if (pursuer) pursuer.tuning = enginePursuerTuning;
+      setPursuerPreset(name);
+      setPursuerTuningState(enginePursuerTuning);
+      savePursuerTuning();
+    }
+
+    function applyPursuerTuning(patch: Partial<PursuerTuning>) {
+      enginePursuerTuning = clampTuning({ ...enginePursuerTuning, ...patch });
+      // Hand-editing a value means you are no longer on the frozen preset.
+      enginePursuerPreset = 'alive';
+      if (pursuer) pursuer.tuning = enginePursuerTuning;
+      setPursuerPreset('alive');
+      setPursuerTuningState(enginePursuerTuning);
+      savePursuerTuning();
+    }
     const pursuerTracer = new PursuerTracer();
     let pursuerTraceVerbose = false;
     try {
@@ -712,10 +776,11 @@ export function useCircuitClimbPrototypeRuntime() {
       targetPresentation.phaseStartedAt = 0;
       targetPresentation.progress = 0;
 
-      pursuer = createPursuer(player.x, player.y);
+      pursuer = createPursuer(player.x, player.y, enginePursuerTuning);
       pursuerTracer.reset();
       engineCaptured = false;
       setCaptured(false);
+      setPursuerBehaviour('SEARCH');
 
       cameraY = player.y - logicalHeight * CONFIG.cameraAnchor;
 
@@ -1310,7 +1375,14 @@ export function useCircuitClimbPrototypeRuntime() {
 
       if (pursuer) {
         const wasPursuing = pursuer.state === 'PURSUING';
-        pursuer = updatePursuer(pursuer, player, getActivePlatforms(), delta, (rawStep) => {
+        const previousBehaviour = pursuer.behaviour;
+        const sensedPlayer = {
+          x: player.x,
+          y: player.y,
+          platform: player.platform,
+          traveling: !!travel,
+        };
+        pursuer = updatePursuer(pursuer, sensedPlayer, getActivePlatforms(), delta, (rawStep) => {
           const pursuerStep = { ...rawStep, frame: pursuerTracer.nextFrame() };
           if (pursuerTraceVerbose) {
             console.log('CIRCUIT_CLIMB_PURSUER_STEP', PursuerTracer.format(pursuerStep));
@@ -1329,7 +1401,12 @@ export function useCircuitClimbPrototypeRuntime() {
           }
         });
 
+        if (pursuer.behaviour !== previousBehaviour) {
+          setPursuerBehaviour(pursuer.behaviour);
+        }
+
         if (wasPursuing && pursuer.state === 'CAUGHT') {
+          setPursuerBehaviour('CAUGHT');
           onCaptured();
         }
       }
@@ -1925,25 +2002,64 @@ export function useCircuitClimbPrototypeRuntime() {
       const screenY = worldToScreenY(p.y);
       const radius = p.radius;
 
+      // The state has to be readable at a glance, so each one gets its own
+      // pulse: searching breathes slowly and dim, alert snaps bright and still,
+      // chasing burns hot and fast.
+      const behaviour = p.state === 'CAUGHT' ? 'CAUGHT' : p.behaviour;
+      let glow = 18;
+      let coreScale = 0.4;
+      let bodyAlpha = 0.78;
+      if (behaviour === 'SEARCH') {
+        const breath = 0.5 + 0.5 * Math.sin(elapsed / 520);
+        glow = 12 + breath * 10;
+        coreScale = 0.3 + breath * 0.08;
+        bodyAlpha = 0.62 + breath * 0.12;
+      } else if (behaviour === 'ALERT') {
+        const snap = 0.5 + 0.5 * Math.sin(elapsed / 70);
+        glow = 26 + snap * 16;
+        coreScale = 0.52;
+        bodyAlpha = 0.95;
+      } else {
+        const drive = 0.5 + 0.5 * Math.sin(elapsed / 130);
+        glow = 28 + drive * 12;
+        coreScale = 0.42 + drive * 0.1;
+        bodyAlpha = 1;
+      }
+
       ctx.save();
       ctx.translate(p.x, screenY);
-      
+
+      ctx.globalAlpha = bodyAlpha;
       ctx.shadowColor = '#ff2a2a';
-      ctx.shadowBlur = 24;
+      ctx.shadowBlur = glow;
       ctx.fillStyle = '#ff0000';
       ctx.strokeStyle = '#ff2a2a';
       ctx.lineWidth = 3;
-      
+
       ctx.beginPath();
       ctx.arc(0, 0, radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-      
+
+      // While searching it sweeps a sensor arc across the direction it is
+      // guessing in — the visible tell that it does not know where you are.
+      if (behaviour === 'SEARCH') {
+        const sweep = Math.sin(elapsed / 430) * 1.15;
+        ctx.globalAlpha = 0.3;
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#ff6a6a';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius + 9, sweep - 0.5, sweep + 0.5);
+        ctx.stroke();
+      }
+
       // inner subtle core
+      ctx.globalAlpha = 1;
       ctx.fillStyle = '#ff8888';
       ctx.shadowBlur = 0;
       ctx.beginPath();
-      ctx.arc(0, 0, radius * 0.4, 0, Math.PI * 2);
+      ctx.arc(0, 0, radius * coreScale, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.restore();
@@ -2177,6 +2293,8 @@ export function useCircuitClimbPrototypeRuntime() {
       },
       debugGetRows: () => rows,
       debugGetPursuer: () => pursuer,
+      applyPursuerPreset,
+      applyPursuerTuning,
       debugGetPursuerSteps: () => pursuerTracer.steps(),
       buildPursuerLog: () => {
         const steps = pursuerTracer.steps();
@@ -2283,6 +2401,10 @@ export function useCircuitClimbPrototypeRuntime() {
   const toggleMode = () => loopControlRef.current.toggleMode?.();
   const toggleSound = () => loopControlRef.current.toggleSound?.();
   const selectByIndex = (idx: number) => loopControlRef.current.selectByIndex?.(idx);
+  const setPursuerPresetControl = (name: PursuerTuningPreset) =>
+    (loopControlRef.current as any).applyPursuerPreset?.(name);
+  const setPursuerTuningControl = (patch: Partial<PursuerTuning>) =>
+    (loopControlRef.current as any).applyPursuerTuning?.(patch);
 
   const openViewSettings = () => {
     settingsWasPausedRef.current = paused;
@@ -2336,6 +2458,9 @@ export function useCircuitClimbPrototypeRuntime() {
       showConfig,
       configText,
       captured,
+      pursuerPreset,
+      pursuerTuning,
+      pursuerBehaviour,
     } as CircuitClimbViewModel,
     beginGame,
     restartGame,
@@ -2352,6 +2477,8 @@ export function useCircuitClimbPrototypeRuntime() {
     setShowConfig,
     setShowCollisionHitboxes,
     setShowSumToCue: (v: boolean) => setShowSumToCue(v),
+    setPursuerPreset: setPursuerPresetControl,
+    setPursuerTuning: setPursuerTuningControl,
     debug: {
       getRows: () => (loopControlRef.current as any).debugGetRows?.() || [],
       getPursuer: () => (loopControlRef.current as any).debugGetPursuer?.() || null,

@@ -25,6 +25,16 @@ export interface PursuerAxisStep {
 export interface PursuerStep {
   /** Monotonic frame counter since the pursuer was created. */
   frame: number;
+  /** SEARCH / ALERT / CHASE — what it currently believes about the player. */
+  behaviour: 'SEARCH' | 'ALERT' | 'CHASE';
+  /** Straight-line distance to the player at the start of the frame. */
+  distanceToPlayer: number;
+  /** The point it is steering for: the player, or its guess while searching. */
+  desired: { x: number; y: number };
+  /** Its guess at where the player is, updated whenever it has eyes on them. */
+  lastKnown: { x: number; y: number };
+  /** Speed multiplier applied this frame by jitter and the ALERT hesitation. */
+  speedScale: number;
   /** Frame time in ms, as handed to updatePursuer. */
   delta: number;
   /** Total movement budget for this frame (speed * delta). */
@@ -178,12 +188,16 @@ export class PursuerTracer {
     const n = (v: number | null) => (v === null ? '—' : v.toFixed(1));
     return [
       `f${step.frame}`,
+      `${step.behaviour}`,
       `${step.mode}`,
       `pos(${n(step.from.x)},${n(step.from.y)})->(${n(step.to.x)},${n(step.to.y)})`,
       `player(${n(step.player.x)},${n(step.player.y)})`,
       `row y=${n(step.nextRowY)} band[${n(step.rowTop)},${n(step.rowBottom)}]`,
       `mustCross=${step.mustCrossRow}`,
       `targetX=${n(step.targetX)}`,
+      `desired(${n(step.desired.x)},${n(step.desired.y)})`,
+      `dist=${n(step.distanceToPlayer)}`,
+      `spd=${step.speedScale.toFixed(2)}`,
       `dx a=${n(step.horizontal.attempted)}${step.horizontal.blocked ? ' BLOCKED' : ''}`,
       `dy a=${n(step.vertical.attempted)}${step.vertical.blocked ? ' BLOCKED' : ''}`,
       step.stalled ? `STALLED:${step.stallReason}` : 'moved',

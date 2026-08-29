@@ -1,14 +1,36 @@
 import { CIRCUIT_CLIMB_GEOMETRY as CONFIG, computePlatformCollisionRects, pathIsClear, computeActorSafeCorridors } from '../geometry/circuitClimbGeometry';
 import type { PursuerMode, PursuerStep, PursuerStallReason } from './circuitClimbPursuerTrace';
+import { BASELINE_PURSUER_TUNING, PursuerTuning } from './circuitClimbPursuerTuning';
 
 export type PursuerLifecycle = 'PURSUING' | 'CAUGHT';
+
+/**
+ * What the pursuer currently believes about the player. SEARCH -> ALERT ->
+ * CHASE, with CAUGHT as the terminal lifecycle in `state`.
+ */
+export type PursuerBehaviour = 'SEARCH' | 'ALERT' | 'CHASE';
 
 export interface PursuerState {
   x: number;
   y: number;
   radius: number;
+  /** Legacy constant speed. Live speed comes from the tuning. */
   speed: number;
   state: PursuerLifecycle;
+  behaviour: PursuerBehaviour;
+  /** Where it last had eyes on the player — what it searches around. */
+  lastKnownX: number;
+  lastKnownY: number;
+  /** Time spent in ALERT, against tuning.alertDwellMs. */
+  alertElapsed: number;
+  /** Total ms alive. Drives the wander and jitter, so both are deterministic. */
+  age: number;
+  /** Fixed phase offset so the sweep does not start dead centre. */
+  seed: number;
+  /** The row it is currently threading, and the corridor it committed to. */
+  crossingRowY: number | null;
+  crossingCorridorX: number | null;
+  tuning: PursuerTuning;
 }
 
 /**
@@ -17,19 +39,60 @@ export interface PursuerState {
  */
 export const PURSUER_CAPTURE_DISTANCE = CONFIG.playerRadius;
 
-export function createPursuer(playerX: number, playerY: number): PursuerState {
+/**
+ * Defaults to the frozen baseline tuning, so anything that does not explicitly
+ * ask for a living pursuer gets the locked behaviour — including the whole
+ * capability lock suite.
+ */
+export function createPursuer(
+  playerX: number,
+  playerY: number,
+  tuning: PursuerTuning = BASELINE_PURSUER_TUNING,
+): PursuerState {
   return {
     x: playerX,
     y: playerY + 2 * CONFIG.rowGap,
     radius: CONFIG.playerRadius,
     speed: 0.08, // Conservative speed within foundation range (0.06 - 0.10)
     state: 'PURSUING',
+    behaviour: 'SEARCH',
+    lastKnownX: playerX,
+    lastKnownY: playerY,
+    alertElapsed: 0,
+    age: 0,
+    seed: 1.7,
+    crossingRowY: null,
+    crossingCorridorX: null,
+    tuning,
   };
+}
+
+/**
+ * Two out-of-phase sines. Deterministic, so a run replays identically and the
+ * behaviour is testable, but irregular enough not to read as a metronome.
+ */
+function wobble(age: number, periodMs: number, seed: number) {
+  const a = Math.sin((age / periodMs) * Math.PI * 2 + seed);
+  const b = Math.sin((age / (periodMs * 0.37)) * Math.PI * 2 + seed * 1.9);
+  return a * 0.68 + b * 0.32;
+}
+
+/**
+ * Which way the search is currently sweeping.
+ *
+ * The sweep commits to a side and holds it for half a period, rather than
+ * following a sine. A sine target crosses far faster than the actor can move,
+ * so the pursuer only ever vibrates around the centre and the sweep is
+ * invisible. Committing to a direction makes it travel — a patrol at its own
+ * speed, reversing on a beat.
+ */
+function sweepDirection(age: number, periodMs: number, seed: number) {
+  return Math.sin((age / periodMs) * Math.PI * 2 + seed) >= 0 ? 1 : -1;
 }
 
 export function updatePursuer(
   pursuer: PursuerState,
-  player: { x: number; y: number; platform?: any },
+  player: { x: number; y: number; platform?: any; traveling?: boolean },
   activePlatforms: any[],
   delta: number,
   onStep?: (step: PursuerStep) => void
@@ -38,13 +101,74 @@ export function updatePursuer(
 
   if (next.state !== 'PURSUING') return next;
 
-  const step = next.speed * delta;
+  const tuning = next.tuning || BASELINE_PURSUER_TUNING;
+  next.age += delta;
+
+  const distanceToPlayer = Math.hypot(player.x - next.x, player.y - next.y);
+  // A spark mid-route is a moving target: the lock breaks and the pursuer has to
+  // pick the trail up again from where it last had eyes on the player.
+  const playerElusive = tuning.reacquireOnPlayerMove && player.traveling === true;
+  const canSense = distanceToPlayer <= tuning.senseRadius;
+
+  const loseLock = () => {
+    next.behaviour = 'SEARCH';
+    next.alertElapsed = 0;
+    next.lastKnownX = player.x;
+    next.lastKnownY = player.y;
+  };
+
+  if (next.behaviour === 'CHASE') {
+    if (playerElusive || distanceToPlayer > tuning.loseRadius) loseLock();
+  } else if (next.behaviour === 'ALERT') {
+    if (playerElusive || !canSense) {
+      loseLock();
+    } else {
+      next.alertElapsed += delta;
+      if (next.alertElapsed >= tuning.alertDwellMs) next.behaviour = 'CHASE';
+    }
+  } else if (canSense && !playerElusive) {
+    // Sensed. With no hesitation configured it commits in this same frame, which
+    // is what makes the baseline tuning reproduce the frozen behaviour exactly.
+    next.behaviour = tuning.alertDwellMs > 0 ? 'ALERT' : 'CHASE';
+    next.alertElapsed = 0;
+  }
+
+  if (next.behaviour === 'CHASE') {
+    next.lastKnownX = player.x;
+    next.lastKnownY = player.y;
+  }
+
+  // Where it is trying to get to: the player when locked on, otherwise its guess
+  // — the last sighting, swept from side to side.
+  const searching = next.behaviour !== 'CHASE';
+  const sweep = searching
+    ? tuning.wanderAmplitude * sweepDirection(next.age, tuning.wanderPeriodMs, next.seed)
+    : 0;
+  // Two different questions. Where it is *heading* — swept, expressive, this is
+  // the searching behaviour. And which side of the world it is *navigating*
+  // toward — unswept, because a corridor choice that flips with the sweep is a
+  // choice it can never travel far enough to act on.
+  const desiredX = searching ? next.lastKnownX + sweep : player.x;
+  const navigationX = searching ? next.lastKnownX : player.x;
+  // Searching heads for the last sighting; once it is level with that and still
+  // has nothing, it keeps drifting upward, because up is the only way the
+  // player ever goes.
+  const desiredY = searching ? Math.min(next.lastKnownY, next.y - 1) : player.y;
+
+  const baseSpeed = next.behaviour === 'CHASE' ? tuning.chaseSpeed : tuning.searchSpeed;
+  const jitter = tuning.speedJitter > 0
+    ? Math.max(0.12, 1 + tuning.speedJitter * wobble(next.age, tuning.wanderPeriodMs * 0.61, next.seed * 2.3))
+    : 1;
+  // ALERT is the beat where it has noticed but not yet committed: it nearly stops.
+  const alertScale = next.behaviour === 'ALERT' ? 0.18 : 1;
+
+  const step = baseSpeed * jitter * alertScale * delta;
   const platformYs = Array.from(new Set(activePlatforms.map(p => p.y))).sort((a, b) => b - a);
 
   // Find the next blocking row ABOVE the pursuer
   const nextRowY = platformYs.find(y => y < next.y);
 
-  let targetX = player.x;
+  let targetX = desiredX;
   let isTargetingCorridor = false;
   let rowTop: number | null = null;
   let rowBottom: number | null = null;
@@ -102,19 +226,32 @@ export function updatePursuer(
       tracedCorridors = corridors.map(c => ({ left: c.left, right: c.right, center: c.center }));
 
       if (corridors.length > 0) {
-        let bestCorridor = corridors[0];
-        let minDiff = Infinity;
-        for (const c of corridors) {
-          const diff = Math.abs(c.center - player.x);
-          if (diff < minDiff) {
-            minDiff = diff;
-            bestCorridor = c;
+        // Commit to one corridor for the whole transit of this row. Re-deciding
+        // every frame lets a moving target drag the pursuer back and forth
+        // across the middle of the row, never travelling far enough to reach
+        // any corridor and never getting through.
+        if (next.crossingRowY !== nextRowY || next.crossingCorridorX === null) {
+          let bestCorridor = corridors[0];
+          let minDiff = Infinity;
+          for (const c of corridors) {
+            const diff = Math.abs(c.center - navigationX);
+            if (diff < minDiff) {
+              minDiff = diff;
+              bestCorridor = c;
+            }
           }
+          next.crossingRowY = nextRowY;
+          next.crossingCorridorX = bestCorridor.center;
         }
-        targetX = bestCorridor.center;
-        chosenCorridor = bestCorridor.center;
+        targetX = next.crossingCorridorX;
+        chosenCorridor = next.crossingCorridorX;
       }
     }
+  }
+
+  if (!isTargetingCorridor) {
+    next.crossingRowY = null;
+    next.crossingCorridorX = null;
   }
 
   // Purely Orthogonal Movement
@@ -135,12 +272,16 @@ export function updatePursuer(
   });
 
   // 1. Horizontal Movement
+  //
+  // Capped at the share of the budget the climb reserve leaves, so a sweep that
+  // moves faster than the pursuer can follow cannot eat the whole frame.
+  const horizontalBudget = remainingStep * (1 - Math.min(0.95, Math.max(0, tuning.climbReserve || 0)));
   const dx = targetX - next.x;
   let hAttempted = 0;
   let hBlocked = false;
   let hApplied = 0;
   if (Math.abs(dx) > 0.1) {
-    const moveX = Math.sign(dx) * Math.min(Math.abs(dx), remainingStep);
+    const moveX = Math.sign(dx) * Math.min(Math.abs(dx), horizontalBudget);
     const candX = next.x + moveX;
     hAttempted = moveX;
 
@@ -171,9 +312,9 @@ export function updatePursuer(
       vIntent = -Infinity;
       moveY = -remainingStep;
     } else {
-      // No blocking row between us and the player!
-      // Move vertically toward the player's Y if we aren't already there.
-      const dy = player.y - next.y;
+      // No blocking row between us and where we are headed: close the vertical
+      // gap to the target point (the player, or the last sighting).
+      const dy = desiredY - next.y;
       vIntent = dy;
       if (Math.abs(dy) > 0.1) {
         moveY = Math.sign(dy) * Math.min(Math.abs(dy), remainingStep);
@@ -197,8 +338,7 @@ export function updatePursuer(
   const minClearance = pursuer.radius + 6;
   next.x = Math.max(minClearance, Math.min(CONFIG.logicalWidth - minClearance, next.x));
 
-  const distanceToPlayer = Math.hypot(player.x - next.x, player.y - next.y);
-  if (distanceToPlayer <= PURSUER_CAPTURE_DISTANCE) {
+  if (Math.hypot(player.x - next.x, player.y - next.y) <= PURSUER_CAPTURE_DISTANCE) {
     next.state = 'CAUGHT';
   }
 
@@ -220,6 +360,11 @@ export function updatePursuer(
 
     onStep({
       frame: 0,
+      behaviour: next.behaviour,
+      distanceToPlayer,
+      desired: { x: desiredX, y: desiredY },
+      lastKnown: { x: next.lastKnownX, y: next.lastKnownY },
+      speedScale: jitter * alertScale,
       delta,
       budget: step,
       from: { x: pursuer.x, y: pursuer.y },
