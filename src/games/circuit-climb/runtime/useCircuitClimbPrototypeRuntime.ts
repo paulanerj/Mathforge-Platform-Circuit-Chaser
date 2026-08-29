@@ -2,6 +2,7 @@ import { CircuitClimbMathAdapter } from '../services/CircuitClimbMathAdapter';
 import { useState, useEffect, useRef } from 'react';
 import { CIRCUIT_CLIMB_GEOMETRY, computeActorSafeCorridors, computeInversePointerTransform, computePlatformCollisionRects, pathIsClear } from '../geometry/circuitClimbGeometry';
 import { createPursuer, updatePursuer, PursuerState } from '../pursuer/circuitClimbPursuer';
+import { PursuerTracer } from '../pursuer/circuitClimbPursuerTrace';
 
 export interface CircuitClimbViewModel {
   started: boolean;
@@ -225,6 +226,13 @@ export function useCircuitClimbPrototypeRuntime() {
     };
 
     let pursuer: PursuerState | null = null;
+    const pursuerTracer = new PursuerTracer();
+    let pursuerTraceVerbose = false;
+    try {
+      pursuerTraceVerbose = window.localStorage.getItem('circuitClimbPursuerTrace') === '1';
+    } catch {
+      pursuerTraceVerbose = false;
+    }
 
     function clamp(value: number, min: number, max: number) {
       return Math.max(min, Math.min(max, value));
@@ -702,6 +710,7 @@ export function useCircuitClimbPrototypeRuntime() {
       targetPresentation.progress = 0;
 
       pursuer = createPursuer(player.x, player.y);
+      pursuerTracer.reset();
 
       cameraY = player.y - logicalHeight * CONFIG.cameraAnchor;
 
@@ -1282,7 +1291,24 @@ export function useCircuitClimbPrototypeRuntime() {
       updateParticles(delta);
 
       if (pursuer) {
-        pursuer = updatePursuer(pursuer, player, getActivePlatforms(), delta);
+        pursuer = updatePursuer(pursuer, player, getActivePlatforms(), delta, (rawStep) => {
+          const pursuerStep = { ...rawStep, frame: pursuerTracer.nextFrame() };
+          if (pursuerTraceVerbose) {
+            console.log('CIRCUIT_CLIMB_PURSUER_STEP', PursuerTracer.format(pursuerStep));
+          }
+          const stall = pursuerTracer.record(pursuerStep);
+          if (stall) {
+            // A pursuer pinned against the platform the player is standing on has
+            // simply closed as far as the geometry allows, and resumes the moment
+            // the player moves. Only a pursuer motionless a row or more away is a
+            // genuine break in the navigation chain.
+            if (stall.distanceToPlayer > CONFIG.rowGap) {
+              console.warn('CIRCUIT_CLIMB_PURSUER_STALLED', stall);
+            } else if (pursuerTraceVerbose) {
+              console.log('CIRCUIT_CLIMB_PURSUER_HOLDING', stall);
+            }
+          }
+        });
       }
 
       const desiredCamera = player.y - logicalHeight * CONFIG.cameraAnchor;
@@ -2127,6 +2153,9 @@ export function useCircuitClimbPrototypeRuntime() {
         closeViewSettings();
       },
       debugGetRows: () => rows,
+      debugGetPursuer: () => pursuer,
+      debugGetPursuerSteps: () => pursuerTracer.steps(),
+      debugSetPursuerTrace: (on: boolean) => { pursuerTraceVerbose = on; },
       debugGetPlayer: () => player,
       debugGetPlayerPresentation: () => playerNumberPresentation,
       debugGetCONFIG: () => CONFIG,
@@ -2255,6 +2284,9 @@ export function useCircuitClimbPrototypeRuntime() {
     setShowSumToCue: (v: boolean) => setShowSumToCue(v),
     debug: {
       getRows: () => (loopControlRef.current as any).debugGetRows?.() || [],
+      getPursuer: () => (loopControlRef.current as any).debugGetPursuer?.() || null,
+      getPursuerSteps: () => (loopControlRef.current as any).debugGetPursuerSteps?.() || [],
+      setPursuerTrace: (on: boolean) => (loopControlRef.current as any).debugSetPursuerTrace?.(on),
       getPlayer: () => (loopControlRef.current as any).debugGetPlayer?.() || null,
       getPlayerPresentation: () => (loopControlRef.current as any).debugGetPlayerPresentation?.() || null,
       getCONFIG: () => (loopControlRef.current as any).debugGetCONFIG?.() || null,
