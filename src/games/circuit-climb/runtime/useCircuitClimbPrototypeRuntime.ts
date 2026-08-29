@@ -424,6 +424,7 @@ export function useCircuitClimbPrototypeRuntime() {
       const shiftOffset = shift === 'left' ? -24 : (shift === 'right' ? 24 : 0);
 
       const platforms = CONFIG.columns.map((fraction, column) => ({
+        id: `row-${index}-column-${column}`,
         row: index,
         column,
         x: fraction * CONFIG.logicalWidth + shiftOffset,
@@ -834,6 +835,7 @@ export function useCircuitClimbPrototypeRuntime() {
         destinationRow.y +
         CONFIG.platformHeight +
         CONFIG.routePlatformPadding +
+        CONFIG.playerRadius +
         9;
 
       const midCrossY =
