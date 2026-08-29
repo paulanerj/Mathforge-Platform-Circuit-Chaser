@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { CIRCUIT_CLIMB_GEOMETRY, computeActorSafeCorridors, computeInversePointerTransform, computePlatformCollisionRects, computeRouteCrossingOffset, chooseRouteAgainstThreat, pathClearance, pathIsClear } from '../geometry/circuitClimbGeometry';
 import { createPursuer, updatePursuer, PursuerState } from '../pursuer/circuitClimbPursuer';
 import { PursuerTracer } from '../pursuer/circuitClimbPursuerTrace';
+import { parseStoredNumber, computeKeepBehindRow, pursuerRowFromWorldY } from './circuitClimbRuntimeRules';
 import {
   PursuerTuning,
   PursuerTuningPreset,
@@ -357,28 +358,28 @@ export function useCircuitClimbPrototypeRuntime() {
       return Math.round(value * multiplier) / multiplier;
     }
 
-    function readSavedViewScale() {
+    // getItem returns null when nothing is stored, Number(null) is 0, and
+    // Number.isFinite(0) is true — so the old guard accepted the absence of a
+    // saved value as the value 0, clamped it, and handed every fresh install a
+    // view scale of 80 and 6 route turns instead of the documented 100 and 8.
+    // The `return` fallbacks below were unreachable except when localStorage
+    // threw. Read the raw string and reject a missing or unparseable one.
+    function readSavedNumber(key: string) {
       try {
-        const saved = Number(window.localStorage.getItem('circuitClimbViewScale'));
-        if (Number.isFinite(saved)) {
-          return clamp(saved, 80, 120);
-        }
+        return parseStoredNumber(window.localStorage.getItem(key));
       } catch {
-        // Safe fallback
+        return null;
       }
-      return 100;
+    }
+
+    function readSavedViewScale() {
+      const saved = readSavedNumber('circuitClimbViewScale');
+      return saved === null ? 100 : clamp(saved, 80, 120);
     }
 
     function readSavedRouteTurns() {
-      try {
-        const saved = Number(window.localStorage.getItem('circuitClimbRouteTurns'));
-        if (Number.isFinite(saved)) {
-          return clamp(Math.round(saved / 2) * 2, 6, 12);
-        }
-      } catch {
-        // Safe fallback
-      }
-      return 8;
+      const saved = readSavedNumber('circuitClimbRouteTurns');
+      return saved === null ? 8 : clamp(Math.round(saved / 2) * 2, 6, 12);
     }
 
     function saveViewScale() {
@@ -1411,9 +1412,16 @@ export function useCircuitClimbPrototypeRuntime() {
     function cullWorld() {
       const bottom = cameraY + logicalHeight + CONFIG.cullMargin;
       const originalCount = rows.length;
-      const pursuerRow = pursuer ? Math.max(0, Math.floor(-pursuer.y / CONFIG.rowGap)) : player.row;
-      const keepBehind = Math.min(player.row - 2, pursuerRow - 1);
-      
+      // The pursuer's row, which is negative while it is still below world row 0.
+      // Clamping that at 0 and then subtracting 1 pinned keepBehind at -1 for
+      // the whole early game, so every row satisfied index >= keepBehind and
+      // nothing was ever culled: rows grew without bound and every one of them
+      // stayed in the collision set the learner and the pursuer both scan.
+      const pursuerRow = pursuer
+        ? pursuerRowFromWorldY(pursuer.y, CONFIG.rowGap)
+        : player.row;
+      const keepBehind = computeKeepBehindRow(player.row, pursuerRow);
+
       rows = rows.filter((row) => row.y < bottom || row.index >= keepBehind);
       if (rows.length !== originalCount) {
         obstacleRevision += 1;
