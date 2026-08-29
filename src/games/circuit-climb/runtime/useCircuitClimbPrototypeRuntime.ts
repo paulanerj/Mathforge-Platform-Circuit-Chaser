@@ -22,6 +22,7 @@ export interface CircuitClimbViewModel {
   showSumToCue: boolean;
   showConfig: boolean;
   configText: string;
+  captured: boolean;
   debug?: any;
 }
 
@@ -47,6 +48,7 @@ export function useCircuitClimbPrototypeRuntime() {
   const [showViewSettings, setShowViewSettings] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
   const [configText, setConfigText] = useState('');
+  const [captured, setCaptured] = useState(false);
   const settingsWasPausedRef = useRef(false);
 
   // Control reference to trigger game engine actions from React components
@@ -226,6 +228,7 @@ export function useCircuitClimbPrototypeRuntime() {
     };
 
     let pursuer: PursuerState | null = null;
+    let engineCaptured = false;
     const pursuerTracer = new PursuerTracer();
     let pursuerTraceVerbose = false;
     try {
@@ -711,6 +714,8 @@ export function useCircuitClimbPrototypeRuntime() {
 
       pursuer = createPursuer(player.x, player.y);
       pursuerTracer.reset();
+      engineCaptured = false;
+      setCaptured(false);
 
       cameraY = player.y - logicalHeight * CONFIG.cameraAnchor;
 
@@ -1057,7 +1062,7 @@ export function useCircuitClimbPrototypeRuntime() {
 
 
     function selectPlatform(platform: any) {
-      if (!engineStarted || enginePaused || travel || platform.dead) return;
+      if (!engineStarted || enginePaused || engineCaptured || travel || platform.dead) return;
       if (platform.row !== player.row + 1) return;
 
       getAudioContext();
@@ -1108,6 +1113,17 @@ export function useCircuitClimbPrototypeRuntime() {
 
       setMessage(`${player.value}) + ${platform.value} = ${player.value + platform.value}`, platform.correct ? 'success' : 'error', 800);
       sound.launch();
+    }
+
+    function onCaptured() {
+      engineCaptured = true;
+      setCaptured(true);
+      travel = null;
+      spawnBurst(player.x, player.y, COLORS.red, 42, 0.3);
+      spawnBurst(player.x, player.y, COLORS.redDark, 24, 0.18);
+      setMessage('Caught by the surge. Press Restart to run again.', 'error');
+      messageTimer = 0;
+      sound.wrong();
     }
 
     function spawnBurst(x: number, y: number, color: string, amount = 24, speed = 0.18) {
@@ -1265,6 +1281,12 @@ export function useCircuitClimbPrototypeRuntime() {
 
     function update(delta: number) {
       elapsed += delta;
+
+      if (engineCaptured) {
+        // The run is over. Nothing advances except the capture burst.
+        updateParticles(delta);
+        return;
+      }
       if (messageTimer && elapsed >= messageTimer) {
         messageTimer = 0;
         setMessage('Tap the platform that completes the equation.');
@@ -1291,6 +1313,7 @@ export function useCircuitClimbPrototypeRuntime() {
       updateParticles(delta);
 
       if (pursuer) {
+        const wasPursuing = pursuer.state === 'PURSUING';
         pursuer = updatePursuer(pursuer, player, getActivePlatforms(), delta, (rawStep) => {
           const pursuerStep = { ...rawStep, frame: pursuerTracer.nextFrame() };
           if (pursuerTraceVerbose) {
@@ -1309,6 +1332,10 @@ export function useCircuitClimbPrototypeRuntime() {
             }
           }
         });
+
+        if (wasPursuing && pursuer.state === 'CAUGHT') {
+          onCaptured();
+        }
       }
 
       const desiredCamera = player.y - logicalHeight * CONFIG.cameraAnchor;
@@ -2083,7 +2110,7 @@ export function useCircuitClimbPrototypeRuntime() {
     }
 
     function handlePointer(event: any) {
-      if (!engineStarted || enginePaused || travel) return;
+      if (!engineStarted || enginePaused || engineCaptured || travel) return;
       const point = pointerPosition(event);
       const row = rowAbove();
       if (!row) return;
@@ -2155,6 +2182,52 @@ export function useCircuitClimbPrototypeRuntime() {
       debugGetRows: () => rows,
       debugGetPursuer: () => pursuer,
       debugGetPursuerSteps: () => pursuerTracer.steps(),
+      buildPursuerLog: () => {
+        const steps = pursuerTracer.steps();
+        const stalled = steps.filter((entry) => entry.stalled);
+        const byReason: Record<string, number> = {};
+        stalled.forEach((entry) => {
+          const key = entry.stallReason || 'NONE';
+          byReason[key] = (byReason[key] || 0) + 1;
+        });
+        const modes: Record<string, number> = {};
+        steps.forEach((entry) => { modes[entry.mode] = (modes[entry.mode] || 0) + 1; });
+        return {
+          capturedAt: new Date().toISOString(),
+          world: {
+            logicalWidth: CONFIG.logicalWidth,
+            rowGap: roundTo(CONFIG.rowGap, 2),
+            platformWidth: roundTo(CONFIG.platformWidth, 2),
+            platformHeight: roundTo(CONFIG.platformHeight, 2),
+            playerRadius: roundTo(CONFIG.playerRadius, 2),
+            routePlatformPadding: CONFIG.routePlatformPadding,
+            viewScalePercent: viewScalePercentInternal,
+            routeTurnCount: routeTurnCountInternal,
+          },
+          run: {
+            elapsedMs: Math.round(elapsed),
+            playerRow: player.row,
+            playerValue: player.value,
+            captured: engineCaptured,
+            paused: enginePaused,
+            activeRows: rows.length,
+          },
+          pursuer: pursuer
+            ? { x: roundTo(pursuer.x, 2), y: roundTo(pursuer.y, 2), radius: pursuer.radius, speed: pursuer.speed, state: pursuer.state }
+            : null,
+          summary: {
+            framesRecorded: steps.length,
+            bufferCapacity: pursuerTracer.capacityFrames,
+            stalledFrames: stalled.length,
+            stallReasons: byReason,
+            modeCounts: modes,
+            note: steps.length >= pursuerTracer.capacityFrames
+              ? 'Buffer is full: these are the most recent frames, earlier ones have rolled off.'
+              : 'Whole run since the last restart.',
+          },
+          steps,
+        };
+      },
       debugSetPursuerTrace: (on: boolean) => { pursuerTraceVerbose = on; },
       debugGetPlayer: () => player,
       debugGetPlayerPresentation: () => playerNumberPresentation,
@@ -2266,6 +2339,7 @@ export function useCircuitClimbPrototypeRuntime() {
       showSumToCue,
       showConfig,
       configText,
+      captured,
     } as CircuitClimbViewModel,
     beginGame,
     restartGame,
@@ -2286,6 +2360,7 @@ export function useCircuitClimbPrototypeRuntime() {
       getRows: () => (loopControlRef.current as any).debugGetRows?.() || [],
       getPursuer: () => (loopControlRef.current as any).debugGetPursuer?.() || null,
       getPursuerSteps: () => (loopControlRef.current as any).debugGetPursuerSteps?.() || [],
+      buildPursuerLog: () => (loopControlRef.current as any).buildPursuerLog?.() || null,
       setPursuerTrace: (on: boolean) => (loopControlRef.current as any).debugSetPursuerTrace?.(on),
       getPlayer: () => (loopControlRef.current as any).debugGetPlayer?.() || null,
       getPlayerPresentation: () => (loopControlRef.current as any).debugGetPlayerPresentation?.() || null,

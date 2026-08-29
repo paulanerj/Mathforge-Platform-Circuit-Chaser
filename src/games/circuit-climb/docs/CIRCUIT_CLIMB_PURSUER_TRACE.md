@@ -70,6 +70,18 @@ The runtime then classifies it:
 Both reports carry the full last step, the chosen corridors, the collision band,
 and `distanceToPlayer`.
 
+## Downloading the log
+
+The gear panel carries a **Download bot log (.json)** button. It writes the whole
+recorded run: the world constants in force, the run state, the pursuer's final
+state, a summary (frames recorded, stalled frames, stall reasons, mode counts),
+and every recorded step.
+
+In a published artifact the file goes through the viewer's download
+confirmation; in a plain browser tab it saves directly. The ring buffer holds
+5000 frames (roughly 80 seconds); when it is full the summary says so and the
+oldest frames have rolled off.
+
 ## Programmatic access
 
 The runtime keeps a bounded ring buffer (900 frames) regardless of the verbose
@@ -78,8 +90,23 @@ flag, reachable through the runtime's debug surface:
 ```ts
 runtime.debug.getPursuer();        // current pursuer state
 runtime.debug.getPursuerSteps();   // the recorded steps
+runtime.debug.buildPursuerLog();   // the exact object the download writes
 runtime.debug.setPursuerTrace(true);
 ```
+
+## Capture
+
+The pursuer ends the run on contact. `PURSUER_CAPTURE_DISTANCE` is the
+centre-to-centre distance that counts as caught; both actors carry a radius, so
+it is a solid overlap rather than a graze. On capture `PursuerState.state`
+becomes `CAUGHT`, the pursuer stops moving, and the runtime freezes the board,
+fires a red burst and holds until Restart.
+
+For the pursuer to close the last few units it needs to reach the surface the
+player is standing on. The player rests inside the top padding of its own
+platform, so that one platform — matched by id, never by a loose comparison —
+has its top padding opened to the pursuer. The platform body below `platform.y`
+stays solid: nothing is passed through.
 
 ## What this trace found
 

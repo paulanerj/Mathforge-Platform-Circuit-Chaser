@@ -1,13 +1,21 @@
 import { CIRCUIT_CLIMB_GEOMETRY as CONFIG, computePlatformCollisionRects, pathIsClear, computeActorSafeCorridors } from '../geometry/circuitClimbGeometry';
 import type { PursuerMode, PursuerStep, PursuerStallReason } from './circuitClimbPursuerTrace';
 
+export type PursuerLifecycle = 'PURSUING' | 'CAUGHT';
+
 export interface PursuerState {
   x: number;
   y: number;
   radius: number;
   speed: number;
-  state: 'PURSUING';
+  state: PursuerLifecycle;
 }
+
+/**
+ * Centre-to-centre distance at which the pursuer has the player. The actors
+ * carry a radius each, so this is a solid overlap rather than a graze.
+ */
+export const PURSUER_CAPTURE_DISTANCE = CONFIG.playerRadius;
 
 export function createPursuer(playerX: number, playerY: number): PursuerState {
   return {
@@ -21,7 +29,7 @@ export function createPursuer(playerX: number, playerY: number): PursuerState {
 
 export function updatePursuer(
   pursuer: PursuerState,
-  player: { x: number; y: number },
+  player: { x: number; y: number; platform?: any },
   activePlatforms: any[],
   delta: number,
   onStep?: (step: PursuerStep) => void
@@ -111,7 +119,20 @@ export function updatePursuer(
 
   // Purely Orthogonal Movement
   let remainingStep = step;
-  const rects = computePlatformCollisionRects(activePlatforms, pursuer.radius);
+  const rects = computePlatformCollisionRects(activePlatforms, pursuer.radius).map((rect) => {
+    // The player rests inside the top padding of the platform it stands on, so
+    // that band has to be enterable or the pursuer can never close the last few
+    // units. Scoped to that one platform by id, and only its padding: the
+    // platform body below platform.y stays solid, so nothing is passed through.
+    if (
+      player.platform &&
+      rect.platform.id !== undefined &&
+      rect.platform.id === player.platform.id
+    ) {
+      return { ...rect, top: rect.platform.y };
+    }
+    return rect;
+  });
 
   // 1. Horizontal Movement
   const dx = targetX - next.x;
@@ -175,6 +196,11 @@ export function updatePursuer(
   // Keep pursuer within logical width bounds
   const minClearance = pursuer.radius + 6;
   next.x = Math.max(minClearance, Math.min(CONFIG.logicalWidth - minClearance, next.x));
+
+  const distanceToPlayer = Math.hypot(player.x - next.x, player.y - next.y);
+  if (distanceToPlayer <= PURSUER_CAPTURE_DISTANCE) {
+    next.state = 'CAUGHT';
+  }
 
   if (onStep) {
     const mode: PursuerMode =

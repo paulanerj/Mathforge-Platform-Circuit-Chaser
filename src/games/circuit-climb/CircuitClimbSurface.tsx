@@ -91,6 +91,54 @@ export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
     }
   };
 
+  const [logStatus, setLogStatus] = React.useState<string>('');
+
+  const downloadBotLog = async () => {
+    const log = runtime.debug?.buildPursuerLog?.();
+    if (!log) {
+      setLogStatus('No bot log available yet.');
+      return;
+    }
+    const filename = `circuit-climb-bot-log-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    const text = JSON.stringify(log, null, 2);
+    setLogStatus(`Preparing ${log.summary.framesRecorded} frames…`);
+
+    // Published artifacts hand files to the viewer through the downloads
+    // capability, and block object-URL saves outright — so where that host is
+    // present it is the only path, and a null capability means saving is off
+    // rather than a reason to fall through to a link that would do nothing.
+    const host = (window as any).claude;
+    if (host && typeof host.use === 'function') {
+      try {
+        const downloads = await host.use('downloads');
+        if (!downloads) {
+          setLogStatus('Saving is not available in this view.');
+          return;
+        }
+        await downloads.save({ filename, data: text });
+        setLogStatus(`Saved ${log.summary.framesRecorded} frames.`);
+      } catch (error: any) {
+        if (error?.code === 'declined') setLogStatus('Save cancelled.');
+        else setLogStatus(error?.message ? `Save failed: ${error.message}` : 'Save failed.');
+      }
+      return;
+    }
+
+    try {
+      const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      setLogStatus(`Saved ${log.summary.framesRecorded} frames.`);
+    } catch {
+      setLogStatus('This view cannot save files.');
+    }
+  };
+
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'd' || e.key === 'D') {
@@ -227,6 +275,26 @@ export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
             <div className="liveValue"><span>Corners</span><strong>{routeTurnCount}</strong></div>
           </div>
 
+          <div className="rangeHeading secondaryRangeHeading" style={{ marginTop: '18px' }}>
+            <label htmlFor="downloadBotLogButton">Bot event log</label>
+            <output>{logStatus}</output>
+          </div>
+          <button
+            id="downloadBotLogButton"
+            className="settingsAction primary"
+            type="button"
+            style={{ width: '100%' }}
+            onClick={downloadBotLog}
+          >
+            Download bot log (.json)
+          </button>
+          <p className="settingsExplanation" style={{ marginTop: '8px' }}>
+            Every frame the red pursuer has decided on, most recent first to roll off:
+            its mode, the row it treats as an obstacle and that row's collision band,
+            the corridors it considered, what it attempted on each axis, what collision
+            refused, and why any frame produced no movement.
+          </p>
+
           <div className="settingsActions">
             <button id="resetViewButton" className="settingsAction" type="button" onClick={resetViewSettings}>
               Reset
@@ -310,8 +378,11 @@ export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
         </section>
       )}
 
-      {/* C. Paused screen */}
-      {started && paused && (
+      {/* C. Paused screen.
+             Opening the tuner pauses the game, so the paused card is suppressed
+             while it is open — at z-index 24 it sits above the panel (23) and
+             swallows every click meant for it. */}
+      {started && paused && !showViewSettings && (
         <section id="pauseOverlay" className="overlay">
           <div className="overlayPanel">
             <div className="eyebrow">Circuit suspended</div>

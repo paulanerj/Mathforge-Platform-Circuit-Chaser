@@ -97,6 +97,8 @@ export interface PursuerStallReport {
 export class PursuerTracer {
   private buffer: PursuerStep[] = [];
   private capacity: number;
+  /** How many frames the ring buffer holds before the oldest roll off. */
+  readonly capacityFrames: number;
   private frameCounter = 0;
   private stallFrames = 0;
   private stallMs = 0;
@@ -105,8 +107,9 @@ export class PursuerTracer {
   /** Consecutive stalled frames before a stall is reported. */
   readonly stallFrameThreshold: number;
 
-  constructor(capacity = 900, stallFrameThreshold = 45) {
+  constructor(capacity = 5000, stallFrameThreshold = 45) {
     this.capacity = capacity;
+    this.capacityFrames = capacity;
     this.stallFrameThreshold = stallFrameThreshold;
   }
 
