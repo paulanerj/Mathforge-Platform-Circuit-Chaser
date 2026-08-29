@@ -55,6 +55,19 @@ the obstacle.
 | `ALREADY_AT_TARGET_AND_PLAYER_LEVEL` | nothing left to do — already where it wants to be |
 | `NO_VERTICAL_INTENT` | no climb was requested |
 
+## Two alerts, not one
+
+**`CIRCUIT_CLIMB_PURSUER_STALLED`** requires *exact* zero movement, which is a
+narrow net. A pursuer that crawls, sweeps on the spot, or slowly loses ground is
+moving every single frame and slips straight through it.
+
+**`CIRCUIT_CLIMB_PURSUER_NOT_CLOSING`** catches that. It watches whether the gap
+to the player is actually shrinking over a 300-frame window, not whether the
+pixels changed, and only judges a pursuer at least 260 units away — close
+quarters is a legitimate hold. It exists because a bot creeping upward at a fixed
+1 unit per frame, 538 units below the player, raised nothing at all: it was
+moving, so it was fine as far as the tracer was concerned. It was not fine.
+
 ## Jam versus hold
 
 After 45 consecutive motionless frames (about 0.75s) the tracer raises a report.
@@ -123,3 +136,17 @@ declared irrelevant (`mustCross=false`), driving upward into it for 186 of 360
 frames with zero horizontal movement. The gate deciding `mustCross` compared the
 player against the band's **top** edge; a player standing on a row rests *inside*
 that band, never above it, so a solid platform read as clear air.
+
+And the second, reported as "it was chasing, then it got lost and just sat there":
+
+```
+f1258 | SEARCH | pos(205.0,-1350.4)->(205.0,-1352.6) | player(300.0,-1880.0)
+      | desired(220.0,-1351.4) | dist=538.1
+```
+
+538 units below the player, steering for a point one unit above its own head. The
+search target was `Math.min(lastKnownY, y - 1)`; once the pursuer drew level with
+its last sighting that second term won every frame, and a vertical intent of one
+unit caps the move at one unit however fast the search speed is set. It was not
+lost. It was crawling, and no alert fired because it was moving the whole time —
+which is why `NOT_CLOSING` now exists.

@@ -1486,7 +1486,9 @@ export function useCircuitClimbPrototypeRuntime() {
             // simply closed as far as the geometry allows, and resumes the moment
             // the player moves. Only a pursuer motionless a row or more away is a
             // genuine break in the navigation chain.
-            if (stall.distanceToPlayer > CONFIG.rowGap) {
+            if (stall.kind === 'NOT_CLOSING') {
+              console.warn('CIRCUIT_CLIMB_PURSUER_NOT_CLOSING', stall);
+            } else if (stall.distanceToPlayer > CONFIG.rowGap) {
               console.warn('CIRCUIT_CLIMB_PURSUER_STALLED', stall);
             } else if (pursuerTraceVerbose) {
               console.log('CIRCUIT_CLIMB_PURSUER_HOLDING', stall);

@@ -157,10 +157,21 @@ export function updatePursuer(
   // choice it can never travel far enough to act on.
   const desiredX = searching ? next.lastKnownX + sweep : player.x;
   const navigationX = searching ? next.lastKnownX : player.x;
-  // Searching heads for the last sighting; once it is level with that and still
-  // has nothing, it keeps drifting upward, because up is the only way the
-  // player ever goes.
-  const desiredY = searching ? Math.min(next.lastKnownY, next.y - 1) : player.y;
+  // Searching heads for the last sighting, and once it is past that it keeps
+  // pushing upward, because up is the only way the player ever goes.
+  //
+  // The second term used to be `next.y - 1`. Once the pursuer drew level with
+  // the sighting that branch won every frame, and a vertical intent of one unit
+  // caps the move at one unit — the pursuer crawled at a fixed 1 unit per frame
+  // however fast it was configured to search, and looked like it had given up.
+  // A whole row of intent gives the frame budget something to spend itself on.
+  //
+  // It has to stay a `min` against the sighting rather than a tolerance band: an
+  // "arrived yet?" test flips back and forth as the pursuer crosses the band and
+  // leaves it oscillating around the sighting instead of searching onward.
+  const desiredY = searching
+    ? Math.min(next.lastKnownY, next.y - CONFIG.rowGap)
+    : player.y;
 
   const baseSpeed = next.behaviour === 'CHASE' ? tuning.chaseSpeed : tuning.searchSpeed;
   const jitter = tuning.speedJitter > 0

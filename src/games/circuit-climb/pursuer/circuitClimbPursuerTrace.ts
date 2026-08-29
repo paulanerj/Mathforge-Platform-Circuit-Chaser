@@ -78,7 +78,19 @@ export type PursuerStallReason =
   | 'HORIZONTAL_BLOCKED_CONSUMED_BUDGET'
   | 'NO_VERTICAL_INTENT';
 
+/**
+ * Why the tracer raised an alert.
+ *
+ * `STALLED` needs exact zero movement, which is a narrow net: a pursuer that
+ * crawls, sweeps on the spot, or drifts away from its target is moving every
+ * frame and slips straight through it. `NOT_CLOSING` catches that — it looks at
+ * whether the gap to the player is actually shrinking, not whether the pixels
+ * changed. The 1-unit-per-frame search crawl was invisible until it existed.
+ */
+export type PursuerAlertKind = 'STALLED' | 'NOT_CLOSING';
+
 export interface PursuerStallReport {
+  kind: PursuerAlertKind;
   frames: number;
   durationMs: number;
   reason: PursuerStallReason;
@@ -113,14 +125,28 @@ export class PursuerTracer {
   private stallFrames = 0;
   private stallMs = 0;
   private reported = false;
+  private progress: { distance: number; delta: number }[] = [];
+  private driftReported = false;
+
+  /** Frames of no closing before NOT_CLOSING is raised. */
+  readonly progressWindowFrames: number;
+  /** Only judged when the pursuer is at least this far from the player. */
+  readonly progressMinDistance: number;
 
   /** Consecutive stalled frames before a stall is reported. */
   readonly stallFrameThreshold: number;
 
-  constructor(capacity = 5000, stallFrameThreshold = 45) {
+  constructor(
+    capacity = 5000,
+    stallFrameThreshold = 45,
+    progressWindowFrames = 300,
+    progressMinDistance = 260,
+  ) {
     this.capacity = capacity;
     this.capacityFrames = capacity;
     this.stallFrameThreshold = stallFrameThreshold;
+    this.progressWindowFrames = progressWindowFrames;
+    this.progressMinDistance = progressMinDistance;
   }
 
   nextFrame(): number {
@@ -138,11 +164,13 @@ export class PursuerTracer {
       this.buffer.shift();
     }
 
+    const drift = this.recordProgress(step);
+
     if (!step.stalled) {
       this.stallFrames = 0;
       this.stallMs = 0;
       this.reported = false;
-      return null;
+      return drift;
     }
 
     this.stallFrames += 1;
@@ -154,10 +182,54 @@ export class PursuerTracer {
 
     this.reported = true;
     return {
+      kind: 'STALLED',
       frames: this.stallFrames,
       durationMs: Math.round(this.stallMs),
       reason: step.stallReason || 'NONE',
       distanceToPlayer: Math.hypot(step.player.x - step.to.x, step.player.y - step.to.y),
+      at: step.to,
+      player: step.player,
+      mode: step.mode,
+      nextRowY: step.nextRowY,
+      rowTop: step.rowTop,
+      rowBottom: step.rowBottom,
+      mustCrossRow: step.mustCrossRow,
+      targetX: step.targetX,
+      corridors: step.corridors,
+      lastStep: step,
+    };
+  }
+
+  /**
+   * Watches whether the gap to the player is closing. A pursuer that moves every
+   * frame but never gets nearer is lost, however busy it looks.
+   */
+  private recordProgress(step: PursuerStep): PursuerStallReport | null {
+    this.progress.push({ distance: step.distanceToPlayer, delta: step.delta });
+    if (this.progress.length > this.progressWindowFrames) this.progress.shift();
+
+    if (this.progress.length < this.progressWindowFrames) return null;
+    if (step.distanceToPlayer < this.progressMinDistance) {
+      this.driftReported = false;
+      return null;
+    }
+
+    const opened = this.progress[0].distance;
+    const closest = Math.min(...this.progress.map((entry) => entry.distance));
+    if (closest < opened - 1) {
+      // It got nearer at some point in the window: it is still hunting.
+      this.driftReported = false;
+      return null;
+    }
+    if (this.driftReported) return null;
+
+    this.driftReported = true;
+    return {
+      kind: 'NOT_CLOSING',
+      frames: this.progress.length,
+      durationMs: Math.round(this.progress.reduce((sum, e) => sum + e.delta, 0)),
+      reason: step.stallReason || 'NONE',
+      distanceToPlayer: step.distanceToPlayer,
       at: step.to,
       player: step.player,
       mode: step.mode,
@@ -181,6 +253,8 @@ export class PursuerTracer {
     this.stallFrames = 0;
     this.stallMs = 0;
     this.reported = false;
+    this.progress = [];
+    this.driftReported = false;
   }
 
   /** Compact one-line rendering of a step, for console output. */
