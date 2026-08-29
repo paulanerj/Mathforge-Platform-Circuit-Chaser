@@ -1,6 +1,6 @@
 import { CircuitClimbMathAdapter } from '../services/CircuitClimbMathAdapter';
 import { useState, useEffect, useRef } from 'react';
-import { CIRCUIT_CLIMB_GEOMETRY, computeActorSafeCorridors, computeInversePointerTransform, computePlatformCollisionRects, pathIsClear } from '../geometry/circuitClimbGeometry';
+import { CIRCUIT_CLIMB_GEOMETRY, computeActorSafeCorridors, computeInversePointerTransform, computePlatformCollisionRects, computeRouteCrossingOffset, pathIsClear } from '../geometry/circuitClimbGeometry';
 import { createPursuer, updatePursuer, PursuerState } from '../pursuer/circuitClimbPursuer';
 import { PursuerTracer } from '../pursuer/circuitClimbPursuerTrace';
 
@@ -846,11 +846,7 @@ export function useCircuitClimbPrototypeRuntime() {
         Math.max(16, CONFIG.routePlatformPadding * 1.8);
 
       const crossingStartY =
-        destinationRow.y +
-        CONFIG.platformHeight +
-        CONFIG.routePlatformPadding +
-        CONFIG.playerRadius +
-        9;
+        destinationRow.y + computeRouteCrossingOffset(CONFIG);
 
       const midCrossY =
         destinationRow.y +

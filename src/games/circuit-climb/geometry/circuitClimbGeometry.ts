@@ -128,6 +128,35 @@ export function computeInversePointerTransform(
   };
 }
 
+/**
+ * Margin by which a route's crossing altitude must clear the collision band of
+ * the row it passes beneath.
+ */
+export const ROUTE_CROSSING_CLEARANCE = 9;
+
+/**
+ * How far below a destination row a route crosses on its way to a corridor.
+ *
+ * This MUST stay below the row's actor-inflated collision band. Getting it
+ * wrong is not a cosmetic routing wobble: a crossing altitude inside the band
+ * is rejected by pathIsClear on every candidate corridor, buildCircuitPath
+ * returns null, and the learner cannot select any platform at all. That was the
+ * SOT-20 first-move failure. The formula lives here, beside the rect inflation
+ * it has to agree with, so the two cannot drift apart again.
+ */
+export function computeRouteCrossingOffset(config: {
+  platformHeight: number;
+  routePlatformPadding: number;
+  playerRadius: number;
+}) {
+  return (
+    config.platformHeight +
+    config.routePlatformPadding +
+    config.playerRadius +
+    ROUTE_CROSSING_CLEARANCE
+  );
+}
+
 export function computePlatformCollisionRects(platforms: any[], actorRadius = CIRCUIT_CLIMB_GEOMETRY.playerRadius) {
   const pad = CIRCUIT_CLIMB_GEOMETRY.routePlatformPadding + actorRadius;
   const rects: any[] = [];
