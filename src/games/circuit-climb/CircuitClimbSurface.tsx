@@ -70,6 +70,8 @@ export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
     pursuerPreset,
     pursuerTuning,
     pursuerBehaviour,
+    sparkAvoidance,
+    sparkShielded,
     showCollisionHitboxes,
     showSumToCue,
     showConfig,
@@ -295,6 +297,42 @@ export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
             <div className="liveValue"><span>Player</span><strong>{Math.round(32 * (viewScalePercent / 100))}</strong></div>
             <div className="liveValue"><span>Corners</span><strong>{routeTurnCount}</strong></div>
           </div>
+
+          <div className="rangeHeading secondaryRangeHeading" style={{ marginTop: '20px' }}>
+            <label htmlFor="sparkAvoidanceSlider">Spark avoidance</label>
+            <output>{sparkAvoidance.toFixed(2)}</output>
+          </div>
+          <input
+            id="sparkAvoidanceSlider"
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={sparkAvoidance}
+            onChange={(e) => runtime.setSparkAvoidance(Number(e.target.value))}
+          />
+          <p className="settingsExplanation" style={{ marginTop: '6px' }}>
+            How hard the spark steers its route away from the bot. It only ever
+            reorders routes collision has already approved, so it can make a climb
+            safer but never make a platform unselectable. 0 is the original
+            routing, which ignores the bot entirely.
+          </p>
+
+          <div className="rangeHeading secondaryRangeHeading">
+            <label htmlFor="sparkShieldedToggle">Shield spark in transit</label>
+            <input
+              id="sparkShieldedToggle"
+              type="checkbox"
+              checked={sparkShielded}
+              onChange={(e) => runtime.setSparkShielded(e.target.checked)}
+              style={{ accentColor: 'var(--lime)', transform: 'scale(1.2)' }}
+            />
+          </div>
+          <p className="settingsExplanation" style={{ marginTop: '6px' }}>
+            When on, a spark already travelling cannot be taken — only a landed
+            one can. The learner picks a destination, not a path, so a collision
+            they had no way to avoid is a harsh way to lose. Hesitating still is.
+          </p>
 
           <div className="rangeHeading secondaryRangeHeading" style={{ marginTop: '20px' }}>
             <label htmlFor="pursuerPresetSelect">Bot behaviour</label>

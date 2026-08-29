@@ -92,7 +92,14 @@ function sweepDirection(age: number, periodMs: number, seed: number) {
 
 export function updatePursuer(
   pursuer: PursuerState,
-  player: { x: number; y: number; platform?: any; traveling?: boolean },
+  player: {
+    x: number;
+    y: number;
+    platform?: any;
+    traveling?: boolean;
+    /** false while the spark cannot be taken — see the shielded-transit rule. */
+    capturable?: boolean;
+  },
   activePlatforms: any[],
   delta: number,
   onStep?: (step: PursuerStep) => void
@@ -338,7 +345,10 @@ export function updatePursuer(
   const minClearance = pursuer.radius + 6;
   next.x = Math.max(minClearance, Math.min(CONFIG.logicalWidth - minClearance, next.x));
 
-  if (Math.hypot(player.x - next.x, player.y - next.y) <= PURSUER_CAPTURE_DISTANCE) {
+  if (
+    player.capturable !== false &&
+    Math.hypot(player.x - next.x, player.y - next.y) <= PURSUER_CAPTURE_DISTANCE
+  ) {
     next.state = 'CAUGHT';
   }
 

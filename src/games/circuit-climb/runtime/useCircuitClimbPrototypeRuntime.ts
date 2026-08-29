@@ -1,6 +1,6 @@
 import { CircuitClimbMathAdapter } from '../services/CircuitClimbMathAdapter';
 import { useState, useEffect, useRef } from 'react';
-import { CIRCUIT_CLIMB_GEOMETRY, computeActorSafeCorridors, computeInversePointerTransform, computePlatformCollisionRects, computeRouteCrossingOffset, pathIsClear } from '../geometry/circuitClimbGeometry';
+import { CIRCUIT_CLIMB_GEOMETRY, computeActorSafeCorridors, computeInversePointerTransform, computePlatformCollisionRects, computeRouteCrossingOffset, chooseRouteAgainstThreat, pathClearance, pathIsClear } from '../geometry/circuitClimbGeometry';
 import { createPursuer, updatePursuer, PursuerState } from '../pursuer/circuitClimbPursuer';
 import { PursuerTracer } from '../pursuer/circuitClimbPursuerTrace';
 import {
@@ -33,6 +33,8 @@ export interface CircuitClimbViewModel {
   pursuerPreset: PursuerTuningPreset;
   pursuerTuning: PursuerTuning;
   pursuerBehaviour: 'SEARCH' | 'ALERT' | 'CHASE' | 'CAUGHT';
+  sparkAvoidance: number;
+  sparkShielded: boolean;
   debug?: any;
 }
 
@@ -62,6 +64,8 @@ export function useCircuitClimbPrototypeRuntime() {
   const [pursuerPreset, setPursuerPreset] = useState<PursuerTuningPreset>('alive');
   const [pursuerTuning, setPursuerTuningState] = useState<PursuerTuning>({ ...ALIVE_PURSUER_TUNING });
   const [pursuerBehaviour, setPursuerBehaviour] = useState<'SEARCH' | 'ALERT' | 'CHASE' | 'CAUGHT'>('SEARCH');
+  const [sparkAvoidance, setSparkAvoidanceState] = useState(0.75);
+  const [sparkShielded, setSparkShieldedState] = useState(false);
   const settingsWasPausedRef = useRef(false);
 
   // Control reference to trigger game engine actions from React components
@@ -258,6 +262,45 @@ export function useCircuitClimbPrototypeRuntime() {
         // fall through to the default preset
       }
       return { preset: 'alive', tuning: { ...ALIVE_PURSUER_TUNING } };
+    }
+
+    let engineSparkAvoidance = 0.75;
+    try {
+      const saved = window.localStorage.getItem('circuitClimbSparkAvoidance');
+      if (saved !== null && Number.isFinite(Number(saved))) {
+        engineSparkAvoidance = Math.max(0, Math.min(1, Number(saved)));
+      }
+    } catch {
+      // keep the default
+    }
+    setSparkAvoidanceState(engineSparkAvoidance);
+
+    function applySparkAvoidance(value: number) {
+      engineSparkAvoidance = Math.max(0, Math.min(1, Number(value) || 0));
+      setSparkAvoidanceState(engineSparkAvoidance);
+      try {
+        window.localStorage.setItem('circuitClimbSparkAvoidance', String(engineSparkAvoidance));
+      } catch {
+        // non-fatal
+      }
+    }
+
+    let engineSparkShielded = false;
+    try {
+      engineSparkShielded = window.localStorage.getItem('circuitClimbSparkShielded') === '1';
+    } catch {
+      engineSparkShielded = false;
+    }
+    setSparkShieldedState(engineSparkShielded);
+
+    function applySparkShielded(value: boolean) {
+      engineSparkShielded = !!value;
+      setSparkShieldedState(engineSparkShielded);
+      try {
+        window.localStorage.setItem('circuitClimbSparkShielded', engineSparkShielded ? '1' : '0');
+      } catch {
+        // non-fatal
+      }
     }
 
     const savedPursuer = readSavedPursuerTuning();
@@ -829,6 +872,30 @@ export function useCircuitClimbPrototypeRuntime() {
       return pathIsClear(points, rects, options);
     }
 
+    /**
+     * The pursuer as the spark sees it when picking a route: a point to keep
+     * away from, and nothing more. It never reaches isPathClear — see
+     * chooseRouteAgainstThreat for why that separation is load-bearing.
+     */
+    function routeThreat() {
+      if (!pursuer || pursuer.state === 'CAUGHT') return null;
+      return { x: pursuer.x, y: pursuer.y };
+    }
+
+    /** How near the pursuer a route has to pass before it counts as exposed. */
+    function threatRadius() {
+      return CONFIG.playerRadius * 2 + 60;
+    }
+
+    /**
+     * Arc length of the route to ignore when judging exposure. Every candidate
+     * leaves the same platform, so the opening leg is common to all of them and
+     * tells us nothing about which is safer.
+     */
+    function threatSkipDistance() {
+      return threatRadius() * 1.5;
+    }
+
     function cleanCircuitPath(points: any[]) {
       const out = [points[0]];
       for (let i = 1; i < points.length; i += 1) {
@@ -1054,6 +1121,9 @@ export function useCircuitClimbPrototypeRuntime() {
         ...corridors.filter((corridor) => corridor !== preferred),
       ];
 
+      // Every corridor that collision approves, in natural preference order.
+      // The pursuer gets to pick among these; it never gets to empty the list.
+      const clearCandidates: { points: any[] }[] = [];
       for (const corridor of orderedCorridors) {
         const candidate = buildSteppedRoute(
           from,
@@ -1062,8 +1132,19 @@ export function useCircuitClimbPrototypeRuntime() {
           corridor,
         );
         if (isPathClear(candidate, platform)) {
-          return candidate;
+          clearCandidates.push({ points: candidate });
         }
+      }
+
+      if (clearCandidates.length > 0) {
+        const chosen = chooseRouteAgainstThreat(
+          clearCandidates,
+          routeThreat(),
+          engineSparkAvoidance,
+          threatRadius(),
+          threatSkipDistance(),
+        );
+        return clearCandidates[Math.max(0, chosen)].points;
       }
 
       const minActorClearance = CONFIG.playerRadius + 6;
@@ -1381,6 +1462,10 @@ export function useCircuitClimbPrototypeRuntime() {
           y: player.y,
           platform: player.platform,
           traveling: !!travel,
+          // Shielded transit: a spark mid-route cannot be taken. The learner
+          // chose a destination, not a path, so a collision they had no way to
+          // avoid is not a fair way to lose. Hesitating still is.
+          capturable: !(engineSparkShielded && !!travel),
         };
         pursuer = updatePursuer(pursuer, sensedPlayer, getActivePlatforms(), delta, (rawStep) => {
           const pursuerStep = { ...rawStep, frame: pursuerTracer.nextFrame() };
@@ -2295,6 +2380,12 @@ export function useCircuitClimbPrototypeRuntime() {
       debugGetPursuer: () => pursuer,
       applyPursuerPreset,
       applyPursuerTuning,
+      applySparkAvoidance,
+      applySparkShielded,
+      debugRouteClearance: (points: any[]) => {
+        const threat = routeThreat();
+        return threat ? pathClearance(points, threat, threatSkipDistance()) : Infinity;
+      },
       debugGetPursuerSteps: () => pursuerTracer.steps(),
       buildPursuerLog: () => {
         const steps = pursuerTracer.steps();
@@ -2405,6 +2496,10 @@ export function useCircuitClimbPrototypeRuntime() {
     (loopControlRef.current as any).applyPursuerPreset?.(name);
   const setPursuerTuningControl = (patch: Partial<PursuerTuning>) =>
     (loopControlRef.current as any).applyPursuerTuning?.(patch);
+  const setSparkAvoidanceControl = (value: number) =>
+    (loopControlRef.current as any).applySparkAvoidance?.(value);
+  const setSparkShieldedControl = (value: boolean) =>
+    (loopControlRef.current as any).applySparkShielded?.(value);
 
   const openViewSettings = () => {
     settingsWasPausedRef.current = paused;
@@ -2461,6 +2556,8 @@ export function useCircuitClimbPrototypeRuntime() {
       pursuerPreset,
       pursuerTuning,
       pursuerBehaviour,
+      sparkAvoidance,
+      sparkShielded,
     } as CircuitClimbViewModel,
     beginGame,
     restartGame,
@@ -2479,6 +2576,8 @@ export function useCircuitClimbPrototypeRuntime() {
     setShowSumToCue: (v: boolean) => setShowSumToCue(v),
     setPursuerPreset: setPursuerPresetControl,
     setPursuerTuning: setPursuerTuningControl,
+    setSparkAvoidance: setSparkAvoidanceControl,
+    setSparkShielded: setSparkShieldedControl,
     debug: {
       getRows: () => (loopControlRef.current as any).debugGetRows?.() || [],
       getPursuer: () => (loopControlRef.current as any).debugGetPursuer?.() || null,

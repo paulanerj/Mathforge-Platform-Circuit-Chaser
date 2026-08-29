@@ -103,3 +103,85 @@ The tuning struct is the seam. A difficulty setting, or an adaptive one driven b
 how the learner is performing, sets these numbers — it does not touch pursuer
 code. Relaxed is a slower chase and a shorter sense radius; pressure is a faster
 chase, a wider sense radius and a shorter hesitation.
+
+---
+
+# Spark route avoidance
+
+The learner picks a *destination*, not a path. The route generator then flies the
+spark along a stepped route it had no say in. When the bot happened to be sitting
+on that route, the spark flew into it — a loss with no available counterplay,
+which is what made the spark look stupid.
+
+## The rule that matters
+
+**The pursuer never enters `isPathClear`.**
+
+Routes are built and validated by collision exactly as before. The pursuer is
+handed the list of already-approved routes and may only **reorder** it. It cannot
+reject one, and it cannot empty the list.
+
+This is not fussiness. Route rejection is what made every platform unclickable in
+SOT 20: every candidate refused, `buildCircuitPath` returned null, and
+`selectPlatform` bailed in silence. A pursuer with veto power over routes could
+reproduce that exactly by standing in the wrong place. `chooseRouteAgainstThreat`
+is a pure ranking function over routes someone else already approved, and
+`circuitClimbSparkAvoidance.test.ts` locks that: whatever the threat and whatever
+the avoidance weight, it always returns a candidate that was offered.
+
+## How a route is scored
+
+Natural preference and exposure are both normalised to 0..1 and blended, so
+`avoidance` reads as the balance between them:
+
+```
+rank     = index / (candidates - 1)          // natural preference, 0..1
+exposure = max(0, 1 - clearance / radius)    // 0 clear, 1 straight through
+score    = rank * (1 - avoidance) + exposure * avoidance * 2 + rank * 1e-3
+```
+
+Exposure carries double weight so that at avoidance 0.5 a route running straight
+through the bot still loses to a clear detour. The trailing rank term breaks ties
+in favour of the natural route. At avoidance 0 the score is the rank, which is
+the original "first clear route wins" ordering exactly.
+
+Two things this had to get right, both found by measurement rather than reading:
+
+- **Raw list position cannot be the rank term.** A rank gap of 1 buried an
+  exposure of 0.26, so a route passing 83 units from the bot kept winning against
+  a clean alternative 163 away.
+- **Clearance ignores the opening leg** (`skipDistance`). Every candidate leaves
+  the same platform, so when the bot is near the actor — exactly when it is
+  dangerous — the shared opening dominates the measurement and every candidate
+  scores identically. Nothing ever diverted until this was fixed.
+
+## What it is worth, measured
+
+Over 24 routes of real play with the bot active:
+
+| | routes | opportunities | diverted | clearance gained |
+|---|--:|--:|--:|--:|
+| avoidance 0 | 34 | 0 | 0 | — |
+| avoidance 1 | 24 | 1 | 1 | 69 → 209 |
+
+It fires correctly when it can. **It can rarely help.** All candidate routes share
+a start and a destination platform, and when the bot is dangerous it is usually
+near one of those — which every candidate passes through regardless. Corridor
+choice only helps when the bot is parked mid-row, off to one side.
+
+So avoidance is worth having — it is cheap, safe, and free when idle — but it is
+not on its own an answer to "the spark flew into the bot".
+
+## Shielded transit
+
+The setting that does answer it. When **Shield spark in transit** is on, a spark
+already travelling cannot be taken; only a landed one can.
+
+It reframes the loss condition around something the learner controls. Hesitating
+over the arithmetic is what gets you caught; the flight itself is not a dice roll
+on where the bot happened to drift. `player.capturable` is the only thing it
+changes — the pursuer still closes, still navigates, still behaves identically in
+every other respect.
+
+Off by default, because it changes the game's contract and that is the owner's
+call, not a default to slip in.

@@ -190,6 +190,111 @@ export function segmentHitsRect(a: any, b: any, rect: any) {
   return true;
 }
 
+/** Shortest distance from a point to a line segment. */
+export function distancePointToSegment(
+  point: { x: number; y: number },
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared === 0) return Math.hypot(point.x - a.x, point.y - a.y);
+  let t = ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy));
+}
+
+/**
+ * How close a route passes to a point, at its closest.
+ *
+ * `skipDistance` ignores that much arc length from the start of the route.
+ * Every candidate route leaves from the same place, so when the threat is near
+ * the actor — which is exactly when it is dangerous — the shared opening leg
+ * dominates the measurement and every candidate scores the same. Skipping it
+ * measures the part of the route the candidates actually differ on.
+ */
+export function pathClearance(
+  points: any[],
+  point: { x: number; y: number },
+  skipDistance = 0,
+) {
+  if (!points || points.length === 0) return Infinity;
+  if (points.length === 1) return Math.hypot(point.x - points[0].x, point.y - points[0].y);
+
+  let travelled = 0;
+  let closest = Infinity;
+  for (let i = 1; i < points.length; i += 1) {
+    const a = points[i - 1];
+    const b = points[i];
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    const segmentEnd = travelled + length;
+
+    if (segmentEnd > skipDistance) {
+      // Clip the segment to the part beyond the skipped opening.
+      let start = a;
+      if (travelled < skipDistance && length > 0) {
+        const t = (skipDistance - travelled) / length;
+        start = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+      }
+      closest = Math.min(closest, distancePointToSegment(point, start, b));
+    }
+    travelled = segmentEnd;
+  }
+  // A route shorter than the skip distance has nothing left to judge.
+  return closest;
+}
+
+/**
+ * Picks which of several already-validated routes to travel, given a threat to
+ * steer around.
+ *
+ * The threat only ever REORDERS candidates. It cannot reject one, and this
+ * function is never given a route that collision has not already approved.
+ * That separation is deliberate: route rejection is what made every platform
+ * unclickable in SOT 20, and a pursuer that can veto routes would be able to
+ * reproduce that by standing in the wrong place.
+ *
+ * `avoidance` 0 returns the first candidate — exactly the "first clear route
+ * wins" ordering that shipped before threat awareness existed. At 1 a route
+ * passing right through the threat loses to any route that keeps its distance.
+ */
+export function chooseRouteAgainstThreat(
+  candidates: { points: any[] }[],
+  threat: { x: number; y: number } | null,
+  avoidance: number,
+  threatRadius: number,
+  skipDistance = 0,
+) {
+  if (candidates.length === 0) return -1;
+  const weight = Math.max(0, Math.min(1, avoidance));
+  if (!threat || weight === 0 || threatRadius <= 0) return 0;
+
+  // Natural preference and exposure are both normalised to 0..1 and blended, so
+  // `avoidance` reads as the balance between them rather than as an arbitrary
+  // magnitude. Raw list position cannot be used directly: a rank gap of 1 buries
+  // an exposure of 0.26, which is how a genuinely exposed route kept winning
+  // against a clean alternative.
+  //
+  // Exposure carries double weight so that at avoidance 0.5 a route running
+  // straight through the threat still loses to a clear detour. A tiny rank term
+  // survives at every weight to break ties in favour of the natural route.
+  let bestIndex = 0;
+  let bestScore = Infinity;
+  const span = Math.max(1, candidates.length - 1);
+  candidates.forEach((candidate, index) => {
+    const rank = index / span;
+    const clearance = pathClearance(candidate.points, threat, skipDistance);
+    const exposure = Math.max(0, 1 - clearance / threatRadius);
+    const score = rank * (1 - weight) + exposure * weight * 2 + rank * 1e-3;
+    if (score < bestScore) {
+      bestScore = score;
+      bestIndex = index;
+    }
+  });
+  return bestIndex;
+}
+
 export function pathIsClear(
   points: any[], 
   rects: any[], 
