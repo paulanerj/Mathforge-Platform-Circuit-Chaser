@@ -1,5 +1,18 @@
 # CIRCUIT CLIMB — ENGINEERING HANDOFF
 
+> ## CURRENT AUTHORITATIVE SUCCESSOR SOT
+> ### → [`CIRCUIT_CLIMB_SUCCESSOR_SOT_HANDOFF_01.md`](./CIRCUIT_CLIMB_SUCCESSOR_SOT_HANDOFF_01.md)
+>
+> **Read that document first.** It is the current source of truth: product
+> design, architecture, the learner routing contract, the lock suite, pursuer
+> state, debugging, known limitations, the next-work roadmap, and instructions
+> for the incoming coder.
+>
+> The document below predates it and is kept as history. Where the two differ,
+> the successor SOT wins.
+
+---
+
 Written for whoever picks this up next. It assumes you have not read the
 conversation that produced it.
 
