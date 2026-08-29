@@ -13,7 +13,7 @@ and what was verified to establish it.
 | PM-observed commit | `923b2fc` |
 | Acceptance start commit | `0f6eeb9` |
 | Repair commit | `c485a20` |
-| Final commit | `41a23a7` |
+| Final commit | the commit carrying this document — `git log -1 --format=%h -- <this file>` |
 
 **The acceptance start commit is one ahead of the PM-observed SHA.** `0f6eeb9`
 is the search-crawl repair made in response to the "it got lost and just sat
