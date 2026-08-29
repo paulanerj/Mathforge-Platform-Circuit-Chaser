@@ -741,9 +741,11 @@ export function useCircuitClimbPrototypeRuntime() {
     function isPathClear(points: any[], destinationPlatform?: any) {
       const activePlatforms = getActivePlatforms();
       const rects = computePlatformCollisionRects(activePlatforms, CONFIG.playerRadius);
-      const options = destinationPlatform 
-        ? { destinationPlatform, landingPoint: landingPoint(destinationPlatform) } 
-        : undefined;
+      const options = { 
+        destinationPlatform, 
+        landingPoint: destinationPlatform ? landingPoint(destinationPlatform) : undefined,
+        sourcePlatform: player.platform
+      };
       return pathIsClear(points, rects, options);
     }
 

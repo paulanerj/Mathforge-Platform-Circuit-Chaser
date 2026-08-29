@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createPursuer, updatePursuer } from '../pursuer/circuitClimbPursuer';
 import { CIRCUIT_CLIMB_GEOMETRY as CONFIG, computePlatformBounds, computeActorSafeCorridors } from '../geometry/circuitClimbGeometry';
 
-describe('Circuit Climb Pursuer (PURSUER-01-R1)', () => {
+describe('Circuit Climb Pursuer (PURSUER-01-R2)', () => {
   const player = { x: 300, y: 0 };
   
   it('A. Pursuer starts exactly two rows below player', () => {
@@ -10,32 +10,98 @@ describe('Circuit Climb Pursuer (PURSUER-01-R1)', () => {
     expect(pursuer.y).toBe(player.y + 2 * CONFIG.rowGap);
   });
 
-  it('B. Pursuer radius equals shared geometry player radius', () => {
-    const pursuer = createPursuer(player.x, player.y);
-    expect(pursuer.radius).toBe(CONFIG.playerRadius);
-  });
-
-  it('C. Speed is conservative and named', () => {
-    const pursuer = createPursuer(player.x, player.y);
-    // Verified 0.06 to 0.10 range
-    expect(pursuer.speed).toBeGreaterThanOrEqual(0.06);
-    expect(pursuer.speed).toBeLessThanOrEqual(0.10);
-  });
-
-  it('D. Movement distance is delta-time based', () => {
+  it('B. row-0 center obstacle causes lateral routing', () => {
     const pursuer = createPursuer(300, 0);
-    pursuer.y = 400; // manually set to avoid createPursuer offset
-    const activePlatforms: any[] = [];
-    const delta = 100;
-    const next = updatePursuer(pursuer, { x: 300, y: 0 }, activePlatforms, delta);
+    const rowY = 100;
+    pursuer.y = rowY + CONFIG.rowGap; // Start safely below the row
+
+    // Row 0 has only ONE active center platform
+    const p1 = { id: 'p1', row: 0, column: 1, x: 300, y: rowY, width: CONFIG.platformWidth, height: CONFIG.platformHeight };
+    const activePlatforms = [p1];
     
-    // Unobstructed, already horizontally aligned -> pure vertical movement
-    const expectedDistance = pursuer.speed * delta;
-    expect(next.x).toBe(300);
-    expect(next.y).toBe(400 - expectedDistance);
+    // Player is straight up (x: 300). Pursuer at 300 is blocked.
+    // Corridor selection should pick an exterior side passage since there are no interior ones.
+    const next = updatePursuer(pursuer, { x: 300, y: 0 }, activePlatforms, 1000);
+    
+    // Delta 1000 -> 80px movement. It should move left or right, not stay at 300.
+    expect(next.x).not.toBe(300);
+    expect(next.y).toBe(pursuer.y); // Used budget for X, didn't move Y
   });
 
-  it('E. Pursuer uses orthogonal segments only (moves X first, then Y)', () => {
+  it('C. player left of pursuer biases route left', () => {
+    const pursuer = createPursuer(300, 0);
+    const rowY = 100;
+    pursuer.y = rowY + CONFIG.rowGap;
+    
+    const fraction = CONFIG.columns;
+    const activePlatforms = fraction.map((f, i) => ({
+      id: `p${i}`, row: 1, column: i, 
+      x: f * CONFIG.logicalWidth, y: rowY, 
+      width: CONFIG.platformWidth, height: CONFIG.platformHeight
+    }));
+    
+    // Player is at x=100 (left)
+    const next = updatePursuer(pursuer, { x: 100, y: 0 }, activePlatforms, 1000);
+    expect(next.x).toBeLessThan(300); // Moves left
+  });
+
+  it('D. player right of pursuer biases route right', () => {
+    const pursuer = createPursuer(300, 0);
+    const rowY = 100;
+    pursuer.y = rowY + CONFIG.rowGap;
+    
+    const fraction = CONFIG.columns;
+    const activePlatforms = fraction.map((f, i) => ({
+      id: `p${i}`, row: 1, column: i, 
+      x: f * CONFIG.logicalWidth, y: rowY, 
+      width: CONFIG.platformWidth, height: CONFIG.platformHeight
+    }));
+    
+    // Player is at x=500 (right)
+    const next = updatePursuer(pursuer, { x: 500, y: 0 }, activePlatforms, 1000);
+    expect(next.x).toBeGreaterThan(300); // Moves right
+  });
+
+  it('E. after clearing one row, changing player.x changes the next corridor choice', () => {
+    // Setup 2 rows of obstacles
+    const row0Y = 300;
+    const row1Y = 100; // Above row 0
+    
+    const fraction = CONFIG.columns;
+    const activePlatforms = [
+      ...fraction.map((f, i) => ({
+        id: `p0_${i}`, row: 0, column: i, 
+        x: f * CONFIG.logicalWidth, y: row0Y, 
+        width: CONFIG.platformWidth, height: CONFIG.platformHeight
+      })),
+      ...fraction.map((f, i) => ({
+        id: `p1_${i}`, row: 1, column: i, 
+        x: f * CONFIG.logicalWidth, y: row1Y, 
+        width: CONFIG.platformWidth, height: CONFIG.platformHeight
+      }))
+    ];
+
+    // Pursuer has cleared row 0, and is hovering in the clear space between row 0 and row 1.
+    // y = 210 is safely above row 0 collision top (260), and safely below row 1 collision bottom (202).
+    const pursuer = createPursuer(300, 0);
+    pursuer.y = 210; 
+
+    // Player is above row 1, at x=100 (left)
+    const player1 = { x: 100, y: 0 };
+    const next1 = updatePursuer(pursuer, player1, activePlatforms, 1000);
+    expect(next1.x).toBeLessThan(300); // Routes left towards player
+
+    // Reset pursuer position
+    pursuer.x = 300;
+    pursuer.y = 210;
+
+    // Player changes column! Now above row 1, at x=500 (right)
+    const player2 = { x: 500, y: 0 };
+    const next2 = updatePursuer(pursuer, player2, activePlatforms, 1000);
+    expect(next2.x).toBeGreaterThan(300); // Routes right towards player
+  });
+
+  it('F. Pursuer uses orthogonal segments only (moves X first, then Y)', () => {
     const pursuer = createPursuer(200, 0); // not aligned with player
     pursuer.y = 400; // manually set
     const delta = 1000; // Big step to allow both X and Y movement

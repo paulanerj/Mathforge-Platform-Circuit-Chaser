@@ -164,9 +164,10 @@ export function segmentHitsRect(a: any, b: any, rect: any) {
 export function pathIsClear(
   points: any[], 
   rects: any[], 
-  options?: { destinationPlatform?: any; landingPoint?: { x: number, y: number } }
+  options?: { destinationPlatform?: any; landingPoint?: { x: number, y: number }; sourcePlatform?: any }
 ) {
   const destinationPlatform = options?.destinationPlatform;
+  const sourcePlatform = options?.sourcePlatform;
   const landingPoint = options?.landingPoint;
   
   for (let i = 1; i < points.length; i += 1) {
@@ -176,6 +177,13 @@ export function pathIsClear(
 
     for (const rect of rects) {
       if (segmentHitsRect(a, b, rect)) {
+        if (sourcePlatform && rect.platform.id === sourcePlatform.id) {
+          const stricterRect = { ...rect, top: rect.platform.y };
+          if (!segmentHitsRect(a, b, stricterRect)) {
+            continue;
+          }
+        }
+
         if (
           isTerminalSegment &&
           destinationPlatform &&
