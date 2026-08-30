@@ -6,12 +6,17 @@
  * the vitest suite cannot reach the runtime hook, so nothing else proves the
  * game is actually clickable in a browser.
  *
- * Deliberately NOT wired into package.json: it needs a browser and a dev server,
- * neither of which belongs in `npm test`. Nothing imports it.
+ * This is the FAST single-viewport loop. For the supported gate — which starts
+ * its own server, sweeps the viewport and world-framing matrices, and asserts
+ * the canvas actually painted — use:
  *
- *   npm i -D playwright-core            # once; or use your own Playwright
+ *   npm run test:circuit-climb:browser
+ *
+ * This one still expects you to bring your own dev server, because that is what
+ * makes it quick to re-run while iterating on a single width:
+ *
  *   npx vite --port=3000 &              # a dev server on :3000
- *   node src/games/circuit-climb/tools/circuitClimbSmoke.mjs
+ *   npm run test:circuit-climb:smoke
  *
  * Options:  VW=390 CHROME=/path/to/chrome node ...<script>
  * Exits non-zero on failure, so it can gate a release by hand.

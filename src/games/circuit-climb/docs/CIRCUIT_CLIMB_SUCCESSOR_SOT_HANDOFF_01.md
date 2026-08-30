@@ -353,23 +353,65 @@ transit shield, bot behaviour preset, nine pursuer sliders. All persist to
 
 ---
 
-## J. SMOKE HARNESS
+## J. BROWSER SMOKE
 
-`src/games/circuit-climb/tools/circuitClimbSmoke.mjs`
+**One command, and it needs nothing set up first:**
 
 ```bash
-npm i -D playwright-core          # once
-npx vite --port=3000 &            # a dev server
-node src/games/circuit-climb/tools/circuitClimbSmoke.mjs
-# options: VW=390 CHROME=/path/to/chrome URL=http://127.0.0.1:3000/
+npm run test:circuit-climb:browser
+```
+
+It starts its own dev server, finds a Chromium, drives the real application,
+tears everything down, and exits non-zero if the accepted runtime contract is
+broken. About a minute. Full guide:
+`docs/CIRCUIT_CLIMB_BROWSER_SMOKE.md`.
+
+| layer | command | browser | proves |
+|---|---|---|---|
+| unit | `npm test` | no | geometry, routing, pursuer, the 21 locks |
+| browser | `npm run test:circuit-climb:browser` | yes | the real app renders and is playable |
+
+`npm test` is deliberately browser-free. The browser layer is opt-in.
+
+**Coverage.** Viewport matrix 320/390/430/590/768 at default framing — surface
+exists, renders and is not blank, a playable first move, no route failures, no
+console errors. Framing matrix 80/100/120% at 430 — the same render assertion
+plus LEFT, CENTER and RIGHT each selectable, a correct destination resolving, a
+wrong one shorting, Restart giving a clean run, and Pause actually stopping the
+world. Last run: **61/61 in 58.0s**.
+
+**It is the guard on world framing.** Reverting the WORLD-FRAMING-03 repair
+fails the 120% block with `NO_LEGAL_ROUTE` while 80% and 100% keep passing —
+verified by mutation, as was the white-screen case, which fails the render
+assertion at all five viewports.
+
+**"Renders, not blank" is a real assertion**, not a page-load check: the canvas
+is read back and a blank one carries about one distinct colour against a drawn
+board's hundreds. Worth knowing that clicks keep working while the screen is
+blank — hit-testing is independent of drawing — which is why the render check is
+separate and never inferred from a successful click.
+
+`CIRCUIT_CLIMB_PURSUER_NOT_CLOSING` and `..._STALLED` are reported as notes, not
+failures (limitation 7). `CIRCUIT_CLIMB_LEARNER_ROUTE_FAILED` is fatal.
+
+**Clicks are aimed from computed world coordinates**, so the runner mirrors
+`applyViewScale()` and `computeColumnCentres()`. Change a framing formula in the
+product and not in the runner, and the smoke misses the row and goes red — the
+correct outcome for a harness that has drifted from the world it tests.
+
+### The older fast smoke
+
+`src/games/circuit-climb/tools/circuitClimbSmoke.mjs` is kept for quick
+single-viewport loops. It does **not** start a server:
+
+```bash
+npx vite --port=3000 &
+npm run test:circuit-climb:smoke        # VW=390 CHROME=/path/to/chrome
 ```
 
 Covers launch, first selection in each column, a correct travel, a wrong travel
-and consecutive decisions. Exits non-zero on failure. Last run: **9/9 at 430**.
-
-It needs a real browser and a running dev server, neither of which belongs in
-`npm test`, so it is **deliberately not wired into package.json** and nothing
-imports it. Wiring it into CI is a reasonable future task (§ roadmap 6).
+and consecutive decisions at one viewport and the default framing. Last run:
+**9/9 at each of 320/390/430/590/768**.
 
 ---
 
