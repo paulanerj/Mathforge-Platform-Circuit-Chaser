@@ -4,6 +4,7 @@ import type { PursuerStep } from '../pursuer/circuitClimbPursuerTrace';
 import { PursuerTracer } from '../pursuer/circuitClimbPursuerTrace';
 import { ALIVE_PURSUER_TUNING } from '../pursuer/circuitClimbPursuerTuning';
 import { CIRCUIT_CLIMB_GEOMETRY as CONFIG } from '../geometry/circuitClimbGeometry';
+import { defaultTestGeometry } from './support/circuitClimbProductionFixtures';
 
 /**
  * "It was chasing, then it got lost and just sat there."
@@ -14,7 +15,7 @@ import { CIRCUIT_CLIMB_GEOMETRY as CONFIG } from '../geometry/circuitClimbGeomet
  */
 
 const alive = (x: number, y: number) => {
-  const p = createPursuer(x, 0, ALIVE_PURSUER_TUNING);
+  const p = createPursuer(x, 0, ALIVE_PURSUER_TUNING, defaultTestGeometry());
   p.y = y;
   return p;
 };
@@ -78,7 +79,7 @@ describe('LOCKED: a searching pursuer keeps hunting upward at its real speed', (
     // The crawl: when `y - 1` won, vertical intent was a single unit, so the
     // climb was capped at 1 unit per frame however large the budget was.
     const tuning = pureClimb(0.3);
-    const pursuer = createPursuer(300, 0, tuning);
+    const pursuer = createPursuer(300, 0, tuning, defaultTestGeometry());
     pursuer.y = -1000;
     pursuer.behaviour = 'SEARCH';
     pursuer.lastKnownX = 300;
@@ -93,7 +94,7 @@ describe('LOCKED: a searching pursuer keeps hunting upward at its real speed', (
 
   it('a faster search setting actually searches faster', () => {
     const run = (searchSpeed: number) => {
-      let p = createPursuer(300, 0, pureClimb(searchSpeed));
+      let p = createPursuer(300, 0, pureClimb(searchSpeed), defaultTestGeometry());
       p.y = -1000; p.behaviour = 'SEARCH'; p.lastKnownX = 300; p.lastKnownY = -1000;
       const start = p.y;
       for (let f = 0; f < 60; f += 1) p = updatePursuer(p, unreachablePlayer, [], 16);

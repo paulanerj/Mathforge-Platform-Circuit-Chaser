@@ -13,6 +13,7 @@ import {
   landingPointFor,
 } from '../../runtime/circuitClimbLearnerRouting';
 import { CIRCUIT_CLIMB_GEOMETRY as G } from '../../geometry/circuitClimbGeometry';
+import type { CurrentGameGeometry } from '../../pursuer/circuitClimbPursuer';
 
 /** Exactly the keys production makeRow() puts on a platform. Nothing richer. */
 export const PRODUCTION_PLATFORM_KEYS = [
@@ -67,3 +68,14 @@ export function baseRoutingWorld(rowCount = 4, overrides: Partial<LearnerRouting
 
 /** Where the spark rests on a platform, from the production helper. */
 export const standingOn = (platform: any) => landingPointFor(DEFAULT_ROUTING_CONFIG, platform);
+
+/** Default geometry for tests (100% scale / production values). */
+export function defaultTestGeometry(): CurrentGameGeometry {
+  return {
+    rowGap: G.rowGap,
+    platformHeight: G.platformHeight,
+    playerRadius: G.playerRadius,
+    logicalWidth: G.logicalWidth,
+    routePlatformPadding: G.routePlatformPadding,
+  };
+}

@@ -5,6 +5,7 @@ import {
   CIRCUIT_CLIMB_GEOMETRY as CONFIG,
   computePlatformCollisionRects,
 } from '../geometry/circuitClimbGeometry';
+import { defaultTestGeometry } from './support/circuitClimbProductionFixtures';
 
 /**
  * Regression cover for the "climbs one row, then the chase stops" defect.
@@ -61,7 +62,7 @@ describe('Circuit Climb pursuer navigation (PURSUER-02 regression)', () => {
     const player = playerRestingOn(row[0]);
     const band = bandOf(row[0], CONFIG.playerRadius);
 
-    const pursuer = createPursuer(row[1].x, 0);
+    const pursuer = createPursuer(row[1].x, 0, undefined, defaultTestGeometry());
     pursuer.y = band.bottom + 20; // just below the row, still clear of it
 
     let step: PursuerStep | undefined;
@@ -79,7 +80,7 @@ describe('Circuit Climb pursuer navigation (PURSUER-02 regression)', () => {
     const band = bandOf(row[1], CONFIG.playerRadius);
 
     // Directly beneath the centre platform — the exact geometry that deadlocked.
-    let pursuer = createPursuer(row[1].x, 0);
+    let pursuer = createPursuer(row[1].x, 0, undefined, defaultTestGeometry());
     pursuer.y = band.bottom + 4;
 
     const startY = pursuer.y;
@@ -112,7 +113,7 @@ describe('Circuit Climb pursuer navigation (PURSUER-02 regression)', () => {
     const band = bandOf(row[1], CONFIG.playerRadius);
 
     const start = () => {
-      const p = createPursuer(row[1].x, 0);
+      const p = createPursuer(row[1].x, 0, undefined, defaultTestGeometry());
       p.y = band.bottom + 20;
       return p;
     };
@@ -133,7 +134,7 @@ describe('Circuit Climb pursuer navigation (PURSUER-02 regression)', () => {
     const rowZero = [makeProductionRow(0)[1]];
     const player = playerRestingOn(makeProductionRow(1)[0]);
 
-    let pursuer = createPursuer(rowZero[0].x, 0);
+    let pursuer = createPursuer(rowZero[0].x, 0, undefined, defaultTestGeometry());
     pursuer.y = bandOf(rowZero[0], CONFIG.playerRadius).bottom + 20;
 
     let step: PursuerStep | undefined;
@@ -153,7 +154,7 @@ describe('Circuit Climb pursuer navigation (PURSUER-02 regression)', () => {
     // upwards is open. The frame must still produce vertical movement.
     const leftBand = bandOf(row[0], CONFIG.playerRadius);
     const centreBand = bandOf(row[1], CONFIG.playerRadius);
-    const pursuer = createPursuer((leftBand.right + centreBand.left) / 2, 0);
+    const pursuer = createPursuer((leftBand.right + centreBand.left) / 2, 0, undefined, defaultTestGeometry());
     pursuer.y = leftBand.bottom - 10; // inside the band, in the corridor
 
     let step: PursuerStep | undefined;
@@ -166,7 +167,7 @@ describe('Circuit Climb pursuer navigation (PURSUER-02 regression)', () => {
   it('7. it never passes through a platform', () => {
     const row = makeProductionRow(1);
     const player = playerRestingOn(row[0]);
-    let pursuer = createPursuer(row[1].x, 0);
+    let pursuer = createPursuer(row[1].x, 0, undefined, defaultTestGeometry());
     pursuer.y = bandOf(row[1], CONFIG.playerRadius).bottom + 4;
 
     const bands = row.map((platform) => bandOf(platform, CONFIG.playerRadius));

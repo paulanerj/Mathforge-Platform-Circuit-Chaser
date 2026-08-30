@@ -1,7 +1,7 @@
 import { CircuitClimbMathAdapter } from '../services/CircuitClimbMathAdapter';
 import { useState, useEffect, useRef } from 'react';
 import { CIRCUIT_CLIMB_GEOMETRY, computeActorSafeCorridors, computeInversePointerTransform, computePlatformCollisionRects, computeRouteCrossingOffset, chooseRouteAgainstThreat, pathClearance, pathIsClear } from '../geometry/circuitClimbGeometry';
-import { createPursuer, updatePursuer, PursuerState, captureCurrentGeometry } from '../pursuer/circuitClimbPursuer';
+import { createPursuer, updatePursuer, PursuerState, type CurrentGameGeometry } from '../pursuer/circuitClimbPursuer';
 import { PursuerTracer } from '../pursuer/circuitClimbPursuerTrace';
 import { parseStoredNumber, computeKeepBehindRow, pursuerRowFromWorldY } from './circuitClimbRuntimeRules';
 import {
@@ -128,6 +128,20 @@ export function useCircuitClimbPrototypeRuntime() {
 
       cameraAnchor: 0.25,
     };
+
+    /**
+     * Capture the runtime's CURRENT LOCAL CONFIG geometry for pursuer injection.
+     * Must read from CONFIG (which is mutated by applyViewScale), not module-default.
+     */
+    function captureRuntimeGeometry(): CurrentGameGeometry {
+      return {
+        rowGap: CONFIG.rowGap,
+        platformHeight: CONFIG.platformHeight,
+        playerRadius: CONFIG.playerRadius,
+        logicalWidth: CONFIG.logicalWidth,
+        routePlatformPadding: CONFIG.routePlatformPadding,
+      };
+    }
 
     const BASE_VIEW = Object.freeze({
       rowGap: CIRCUIT_CLIMB_GEOMETRY.rowGap,
@@ -832,7 +846,7 @@ export function useCircuitClimbPrototypeRuntime() {
       targetPresentation.phaseStartedAt = 0;
       targetPresentation.progress = 0;
 
-      pursuer = createPursuer(player.x, player.y, enginePursuerTuning, captureCurrentGeometry());
+      pursuer = createPursuer(player.x, player.y, enginePursuerTuning, captureRuntimeGeometry());
       pursuerTracer.reset();
       engineCaptured = false;
       setCaptured(false);
@@ -1223,7 +1237,7 @@ export function useCircuitClimbPrototypeRuntime() {
               console.log('CIRCUIT_CLIMB_PURSUER_HOLDING', stall);
             }
           }
-        }, captureCurrentGeometry());
+        }, captureRuntimeGeometry());
 
         if (pursuer.behaviour !== previousBehaviour) {
           setPursuerBehaviour(pursuer.behaviour);

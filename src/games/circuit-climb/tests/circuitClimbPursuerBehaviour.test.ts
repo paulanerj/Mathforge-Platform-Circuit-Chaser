@@ -8,6 +8,7 @@ import {
   PURSUER_TUNING_RANGES,
   PursuerTuningKey,
 } from '../pursuer/circuitClimbPursuerTuning';
+import { defaultTestGeometry } from './support/circuitClimbProductionFixtures';
 import {
   CIRCUIT_CLIMB_GEOMETRY as CONFIG,
   computePlatformCollisionRects,
@@ -35,13 +36,13 @@ const bandOf = (p: any) => computePlatformCollisionRects([p], CONFIG.playerRadiu
 
 describe('Pursuer tuning presets', () => {
   it('createPursuer defaults to the frozen baseline, so untouched callers keep the locked behaviour', () => {
-    expect(createPursuer(300, 0).tuning).toBe(BASELINE_PURSUER_TUNING);
+    expect(createPursuer(300, 0, undefined, defaultTestGeometry()).tuning).toBe(BASELINE_PURSUER_TUNING);
   });
 
   it('baseline tuning never leaves CHASE and never varies its speed', () => {
     const row = makeProductionRow(1);
     const player = restingOn(row[0]);
-    let pursuer = createPursuer(row[1].x, 0);
+    let pursuer = createPursuer(row[1].x, 0, undefined, defaultTestGeometry());
     pursuer.y = bandOf(row[1]).bottom + 200;
 
     const behaviours = new Set<string>();
@@ -86,7 +87,7 @@ describe('Pursuer SEARCH / ALERT / CHASE', () => {
   const player = restingOn(row[0]);
 
   function alive(x: number, y: number) {
-    const p = createPursuer(x, y, ALIVE_PURSUER_TUNING);
+    const p = createPursuer(x, y, ALIVE_PURSUER_TUNING, defaultTestGeometry());
     p.y = y;
     return p;
   }
@@ -196,7 +197,7 @@ describe('The living pursuer still obeys the locked physics', () => {
   const player = restingOn(row[0]);
 
   it('never ends a frame inside a platform', () => {
-    let pursuer = createPursuer(row[1].x, 0, ALIVE_PURSUER_TUNING);
+    let pursuer = createPursuer(row[1].x, 0, ALIVE_PURSUER_TUNING, defaultTestGeometry());
     pursuer.y = bandOf(row[1]).bottom + 4;
     const bands = row.map(bandOf);
 
@@ -213,7 +214,7 @@ describe('The living pursuer still obeys the locked physics', () => {
 
   it('still reaches and captures a player standing on a platform', () => {
     const standing = { ...player, platform: row[0] };
-    let pursuer = createPursuer(row[1].x, 0, ALIVE_PURSUER_TUNING);
+    let pursuer = createPursuer(row[1].x, 0, ALIVE_PURSUER_TUNING, defaultTestGeometry());
     pursuer.y = bandOf(row[1]).bottom + 4;
 
     for (let frame = 0; frame < 4000 && pursuer.state !== 'CAUGHT'; frame += 1) {
@@ -226,7 +227,7 @@ describe('The living pursuer still obeys the locked physics', () => {
     let pursuer = createPursuer(row[1].x, 0, {
       ...ALIVE_PURSUER_TUNING,
       wanderAmplitude: 260, // widest the panel allows
-    });
+    }, defaultTestGeometry());
     pursuer.y = bandOf(row[1]).bottom + 600;
 
     for (let frame = 0; frame < 600; frame += 1) {

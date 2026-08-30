@@ -20,6 +20,7 @@ import {
   baseRoutingWorld,
   standingOn,
   makeProductionRow as makeProductionRowFixture,
+  defaultTestGeometry,
 } from './support/circuitClimbProductionFixtures';
 
 /**
@@ -167,7 +168,7 @@ describe('LOCKED: pursuer navigates and captures', () => {
   it('a player standing on the row above is treated as an obstacle to cross', () => {
     // The "climbs one row then stops" jam: comparing the player against the
     // band TOP made a platform the player stands on read as clear air.
-    const pursuer = createPursuer(row[1].x, 0);
+    const pursuer = createPursuer(row[1].x, 0, undefined, defaultTestGeometry());
     pursuer.y = band(row[1]).bottom + 20;
 
     let mustCross: boolean | undefined;
@@ -176,7 +177,7 @@ describe('LOCKED: pursuer navigates and captures', () => {
   });
 
   it('it crosses the row rather than pressing into its underside forever', () => {
-    let pursuer = createPursuer(row[1].x, 0);
+    let pursuer = createPursuer(row[1].x, 0, undefined, defaultTestGeometry());
     pursuer.y = band(row[1]).bottom + 4;
 
     for (let frame = 0; frame < 400; frame += 1) {
@@ -186,7 +187,7 @@ describe('LOCKED: pursuer navigates and captures', () => {
   });
 
   it('it never ends a frame inside a platform', () => {
-    let pursuer = createPursuer(row[1].x, 0);
+    let pursuer = createPursuer(row[1].x, 0, undefined, defaultTestGeometry());
     pursuer.y = band(row[1]).bottom + 4;
     const bands = row.map(band);
 
@@ -205,7 +206,7 @@ describe('LOCKED: pursuer navigates and captures', () => {
     // Requires the player's own platform to expose its top padding, or the
     // pursuer parks alongside and never makes contact.
     const standing = { ...player, platform: row[0] };
-    let pursuer = createPursuer(row[1].x, 0);
+    let pursuer = createPursuer(row[1].x, 0, undefined, defaultTestGeometry());
     pursuer.y = band(row[1]).bottom + 4;
 
     for (let frame = 0; frame < 3000 && pursuer.state !== 'CAUGHT'; frame += 1) {
@@ -215,14 +216,14 @@ describe('LOCKED: pursuer navigates and captures', () => {
   });
 
   it('capture needs a real overlap, not a graze', () => {
-    const pursuer = createPursuer(300, 0);
+    const pursuer = createPursuer(300, 0, undefined, defaultTestGeometry());
     pursuer.y = 50 + getPursuerCaptureDistance(pursuer.geometry) + 20;
     const next = updatePursuer(pursuer, { x: 300, y: 50 }, [], 1);
     expect(next.state).toBe('PURSUING');
   });
 
   it('a captured pursuer stops dead', () => {
-    const pursuer = createPursuer(300, 0);
+    const pursuer = createPursuer(300, 0, undefined, defaultTestGeometry());
     pursuer.y = 50;
     const caught = updatePursuer(pursuer, { x: 300, y: 50 }, [], 100);
     expect(caught.state).toBe('CAUGHT');

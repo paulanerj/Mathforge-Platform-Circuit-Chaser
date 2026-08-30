@@ -15,18 +15,6 @@ export interface CurrentGameGeometry {
   routePlatformPadding: number;
 }
 
-/**
- * Create a geometry snapshot from current CONFIG state.
- */
-export function captureCurrentGeometry(): CurrentGameGeometry {
-  return {
-    rowGap: CONFIG.rowGap,
-    platformHeight: CONFIG.platformHeight,
-    playerRadius: CONFIG.playerRadius,
-    logicalWidth: CONFIG.logicalWidth,
-    routePlatformPadding: CONFIG.routePlatformPadding,
-  };
-}
 
 export type PursuerLifecycle = 'PURSUING' | 'CAUGHT';
 
@@ -75,14 +63,15 @@ export function getPursuerCaptureDistance(geometry: CurrentGameGeometry): number
  * ask for a living pursuer gets the locked behaviour — including the whole
  * capability lock suite.
  *
- * Geometry is optionally provided; defaults to current CONFIG state to ensure
- * at-scale parity with runtime when geometry changes via view scale.
+ * Geometry is REQUIRED and must be provided by the runtime to ensure
+ * the pursuer consumes current scaled geometry, not module-default constants.
+ * The runtime calls captureRuntimeGeometry() to snapshot its LOCAL CONFIG.
  */
 export function createPursuer(
   playerX: number,
   playerY: number,
   tuning: PursuerTuning = BASELINE_PURSUER_TUNING,
-  geometry: CurrentGameGeometry = captureCurrentGeometry(),
+  geometry: CurrentGameGeometry,
 ): PursuerState {
   return {
     x: playerX,
@@ -139,7 +128,7 @@ export function updatePursuer(
   activePlatforms: any[],
   delta: number,
   onStep?: (step: PursuerStep) => void,
-  geometry: CurrentGameGeometry = captureCurrentGeometry()
+  geometry: CurrentGameGeometry = pursuer.geometry
 ): PursuerState {
   const next = { ...pursuer };
   next.geometry = geometry;

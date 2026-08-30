@@ -1,17 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import { createPursuer, updatePursuer, getPursuerCaptureDistance } from '../pursuer/circuitClimbPursuer';
 import { CIRCUIT_CLIMB_GEOMETRY as CONFIG, computePlatformBounds, computeActorSafeCorridors } from '../geometry/circuitClimbGeometry';
+import { defaultTestGeometry } from './support/circuitClimbProductionFixtures';
 
 describe('Circuit Climb Pursuer (PURSUER-01-R2)', () => {
   const player = { x: 300, y: 0 };
   
   it('A. Pursuer starts exactly two rows below player', () => {
-    const pursuer = createPursuer(player.x, player.y);
+    const pursuer = createPursuer(player.x, player.y, undefined, defaultTestGeometry());
     expect(pursuer.y).toBe(player.y + 2 * CONFIG.rowGap);
   });
 
   it('B. row-0 center obstacle causes lateral routing', () => {
-    const pursuer = createPursuer(300, 0);
+    const pursuer = createPursuer(300, 0, undefined, defaultTestGeometry());
     const rowY = 100;
     pursuer.y = rowY + CONFIG.rowGap; // Start safely below the row
 
@@ -29,7 +30,7 @@ describe('Circuit Climb Pursuer (PURSUER-01-R2)', () => {
   });
 
   it('C. player left of pursuer biases route left', () => {
-    const pursuer = createPursuer(300, 0);
+    const pursuer = createPursuer(300, 0, undefined, defaultTestGeometry());
     const rowY = 100;
     pursuer.y = rowY + CONFIG.rowGap;
     
@@ -46,7 +47,7 @@ describe('Circuit Climb Pursuer (PURSUER-01-R2)', () => {
   });
 
   it('D. player right of pursuer biases route right', () => {
-    const pursuer = createPursuer(300, 0);
+    const pursuer = createPursuer(300, 0, undefined, defaultTestGeometry());
     const rowY = 100;
     pursuer.y = rowY + CONFIG.rowGap;
     
@@ -83,7 +84,7 @@ describe('Circuit Climb Pursuer (PURSUER-01-R2)', () => {
 
     // Pursuer has cleared row 0, and is hovering in the clear space between row 0 and row 1.
     // y = 210 is safely above row 0 collision top (260), and safely below row 1 collision bottom (202).
-    const pursuer = createPursuer(300, 0);
+    const pursuer = createPursuer(300, 0, undefined, defaultTestGeometry());
     pursuer.y = 210; 
 
     // Player is above row 1, at x=100 (left)
@@ -102,7 +103,7 @@ describe('Circuit Climb Pursuer (PURSUER-01-R2)', () => {
   });
 
   it('F. Pursuer uses orthogonal segments only (moves X first, then Y)', () => {
-    const pursuer = createPursuer(200, 0); // not aligned with player
+    const pursuer = createPursuer(200, 0, undefined, defaultTestGeometry()); // not aligned with player
     pursuer.y = 400; // manually set
     const delta = 1000; // Big step to allow both X and Y movement
     const step = pursuer.speed * delta;
@@ -122,7 +123,7 @@ describe('Circuit Climb Pursuer (PURSUER-01-R2)', () => {
   });
 
   it('F. Three-platform row chooses actor-safe B/C corridor', () => {
-    const pursuer = createPursuer(300, 0);
+    const pursuer = createPursuer(300, 0, undefined, defaultTestGeometry());
     const rowY = 100;
     pursuer.y = rowY + CONFIG.rowGap; // Start safely below the row
     // Player is at x=50, meaning closest to left corridor A or B
@@ -140,7 +141,7 @@ describe('Circuit Climb Pursuer (PURSUER-01-R2)', () => {
   });
 
   it('G. Row-0 single-center-platform case chooses a safe side passage', () => {
-    const pursuer = createPursuer(300, 0);
+    const pursuer = createPursuer(300, 0, undefined, defaultTestGeometry());
     const rowY = 100;
     pursuer.y = rowY + CONFIG.rowGap; // Start safely below the row
     // Row 0 has only ONE active center platform
@@ -157,7 +158,7 @@ describe('Circuit Climb Pursuer (PURSUER-01-R2)', () => {
   });
 
   it('H. Pursuer cannot cross actor-expanded platform rectangle', () => {
-    const pursuer = createPursuer(300, 0);
+    const pursuer = createPursuer(300, 0, undefined, defaultTestGeometry());
     pursuer.y = 100 + CONFIG.platformHeight/2 + CONFIG.playerRadius + CONFIG.routePlatformPadding + 1; // just below padding
     const activePlatforms = [{ id: 'p1', row: 1, column: 1, x: 300, y: 100, width: CONFIG.platformWidth, height: CONFIG.platformHeight }];
     
@@ -168,7 +169,7 @@ describe('Circuit Climb Pursuer (PURSUER-01-R2)', () => {
   });
 
   it('I. World-edge bounds remain safe', () => {
-    const pursuer = createPursuer(10, 0); // Out of bounds left
+    const pursuer = createPursuer(10, 0, undefined, defaultTestGeometry()); // Out of bounds left
     pursuer.y = 200;
     const next = updatePursuer(pursuer, { x: 0, y: 0 }, [], 100);
     
@@ -177,21 +178,21 @@ describe('Circuit Climb Pursuer (PURSUER-01-R2)', () => {
   });
 
   it('J. Overlapping the player captures it', () => {
-    const pursuer = createPursuer(300, 0);
+    const pursuer = createPursuer(300, 0, undefined, defaultTestGeometry());
     pursuer.y = 50;
     const next = updatePursuer(pursuer, { x: 300, y: 50 }, [], 100); // Overlapping player
     expect(next.state).toBe('CAUGHT');
   });
 
   it('K. A pursuer further away than the capture distance keeps pursuing', () => {
-    const pursuer = createPursuer(300, 0);
+    const pursuer = createPursuer(300, 0, undefined, defaultTestGeometry());
     pursuer.y = 50 + getPursuerCaptureDistance(pursuer.geometry) + 20;
     const next = updatePursuer(pursuer, { x: 300, y: 50 }, [], 1); // tiny step, stays clear
     expect(next.state).toBe('PURSUING');
   });
 
   it('L. A captured pursuer stops moving', () => {
-    const pursuer = createPursuer(300, 0);
+    const pursuer = createPursuer(300, 0, undefined, defaultTestGeometry());
     pursuer.y = 50;
     const caught = updatePursuer(pursuer, { x: 300, y: 50 }, [], 100);
     expect(caught.state).toBe('CAUGHT');

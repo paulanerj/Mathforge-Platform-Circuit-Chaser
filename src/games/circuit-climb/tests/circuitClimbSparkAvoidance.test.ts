@@ -124,7 +124,8 @@ describe('LOCKED: the bot can reorder routes but never remove one', () => {
 describe('Shielded transit', () => {
   it('a spark marked uncapturable is not taken even on contact', async () => {
     const { createPursuer, updatePursuer } = await import('../pursuer/circuitClimbPursuer');
-    const pursuer = createPursuer(300, 0);
+    const { defaultTestGeometry: getGeometry } = await import('./support/circuitClimbProductionFixtures');
+    const pursuer = createPursuer(300, 0, undefined, getGeometry());
     pursuer.y = 50;
     const onTop = { x: 300, y: 50 };
 
@@ -134,7 +135,8 @@ describe('Shielded transit', () => {
 
   it('the shield is the only thing that changes — it still closes in', async () => {
     const { createPursuer, updatePursuer } = await import('../pursuer/circuitClimbPursuer');
-    const pursuer = createPursuer(300, 0);
+    const { defaultTestGeometry: getGeometry } = await import('./support/circuitClimbProductionFixtures');
+    const pursuer = createPursuer(300, 0, undefined, getGeometry());
     pursuer.y = 400;
     const shielded = updatePursuer(pursuer, { x: 300, y: 0, capturable: false }, [], 100);
     const exposed = updatePursuer(pursuer, { x: 300, y: 0 }, [], 100);
