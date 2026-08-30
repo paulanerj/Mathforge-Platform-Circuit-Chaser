@@ -253,7 +253,14 @@ export function updatePursuer(
         const p1 = { center: rowPlatforms[1].x, left: rowPlatforms[1].x - rowPlatforms[1].width / 2, right: rowPlatforms[1].x + rowPlatforms[1].width / 2 };
         const p2 = { center: rowPlatforms[2].x, left: rowPlatforms[2].x - rowPlatforms[2].width / 2, right: rowPlatforms[2].x + rowPlatforms[2].width / 2 };
 
-        corridors = computeActorSafeCorridors(p0, p1, p2);
+        // Same shared authority the learner uses, given the same current
+        // world, so the two actors can never disagree about what is passable.
+        corridors = computeActorSafeCorridors(p0, p1, p2, {
+          playerRadius: geometry.playerRadius,
+          routePlatformPadding: geometry.routePlatformPadding,
+          logicalWidth: geometry.logicalWidth,
+          platformWidth: rowPlatforms[0].width,
+        });
       } else if (rowPlatforms.length === 1) {
         // Row 0 single-platform case
         const p = rowPlatforms[0];

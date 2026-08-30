@@ -8,6 +8,61 @@ export const CIRCUIT_CLIMB_GEOMETRY = {
   routePlatformPadding: 8,
 };
 
+/**
+ * The subset of the current world an actor-clearance calculation needs. Both
+ * `CurrentGameGeometry` (pursuer) and `LearnerRoutingConfig` (learner) satisfy
+ * it structurally, so the two actors can never be handed different physics.
+ */
+export interface ActorClearanceGeometry {
+  playerRadius: number;
+  routePlatformPadding: number;
+  logicalWidth: number;
+  platformWidth: number;
+}
+
+/**
+ * The interior corridor the world is laid out to guarantee.
+ *
+ * This is not a new number. The accepted column spacing is 190
+ * (`300 - 110`), and at the accepted geometry
+ * `platformWidth + 2 * (routePlatformPadding + playerRadius) + 6`
+ * is `104 + 2 * 40 + 6` — exactly 190. The shipped layout has always been a
+ * six-unit minimum interior corridor; it was simply frozen as literals, so it
+ * stopped being true the moment world framing grew the actor.
+ */
+export const MIN_INTERIOR_CORRIDOR = 6;
+
+/** The accepted centre-to-centre column spacing at the default framing. */
+export const ACCEPTED_COLUMN_SPACING =
+  (CIRCUIT_CLIMB_GEOMETRY.columns[1] - CIRCUIT_CLIMB_GEOMETRY.columns[0]) *
+  CIRCUIT_CLIMB_GEOMETRY.logicalWidth;
+
+/**
+ * Centre-to-centre column spacing for a given world.
+ *
+ * Never tighter than the accepted spacing, so the default framing and every
+ * framing below it are byte-identical to the accepted product. Above the
+ * default the actor outgrows the frozen 190 and the spacing opens by exactly
+ * the amount the actor's own body demands — no more.
+ */
+export function computeColumnSpacing(geometry: ActorClearanceGeometry): number {
+  const required =
+    geometry.platformWidth +
+    2 * (geometry.routePlatformPadding + geometry.playerRadius) +
+    MIN_INTERIOR_CORRIDOR;
+  return Math.max(ACCEPTED_COLUMN_SPACING, required);
+}
+
+/**
+ * The three column centres for a given world, as absolute logical x. At the
+ * accepted geometry this returns exactly 110 / 300 / 490.
+ */
+export function computeColumnCentres(geometry: ActorClearanceGeometry): number[] {
+  const centre = geometry.logicalWidth / 2;
+  const spacing = computeColumnSpacing(geometry);
+  return [centre - spacing, centre, centre + spacing];
+}
+
 export type ShiftOffsetType = 'left' | 'center' | 'right';
 export const SHIFT_OFFSETS: Record<ShiftOffsetType, number> = {
   left: -24,
@@ -45,14 +100,27 @@ export interface Corridor {
   center: number;
 }
 
+/**
+ * The corridors an actor of the CURRENT size can physically stand in.
+ *
+ * `geometry` defaults to the module authority so existing default-framing
+ * callers are unchanged, but every live caller passes the runtime's current
+ * world. Reading the module constant while the runtime actor had grown was a
+ * real stale-geometry seam: it reported a usable six-unit corridor at 120%
+ * when the true corridor was -7.2, so the route builder placed legs outside
+ * the actor's real safe interval and every candidate was then rejected by the
+ * clearance test. Learner and pursuer both come through here, so neither can
+ * end up with different physics.
+ */
 export function computeActorSafeCorridors(
   p0: PlatformBounds,
   p1: PlatformBounds,
-  p2: PlatformBounds
+  p2: PlatformBounds,
+  geometry: ActorClearanceGeometry = CIRCUIT_CLIMB_GEOMETRY
 ): Corridor[] {
   const corridors: Corridor[] = [];
-  const padding = CIRCUIT_CLIMB_GEOMETRY.routePlatformPadding;
-  const radius = CIRCUIT_CLIMB_GEOMETRY.playerRadius;
+  const padding = geometry.routePlatformPadding;
+  const radius = geometry.playerRadius;
   const safetyMargin = 6;
   
   const minActorClearance = radius + safetyMargin;
@@ -101,7 +169,7 @@ export function computeActorSafeCorridors(
 
   // Exterior Right (Corridor D)
   const dLeft = p2.right + padding + radius;
-  const dRight = CIRCUIT_CLIMB_GEOMETRY.logicalWidth - minActorClearance;
+  const dRight = geometry.logicalWidth - minActorClearance;
   if (dRight >= dLeft) {
     corridors.push({
       id: 'D',
@@ -157,8 +225,12 @@ export function computeRouteCrossingOffset(config: {
   );
 }
 
-export function computePlatformCollisionRects(platforms: any[], actorRadius = CIRCUIT_CLIMB_GEOMETRY.playerRadius) {
-  const pad = CIRCUIT_CLIMB_GEOMETRY.routePlatformPadding + actorRadius;
+export function computePlatformCollisionRects(
+  platforms: any[],
+  actorRadius = CIRCUIT_CLIMB_GEOMETRY.playerRadius,
+  routePlatformPadding = CIRCUIT_CLIMB_GEOMETRY.routePlatformPadding,
+) {
+  const pad = routePlatformPadding + actorRadius;
   const rects: any[] = [];
   platforms.forEach((platform) => {
     // Platform row 0 logic normally handled by caller filtering, but we can do it here if needed.

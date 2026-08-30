@@ -416,25 +416,40 @@ pursuer and the learner alike; it is left that way on purpose, because giving
 the pursuer its own corridor formula would put the two actors back out of
 agreement. `circuitClimbGeometryParity.test.ts` pins both boundaries.
 
-**1b. The learner board is dead above 100% world framing — PRE-EXISTING, NOT
-caused by the geometry work.** At any framing above 100%, `planLearnerSelection`
-returns `NO_LEGAL_ROUTE` for all three destinations and no platform can be
-selected; the spark cannot move and the pursuer takes a stationary player.
-Verified in-browser on this commit AND on the accepted baseline `8f54069`,
-which produces the identical failure (`CIRCUIT_CLIMB_LEARNER_ROUTE_FAILED
-{reason: NO_LEGAL_ROUTE}` x18) — so it predates GEOMETRY-PARITY entirely.
+**1b. The learner board is dead above 100% world framing. — RESOLVED
+(WORLD-FRAMING-03).** At any framing above 100%, `planLearnerSelection` returned
+`NO_LEGAL_ROUTE` for all three destinations: the board rendered perfectly and
+could not be played. It reproduced on the accepted baseline `8f54069`
+(`CIRCUIT_CLIMB_LEARNER_ROUTE_FAILED {reason: NO_LEGAL_ROUTE}` x18), so it had
+shipped unnoticed for the whole life of the slider.
 
-Cause: platform columns are fractions of a `logicalWidth` that never scales, so
-the horizontal gap between platforms is fixed, while `playerRadius` grows with
-framing. The interior corridor is only 6.0 units wide at 100%
-(`computePlatformCollisionRects` pad = `routePlatformPadding + playerRadius`),
-so any zoom above 1.0 closes it. The break is at 101%. This is limitation 7
-(the narrow NOT_CLOSING margin) reaching its actual failure point.
+Cause, measured rather than assumed. Candidates were being built (four of them)
+and then rejected by the clearance test, so this was never "no corridors" — it
+was two disagreeing notions of one. Column centres were frozen literals
+(110/300/490, spacing 190) while `playerRadius` grew with framing, and
+`computeActorSafeCorridors()` read the module-default radius, so it kept
+reporting a usable six-unit corridor while the true corridor for the actor of
+the moment had closed. The route builder placed its legs on those phantom
+bounds; `pathIsClear`, which does use the current radius, then rejected every
+candidate. True interior corridor: 19.2 units at 80%, 6.0 at 100%, 5.3 at 101%,
+and negative from 109.08% — physically impassable, not merely mis-measured.
 
-Fixing it is a learner-routing and world-layout question — scale the column
-spacing with the actor, or widen the corridor budget — and was out of scope for
-geometry plumbing. It should be the next thing looked at: the 80-120 slider
-currently ships a range that is unplayable over half its travel.
+The repair is in the geometry authority and is shared by both actors. Column
+spacing is now a clearance result rather than a constant:
+`max(190, platformWidth + 2*(routePlatformPadding + playerRadius) + 6)`. The
+accepted 190 is exactly that formula at the accepted geometry — the shipped
+layout has always been a six-unit minimum interior corridor, frozen as literals
+— so at and below 100% the columns are still exactly 110/300/490 and nothing
+changes. Above it they open by precisely what the actor's own body demands
+(203.2 spacing at 120%, the row still well inside the world).
+`computeActorSafeCorridors()` now takes the current world too, closing the
+stale seam GEOMETRY-PARITY-02 documented, and learner and pursuer both pass
+their live geometry into it, so the two can never compute different physics.
+
+Collision was not weakened to achieve this: the actor radius, the padding and
+the inflated rects are untouched. Locked by "no supported world framing removes
+every learner destination" and by `circuitClimbWorldFraming.test.ts`, whose
+101/105/110/115/120 reachability cases fail against the pre-repair build.
 
 **2. Alive pursuer tuning is provisional.** Set by feel over a handful of runs.
 The sliders exist to argue with it. It has never been tuned against play data.
@@ -463,6 +478,14 @@ was deliberately not bundled into a structural phase.
 **7. `NOT_CLOSING` threshold is close to one row gap.** Its 260-unit floor sits
 near `rowGap` 205, so a legitimate near-miss hold can trip it. Observed firing
 at 377–417 units, correctly, in a minority of runs. Not tuned.
+
+WORLD-FRAMING-03 saw it once per twelve-decision run at 80% and 100% and twice
+at 120%, at 303–392 units, while the learner was climbing away from a pursuer
+that was legitimately behind. It fires at 100%, where that phase provably
+changed no geometry, so it is this limitation and not a framing defect; larger
+framings simply widen `rowGap`, so the learner gains more ground per climb and
+the floor is crossed more often. Unrelated to limitation 1b, which was a
+learner-routing failure and is resolved.
 
 ---
 

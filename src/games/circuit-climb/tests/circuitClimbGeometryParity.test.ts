@@ -327,32 +327,27 @@ describe('geometry parity: what the module authority can and cannot still reach'
   });
 
   /**
-   * G2. The remaining module read, stated honestly rather than hidden.
+   * G2. The seam is closed.
    *
-   * computeActorSafeCorridors() is the SHARED corridor authority: the pursuer
-   * calls it for a three-platform row, and the learner calls it through
-   * destinationCorridors(). It reads playerRadius / routePlatformPadding /
-   * logicalWidth from the module constant for BOTH actors.
-   *
-   * That is deliberately left alone here. It is not a pursuer-vs-runtime
-   * divergence — both actors get identical corridors — and giving the pursuer
-   * its own corridor formula would be exactly the pursuer-specific geometry
-   * this work is required not to create. This test pins the coupling so it
-   * cannot change silently, and documents it as the shared-authority boundary.
+   * computeActorSafeCorridors() used to read playerRadius / padding /
+   * logicalWidth from the module constant for both actors. WORLD-FRAMING-03
+   * made it take the current world instead — still one shared authority, still
+   * identical physics for learner and pursuer, but no longer anchored to the
+   * default framing. Corrupting the module must now move nothing at all.
    */
-  it('G2. corridor bounds still come from the shared module authority (documented coupling)', () => {
+  it('G2. corridor bounds no longer leak in from the module authority', () => {
     const geometry = runtimeGeometryAtScale(100);
     const before = runPursuer(geometry);
-    const during = withMutatedModule({ playerRadius: 40 }, () => runPursuer(geometry));
+    const during = withMutatedModule(
+      { playerRadius: 40, routePlatformPadding: 40, logicalWidth: 9999 },
+      () => runPursuer(geometry),
+    );
 
-    // The pursuer's own body is injected and does not move...
-    expect(during.radius).toBe(before.radius);
-    expect(during.rowTop).toBe(before.rowTop);
-    expect(during.rowBottom).toBe(before.rowBottom);
-    // ...but the corridor bounds it steers by come from the shared helper,
-    // so they do move. This is the boundary, and it is shared with the learner.
-    expect(during.corridors).not.toEqual(before.corridors);
+    expect(during).toEqual(before);
+    expect(during.corridors).toEqual(before.corridors);
 
     expect(MODULE_GEOMETRY.playerRadius).toBe(32);
+    expect(MODULE_GEOMETRY.routePlatformPadding).toBe(8);
+    expect(MODULE_GEOMETRY.logicalWidth).toBe(600);
   });
 });

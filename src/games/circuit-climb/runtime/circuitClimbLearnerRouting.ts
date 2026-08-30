@@ -191,16 +191,28 @@ export function cleanCircuitPath(points: RoutePoint[]): RoutePoint[] {
   return out;
 }
 
-export function destinationCorridors(row: any) {
+export function destinationCorridors(row: any, config?: LearnerRoutingConfig) {
   const bounds = (platform: any) => ({
     center: platform.x,
     left: platform.x - platform.width / 2,
     right: platform.x + platform.width / 2,
   });
+  // The current world, not the module default. Without it the corridor the
+  // route is built through is the one a 100% actor would fit, and a scaled-up
+  // learner is routed into a gap its own body does not fit.
+  const geometry = config
+    ? {
+        playerRadius: config.playerRadius,
+        routePlatformPadding: config.routePlatformPadding,
+        logicalWidth: config.logicalWidth,
+        platformWidth: row.platforms[0].width,
+      }
+    : undefined;
   return computeActorSafeCorridors(
     bounds(row.platforms[0]),
     bounds(row.platforms[1]),
     bounds(row.platforms[2]),
+    geometry,
   );
 }
 
@@ -210,7 +222,7 @@ export function chooseDestinationCorridor(
   targetX: number,
   startX: number,
 ) {
-  const corridors = destinationCorridors(row);
+  const corridors = destinationCorridors(row, config);
   if (!corridors.length) {
     const minActorClearance = config.playerRadius + 6;
     const edge = targetX < config.logicalWidth / 2 ? minActorClearance : config.logicalWidth - minActorClearance;
@@ -367,7 +379,7 @@ export function chooseLearnerRoute(
     return { route: null, candidatesBuilt: 0, candidatesClear: 0 };
   }
 
-  const corridors = destinationCorridors(destinationRow);
+  const corridors = destinationCorridors(destinationRow, config);
   const preferred = chooseDestinationCorridor(config, destinationRow, destinationPlatform.x, from.x);
   const ordered = [preferred, ...corridors.filter((corridor) => corridor !== preferred)];
 

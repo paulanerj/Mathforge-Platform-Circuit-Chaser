@@ -1,6 +1,6 @@
 import { CircuitClimbMathAdapter } from '../services/CircuitClimbMathAdapter';
 import { useState, useEffect, useRef } from 'react';
-import { CIRCUIT_CLIMB_GEOMETRY, computeActorSafeCorridors, computeInversePointerTransform, computePlatformCollisionRects, computeRouteCrossingOffset, chooseRouteAgainstThreat, pathClearance, pathIsClear } from '../geometry/circuitClimbGeometry';
+import { CIRCUIT_CLIMB_GEOMETRY, computeColumnCentres, computeActorSafeCorridors, computeInversePointerTransform, computePlatformCollisionRects, computeRouteCrossingOffset, chooseRouteAgainstThreat, pathClearance, pathIsClear } from '../geometry/circuitClimbGeometry';
 import { createPursuer, updatePursuer, PursuerState, type CurrentGameGeometry } from '../pursuer/circuitClimbPursuer';
 import { PursuerTracer } from '../pursuer/circuitClimbPursuerTrace';
 import { parseStoredNumber, computeKeepBehindRow, pursuerRowFromWorldY } from './circuitClimbRuntimeRules';
@@ -439,10 +439,15 @@ export function useCircuitClimbPrototypeRuntime() {
 
       rows.forEach((row) => {
         row.y = -row.index * CONFIG.rowGap;
-        row.platforms.forEach((platform: any) => {
+        const shiftOffset = platform_shiftOffsetOf(row);
+        row.platforms.forEach((platform: any, column: number) => {
           platform.y = row.y;
           platform.width = CONFIG.platformWidth;
           platform.height = CONFIG.platformHeight;
+          // Columns are derived from actor clearance, so a framing change moves
+          // them. Rows built before the change would otherwise keep the old
+          // spacing and stay impassable.
+          platform.x = CONFIG.columns[column] * CONFIG.logicalWidth + shiftOffset;
         });
       });
 
@@ -494,6 +499,19 @@ export function useCircuitClimbPrototypeRuntime() {
       CONFIG.routeHorizontalJitter = BASE_VIEW.routeHorizontalJitter * zoom;
       CONFIG.routePlatformPadding = BASE_VIEW.routePlatformPadding;
       CONFIG.hopHeight = BASE_VIEW.hopHeight * zoom;
+
+      // Column spacing is a clearance result, not a constant. The accepted 190
+      // is exactly platformWidth + 2*(padding + radius) + 6 at the default
+      // geometry, so at and below 100% this reproduces 110 / 300 / 490 exactly.
+      // Above it the actor outgrows the frozen spacing and the columns open by
+      // precisely what its own body needs — without this the interior corridors
+      // close and no destination can be routed to at all.
+      CONFIG.columns = computeColumnCentres({
+        playerRadius: CONFIG.playerRadius,
+        routePlatformPadding: CONFIG.routePlatformPadding,
+        logicalWidth: CONFIG.logicalWidth,
+        platformWidth: CONFIG.platformWidth,
+      }).map((centre) => centre / CONFIG.logicalWidth);
 
       CONFIG.routeTurnCount = routeTurnCountInternal;
       CONFIG.cameraAnchor = lerp(0.585, 0.615, (nextPercent - 80) / 40);
@@ -563,6 +581,11 @@ export function useCircuitClimbPrototypeRuntime() {
       return Math.floor(Math.max(0, rowIndex - 1) / 6);
     }
 
+
+    /** The horizontal offset a row was built with, so a reflow can reproduce it. */
+    function platform_shiftOffsetOf(row: any) {
+      return typeof row.shiftOffset === 'number' ? row.shiftOffset : 0;
+    }
 
     function makeRow(index: number, shift: 'left' | 'center' | 'right' = 'center') {
       const y = -index * CONFIG.rowGap;

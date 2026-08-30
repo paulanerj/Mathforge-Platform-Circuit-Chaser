@@ -5,6 +5,7 @@ import {
   computeActorSafeCorridors,
   computePlatformCollisionRects,
   computeRouteCrossingOffset,
+  computeColumnCentres,
   pathIsClear,
 } from '../geometry/circuitClimbGeometry';
 import {
@@ -15,6 +16,8 @@ import {
 import {
   planLearnerSelection,
   selectionRouted,
+  collectActivePlatforms,
+  landingPointFor,
 } from '../runtime/circuitClimbLearnerRouting';
 import {
   baseRoutingWorld,
@@ -98,6 +101,61 @@ describe('LOCKED: accepted world geometry (handoff section J)', () => {
     expect(c).toBeDefined();
     expect(b!.width).toBeGreaterThan(0);
     expect(c!.width).toBeGreaterThan(0);
+  });
+
+  it('no supported world framing removes every learner destination', () => {
+    // The dead board above 100%: the actor grew with world framing, the column
+    // spacing stayed frozen at 190, the interior corridors closed, and every
+    // destination returned NO_LEGAL_ROUTE. The board still rendered, so it
+    // looked fine and could not be played. It shipped on the accepted baseline.
+    //
+    // A user-selectable framing must never contain a region with no legal move.
+    for (const percent of VIEW_SCALES) {
+      const world = worldAtScale(percent);
+      const config = { ...world, logicalWidth: CONFIG.logicalWidth };
+      const centres = computeColumnCentres(config);
+      const rows = [0, 1].map((index) => ({
+        index,
+        y: -index * world.rowGap,
+        platforms: centres.map((centre, column) => ({
+          id: `row-${index}-column-${column}`,
+          row: index,
+          column,
+          x: centre,
+          y: -index * world.rowGap,
+          width: world.platformWidth,
+          height: world.platformHeight,
+          value: null as number | null,
+          correct: false,
+          dead: false,
+          powered: false,
+          selected: false,
+          litAt: -1000,
+        })),
+      }));
+      const routingWorld: any = {
+        config: {
+          ...config,
+          routeTurnCount: 8,
+          routeMaxStraightRun: 72 * (percent / 100),
+          routeHorizontalJitter: 44 * (percent / 100),
+        },
+        activePlatforms: collectActivePlatforms(rows),
+        getRow: (index: number) => rows.find((r) => r.index === index) || null,
+        sourcePlatform: rows[0].platforms[1],
+        threat: null,
+        avoidance: 0,
+      };
+      const from = landingPointFor(routingWorld.config, rows[0].platforms[1]);
+
+      rows[1].platforms.forEach((platform, column) => {
+        const selection = planLearnerSelection(routingWorld, from, platform);
+        expect(
+          selection.ok,
+          `column ${column} unreachable at ${percent}% framing: ${(selection as any).reason}`,
+        ).toBe(true);
+      });
+    }
   });
 });
 
