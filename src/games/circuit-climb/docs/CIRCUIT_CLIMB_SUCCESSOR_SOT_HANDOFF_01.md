@@ -1,6 +1,18 @@
 # CIRCUIT CLIMB — SUCCESSOR SOURCE OF TRUTH — HANDOFF 01
 
-**This is the authoritative document for Circuit Climb.** It is written for an
+> # ⚠ SUPERSEDED
+>
+> **SUPERSEDED BY: `CIRCUIT_CLIMB_SUCCESSOR_SOT_HANDOFF_02.md`**
+>
+> This document is **historical**. It describes the product as it stood before
+> GEOMETRY-PARITY-02, WORLD-FRAMING-03 and BROWSER-SMOKE-04, and several of the
+> limitations it lists as open have since been resolved. Do not use it to make
+> decisions.
+>
+> Read `CIRCUIT_CLIMB_SUCCESSOR_SOT_HANDOFF_02.md` instead. It is kept only so
+> the reasoning behind the earlier freeze remains readable.
+
+**This was the authoritative document for Circuit Climb.** It is written for an
 engineer or PM with no knowledge of the conversations that produced the code. If
 you read one file before touching anything, read this one.
 
