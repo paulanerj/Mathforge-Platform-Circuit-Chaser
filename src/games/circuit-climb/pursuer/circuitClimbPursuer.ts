@@ -132,6 +132,14 @@ export function updatePursuer(
 ): PursuerState {
   const next = { ...pursuer };
   next.geometry = geometry;
+  // The actor's own body has to track the world it is standing in. World
+  // framing can change mid-life, and radius is set once at creation, so
+  // without this a pursuer created at one scale keeps that body forever —
+  // its collision rects, its bounds clamp and its drawn size all stay at the
+  // old scale while every other calculation moves to the new one. At an
+  // unchanged scale this is the value it already had, so the frozen default
+  // behaviour is untouched.
+  next.radius = geometry.playerRadius;
 
   if (next.state !== 'PURSUING') return next;
 
@@ -301,7 +309,7 @@ export function updatePursuer(
 
   // Purely Orthogonal Movement
   let remainingStep = step;
-  const rects = computePlatformCollisionRects(activePlatforms, pursuer.radius).map((rect) => {
+  const rects = computePlatformCollisionRects(activePlatforms, next.radius).map((rect) => {
     // The player rests inside the top padding of the platform it stands on, so
     // that band has to be enterable or the pursuer can never close the last few
     // units. Scoped to that one platform by id, and only its padding: the
@@ -380,7 +388,7 @@ export function updatePursuer(
   }
 
   // Keep pursuer within logical width bounds
-  const minClearance = pursuer.radius + 6;
+  const minClearance = next.radius + 6;
   next.x = Math.max(minClearance, Math.min(geometry.logicalWidth - minClearance, next.x));
 
   if (

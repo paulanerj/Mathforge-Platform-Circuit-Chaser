@@ -396,11 +396,45 @@ npm run build    clean
 
 ## L. KNOWN LIMITATIONS — none of these are fixed
 
-**1. Pursuer / runtime geometry divergence off default.** At the default 100%
-view scale the runtime world is exactly the module constants
-(`rowGap 205 · platform 104 · player 32`, measured), so the pursuer — which
-reasons in module constants — agrees exactly. Move the dev world-framing slider
-and they diverge; the pursuer keeps reasoning in 100% units.
+**1. Pursuer / runtime geometry divergence off default. — RESOLVED
+(GEOMETRY-PARITY-02).** The runtime owns a LOCAL `CONFIG`, seeded from
+`CIRCUIT_CLIMB_GEOMETRY` and mutated by `applyViewScale`. It now snapshots that
+LOCAL CONFIG into a `CurrentGameGeometry` via `captureRuntimeGeometry()` and
+passes it explicitly to `createPursuer` and to every `updatePursuer` call —
+the same shape, and the same source, that `routingConfig()` has always given
+the learner. `rowGap`, `playerRadius` and the actor body now follow world
+framing, including a scale change made while a pursuer is already alive.
+Measured in-browser off the rendered collision overlay: pursuer body radius
+26.2 @80% / 32 @100% / 39.3 @120%, against a constant 32.8 before the change.
+
+Two boundaries are deliberate rather than overlooked. `logicalWidth` and
+`routePlatformPadding` do not scale — `applyViewScale` never assigns the first
+and re-assigns the second to its base value — so the world keeps its width and
+its horizontal spacing at every framing. And `computeActorSafeCorridors()`
+remains the SHARED corridor authority, reading the module constant for the
+pursuer and the learner alike; it is left that way on purpose, because giving
+the pursuer its own corridor formula would put the two actors back out of
+agreement. `circuitClimbGeometryParity.test.ts` pins both boundaries.
+
+**1b. The learner board is dead above 100% world framing — PRE-EXISTING, NOT
+caused by the geometry work.** At any framing above 100%, `planLearnerSelection`
+returns `NO_LEGAL_ROUTE` for all three destinations and no platform can be
+selected; the spark cannot move and the pursuer takes a stationary player.
+Verified in-browser on this commit AND on the accepted baseline `8f54069`,
+which produces the identical failure (`CIRCUIT_CLIMB_LEARNER_ROUTE_FAILED
+{reason: NO_LEGAL_ROUTE}` x18) — so it predates GEOMETRY-PARITY entirely.
+
+Cause: platform columns are fractions of a `logicalWidth` that never scales, so
+the horizontal gap between platforms is fixed, while `playerRadius` grows with
+framing. The interior corridor is only 6.0 units wide at 100%
+(`computePlatformCollisionRects` pad = `routePlatformPadding + playerRadius`),
+so any zoom above 1.0 closes it. The break is at 101%. This is limitation 7
+(the narrow NOT_CLOSING margin) reaching its actual failure point.
+
+Fixing it is a learner-routing and world-layout question — scale the column
+spacing with the actor, or widen the corridor budget — and was out of scope for
+geometry plumbing. It should be the next thing looked at: the 80-120 slider
+currently ships a range that is unplayable over half its travel.
 
 **2. Alive pursuer tuning is provisional.** Set by feel over a handful of runs.
 The sliders exist to argue with it. It has never been tuned against play data.
