@@ -1,7 +1,7 @@
 import { CircuitClimbMathAdapter } from '../services/CircuitClimbMathAdapter';
 import { useState, useEffect, useRef } from 'react';
 import { CIRCUIT_CLIMB_GEOMETRY, computeActorSafeCorridors, computeInversePointerTransform, computePlatformCollisionRects, computeRouteCrossingOffset, chooseRouteAgainstThreat, pathClearance, pathIsClear } from '../geometry/circuitClimbGeometry';
-import { createPursuer, updatePursuer, PursuerState } from '../pursuer/circuitClimbPursuer';
+import { createPursuer, updatePursuer, PursuerState, captureCurrentGeometry } from '../pursuer/circuitClimbPursuer';
 import { PursuerTracer } from '../pursuer/circuitClimbPursuerTrace';
 import { parseStoredNumber, computeKeepBehindRow, pursuerRowFromWorldY } from './circuitClimbRuntimeRules';
 import {
@@ -832,7 +832,7 @@ export function useCircuitClimbPrototypeRuntime() {
       targetPresentation.phaseStartedAt = 0;
       targetPresentation.progress = 0;
 
-      pursuer = createPursuer(player.x, player.y, enginePursuerTuning);
+      pursuer = createPursuer(player.x, player.y, enginePursuerTuning, captureCurrentGeometry());
       pursuerTracer.reset();
       engineCaptured = false;
       setCaptured(false);
@@ -1223,7 +1223,7 @@ export function useCircuitClimbPrototypeRuntime() {
               console.log('CIRCUIT_CLIMB_PURSUER_HOLDING', stall);
             }
           }
-        });
+        }, captureCurrentGeometry());
 
         if (pursuer.behaviour !== previousBehaviour) {
           setPursuerBehaviour(pursuer.behaviour);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createPursuer, updatePursuer, PURSUER_CAPTURE_DISTANCE } from '../pursuer/circuitClimbPursuer';
+import { createPursuer, updatePursuer, getPursuerCaptureDistance } from '../pursuer/circuitClimbPursuer';
 import { CIRCUIT_CLIMB_GEOMETRY as CONFIG, computePlatformBounds, computeActorSafeCorridors } from '../geometry/circuitClimbGeometry';
 
 describe('Circuit Climb Pursuer (PURSUER-01-R2)', () => {
@@ -185,7 +185,7 @@ describe('Circuit Climb Pursuer (PURSUER-01-R2)', () => {
 
   it('K. A pursuer further away than the capture distance keeps pursuing', () => {
     const pursuer = createPursuer(300, 0);
-    pursuer.y = 50 + PURSUER_CAPTURE_DISTANCE + 20;
+    pursuer.y = 50 + getPursuerCaptureDistance(pursuer.geometry) + 20;
     const next = updatePursuer(pursuer, { x: 300, y: 50 }, [], 1); // tiny step, stays clear
     expect(next.state).toBe('PURSUING');
   });

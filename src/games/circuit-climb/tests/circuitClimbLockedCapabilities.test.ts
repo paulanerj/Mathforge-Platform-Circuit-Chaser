@@ -10,7 +10,7 @@ import {
 import {
   createPursuer,
   updatePursuer,
-  PURSUER_CAPTURE_DISTANCE,
+  getPursuerCaptureDistance,
 } from '../pursuer/circuitClimbPursuer';
 import {
   planLearnerSelection,
@@ -216,7 +216,7 @@ describe('LOCKED: pursuer navigates and captures', () => {
 
   it('capture needs a real overlap, not a graze', () => {
     const pursuer = createPursuer(300, 0);
-    pursuer.y = 50 + PURSUER_CAPTURE_DISTANCE + 20;
+    pursuer.y = 50 + getPursuerCaptureDistance(pursuer.geometry) + 20;
     const next = updatePursuer(pursuer, { x: 300, y: 50 }, [], 1);
     expect(next.state).toBe('PURSUING');
   });

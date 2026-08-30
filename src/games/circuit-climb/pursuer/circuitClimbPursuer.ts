@@ -2,6 +2,32 @@ import { CIRCUIT_CLIMB_GEOMETRY as CONFIG, computePlatformCollisionRects, pathIs
 import type { PursuerMode, PursuerStep, PursuerStallReason } from './circuitClimbPursuerTrace';
 import { BASELINE_PURSUER_TUNING, PursuerTuning } from './circuitClimbPursuerTuning';
 
+/**
+ * Current game geometry used by pursuer calculations.
+ * Passed explicitly to avoid hardcoding default geometry,
+ * allowing off-default view scales to work correctly.
+ */
+export interface CurrentGameGeometry {
+  rowGap: number;
+  platformHeight: number;
+  playerRadius: number;
+  logicalWidth: number;
+  routePlatformPadding: number;
+}
+
+/**
+ * Create a geometry snapshot from current CONFIG state.
+ */
+export function captureCurrentGeometry(): CurrentGameGeometry {
+  return {
+    rowGap: CONFIG.rowGap,
+    platformHeight: CONFIG.platformHeight,
+    playerRadius: CONFIG.playerRadius,
+    logicalWidth: CONFIG.logicalWidth,
+    routePlatformPadding: CONFIG.routePlatformPadding,
+  };
+}
+
 export type PursuerLifecycle = 'PURSUING' | 'CAUGHT';
 
 /**
@@ -31,28 +57,37 @@ export interface PursuerState {
   crossingRowY: number | null;
   crossingCorridorX: number | null;
   tuning: PursuerTuning;
+  /** Current game geometry at time of creation/update. Used for all calculations. */
+  geometry: CurrentGameGeometry;
 }
 
 /**
  * Centre-to-centre distance at which the pursuer has the player. The actors
  * carry a radius each, so this is a solid overlap rather than a graze.
+ * Computed from geometry, not hardcoded to CONFIG.
  */
-export const PURSUER_CAPTURE_DISTANCE = CONFIG.playerRadius;
+export function getPursuerCaptureDistance(geometry: CurrentGameGeometry): number {
+  return geometry.playerRadius;
+}
 
 /**
  * Defaults to the frozen baseline tuning, so anything that does not explicitly
  * ask for a living pursuer gets the locked behaviour — including the whole
  * capability lock suite.
+ *
+ * Geometry is optionally provided; defaults to current CONFIG state to ensure
+ * at-scale parity with runtime when geometry changes via view scale.
  */
 export function createPursuer(
   playerX: number,
   playerY: number,
   tuning: PursuerTuning = BASELINE_PURSUER_TUNING,
+  geometry: CurrentGameGeometry = captureCurrentGeometry(),
 ): PursuerState {
   return {
     x: playerX,
-    y: playerY + 2 * CONFIG.rowGap,
-    radius: CONFIG.playerRadius,
+    y: playerY + 2 * geometry.rowGap,
+    radius: geometry.playerRadius,
     speed: 0.08, // Conservative speed within foundation range (0.06 - 0.10)
     state: 'PURSUING',
     behaviour: 'SEARCH',
@@ -64,6 +99,7 @@ export function createPursuer(
     crossingRowY: null,
     crossingCorridorX: null,
     tuning,
+    geometry,
   };
 }
 
@@ -102,9 +138,11 @@ export function updatePursuer(
   },
   activePlatforms: any[],
   delta: number,
-  onStep?: (step: PursuerStep) => void
+  onStep?: (step: PursuerStep) => void,
+  geometry: CurrentGameGeometry = captureCurrentGeometry()
 ): PursuerState {
   const next = { ...pursuer };
+  next.geometry = geometry;
 
   if (next.state !== 'PURSUING') return next;
 
@@ -170,7 +208,7 @@ export function updatePursuer(
   // "arrived yet?" test flips back and forth as the pursuer crosses the band and
   // leaves it oscillating around the sighting instead of searching onward.
   const desiredY = searching
-    ? Math.min(next.lastKnownY, next.y - CONFIG.rowGap)
+    ? Math.min(next.lastKnownY, next.y - geometry.rowGap)
     : player.y;
 
   const baseSpeed = next.behaviour === 'CHASE' ? tuning.chaseSpeed : tuning.searchSpeed;
@@ -195,14 +233,14 @@ export function updatePursuer(
   let chosenCorridor: number | null = null;
 
   if (nextRowY !== undefined) {
-    const pad = CONFIG.routePlatformPadding + CONFIG.playerRadius;
+    const pad = geometry.routePlatformPadding + geometry.playerRadius;
     rowTop = nextRowY - pad;
 
     const rowPlatforms = activePlatforms.filter(p => p.y === nextRowY).sort((a, b) => a.x - b.x);
     rowPlatformCount = rowPlatforms.length;
     rowBottom = rowPlatforms.length
       ? nextRowY + rowPlatforms[0].height + pad
-      : nextRowY + CONFIG.platformHeight + pad;
+      : nextRowY + geometry.platformHeight + pad;
 
     // The pursuer has to cross this row whenever the player is not strictly
     // below it. Comparing against the band's lower edge (rowBottom) rather than
@@ -224,7 +262,7 @@ export function updatePursuer(
         const p = rowPlatforms[0];
         const pLeft = p.x - p.width / 2;
         const pRight = p.x + p.width / 2;
-        const minClear = CONFIG.playerRadius + 6;
+        const minClear = geometry.playerRadius + 6;
 
         // Left exterior corridor
         const aLeft = minClear;
@@ -235,7 +273,7 @@ export function updatePursuer(
 
         // Right exterior corridor
         const bLeft = pRight + pad;
-        const bRight = CONFIG.logicalWidth - minClear;
+        const bRight = geometry.logicalWidth - minClear;
         if (bRight >= bLeft) {
           corridors.push({ left: bLeft, right: bRight, center: (bLeft + bRight) / 2 });
         }
@@ -354,11 +392,11 @@ export function updatePursuer(
 
   // Keep pursuer within logical width bounds
   const minClearance = pursuer.radius + 6;
-  next.x = Math.max(minClearance, Math.min(CONFIG.logicalWidth - minClearance, next.x));
+  next.x = Math.max(minClearance, Math.min(geometry.logicalWidth - minClearance, next.x));
 
   if (
     player.capturable !== false &&
-    Math.hypot(player.x - next.x, player.y - next.y) <= PURSUER_CAPTURE_DISTANCE
+    Math.hypot(player.x - next.x, player.y - next.y) <= getPursuerCaptureDistance(geometry)
   ) {
     next.state = 'CAUGHT';
   }
