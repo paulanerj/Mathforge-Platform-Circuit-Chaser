@@ -233,3 +233,211 @@ describe('corridor entry: collision is not weakened', () => {
     expect(escape!.distance).toBeCloseTo(11.609, 2);
   });
 });
+
+/**
+ * DIRECT-MODE DEADLOCK, 100% world framing.
+ *
+ * A second live run, after the corridor-entry repair. The pursuer chased much
+ * better — reaching learner row 10 — and then froze for 767 frames, level with
+ * the learner, with 282 units of horizontal intent, every frame refused.
+ *
+ * This one is NOT the corridor-entry defect and NOT an overlap. The pursuer is
+ * OUTSIDE every rect, pressed against one by 0.116 units. It is stuck because
+ * DIRECT mode has no obstacle handling at all: the only obstacle it reasons
+ * about is the row it must cross, and when the learner is on the pursuer's own
+ * row there is no such row, so no corridor is ever chosen. With the vertical
+ * gap already closed there is nothing to spend the frame on either.
+ *
+ * The session reported 90% framing, but the recorded band (rowTop -2295,
+ * rowBottom -2153, nextRowY -2255) gives pad 40 and platformHeight 62 — which
+ * is 100%. Row 11 sits at -2255 only at rowGap 205, and row 10's rest position
+ * is exactly the recorded -2085. The figures below are therefore 100%.
+ */
+const D_GEOMETRY = {
+  rowGap: G.rowGap,
+  platformHeight: G.platformHeight,
+  playerRadius: G.playerRadius,
+  logicalWidth: G.logicalWidth,
+  routePlatformPadding: G.routePlatformPadding,
+};
+const D_CENTRES = computeColumnCentres({ ...G, platformWidth: G.platformWidth });
+const D_ROW = (index: number) => D_CENTRES.map((x, column) => ({
+  id: `row-${index}-column-${column}`, row: index, column, x,
+  y: -index * G.rowGap, width: G.platformWidth, height: G.platformHeight, dead: false,
+}));
+const D_WORLD = [9, 10, 11, 12].flatMap(D_ROW);
+const FROZEN = { x: 207.88411021261896, y: -2085 };
+const D_LEARNER = { x: 490, y: -2085 };
+
+function frozenPursuer(): PursuerState {
+  const pursuer = createPursuer(300, 0, ALIVE_PURSUER_TUNING, D_GEOMETRY);
+  pursuer.x = FROZEN.x;
+  pursuer.y = FROZEN.y;
+  pursuer.behaviour = 'CHASE';
+  return pursuer;
+}
+
+describe('direct mode: level with the learner and walled off', () => {
+  it('the recorded band identifies 100% framing, not 90%', () => {
+    expect(G.routePlatformPadding + G.playerRadius).toBe(40);   // reported pad
+    expect(G.platformHeight).toBe(62);                          // reported height
+    expect(-11 * G.rowGap).toBe(-2255);                         // reported nextRowY
+    expect(-10 * G.rowGap - G.playerRadius - 3).toBe(-2085);    // reported learner y
+  });
+
+  /**
+   * The correction to the working hypothesis: this is not penetration. The
+   * pursuer is outside every rect, by a tenth of a unit.
+   */
+  it('the pursuer is OUTSIDE every rect, not embedded in one', () => {
+    const rects = computePlatformCollisionRects(D_WORLD, G.playerRadius);
+    expect(computeRectEscape(FROZEN, rects)).toBeNull();
+
+    const blocking = rects.find(r => r.platform.id === 'row-10-column-1')!;
+    expect(blocking.left - FROZEN.x).toBeCloseTo(0.116, 3);
+  });
+
+  it('the move toward the learner is refused by the pursuer\'s own row', () => {
+    const rects = computePlatformCollisionRects(D_WORLD, G.playerRadius);
+    const toward = [FROZEN, { x: FROZEN.x + 1, y: FROZEN.y }];
+    expect(pathIsClear(toward, rects)).toBe(false);
+
+    const culprit = rects.filter(r => !pathIsClear(toward, [r]));
+    expect(culprit).toHaveLength(1);
+    expect(culprit[0].platform.id).toBe('row-10-column-1');
+  });
+
+  /**
+   * Five units of lift is all that was ever needed.
+   */
+  it('a small climb clears the band and opens the path', () => {
+    const rects = computePlatformCollisionRects(D_WORLD, G.playerRadius);
+    const blocking = rects.find(r => r.platform.id === 'row-10-column-1')!;
+    expect(FROZEN.y - blocking.top).toBe(5);
+
+    const above = blocking.top - 1;
+    expect(pathIsClear([{ x: FROZEN.x, y: above }, { x: FROZEN.x + 1, y: above }], rects)).toBe(true);
+  });
+
+  /**
+   * The headline regression. Before the repair this run produces zero movement
+   * across 400 frames; an earlier attempt produced movement but only an
+   * oscillation, so progress is measured in horizontal distance closed, not in
+   * frames that happened to move.
+   */
+  it('routes around the platform instead of pressing against it', () => {
+    let pursuer = frozenPursuer();
+    const player = { ...D_LEARNER, traveling: false, capturable: true, platform: D_ROW(10)[2] };
+
+    for (let frame = 0; frame < 400; frame += 1) {
+      pursuer = updatePursuer(pursuer, player, D_WORLD, 16.7, undefined, D_GEOMETRY);
+    }
+
+    const closed = pursuer.x - FROZEN.x;
+    expect(closed, `only closed ${closed.toFixed(1)} of the 282 units of horizontal intent`)
+      .toBeGreaterThan(150);
+    expect(Math.abs(D_LEARNER.x - pursuer.x)).toBeLessThan(100);
+  });
+
+  it('never passes through a platform on the way around', () => {
+    let pursuer = frozenPursuer();
+    const player = { ...D_LEARNER, traveling: false, capturable: true, platform: D_ROW(10)[2] };
+
+    for (let frame = 0; frame < 400; frame += 1) {
+      pursuer = updatePursuer(pursuer, player, D_WORLD, 16.7, undefined, D_GEOMETRY);
+      for (const platform of D_WORLD) {
+        const insideBody =
+          pursuer.x > platform.x - platform.width / 2 &&
+          pursuer.x < platform.x + platform.width / 2 &&
+          pursuer.y > platform.y &&
+          pursuer.y < platform.y + platform.height;
+        expect(insideBody, `inside ${platform.id} at frame ${frame}`).toBe(false);
+      }
+    }
+  });
+
+  /**
+   * The same deadlock reflected. If the repair only worked on the recorded
+   * coordinates it would be a fix for one session, not for the contract.
+   */
+  it('routes around from the other side too', () => {
+    const rects = computePlatformCollisionRects(D_WORLD, G.playerRadius);
+    const blocking = rects.find(r => r.platform.id === 'row-10-column-1')!;
+    const startX = blocking.right + (FROZEN.x - blocking.left) * -1; // same 0.116 gap, mirrored
+
+    let pursuer = frozenPursuer();
+    pursuer.x = startX;
+    const player = { x: D_CENTRES[0], y: FROZEN.y, traveling: false, capturable: true, platform: D_ROW(10)[0] };
+
+    for (let frame = 0; frame < 400; frame += 1) {
+      pursuer = updatePursuer(pursuer, player, D_WORLD, 16.7, undefined, D_GEOMETRY);
+    }
+
+    const closed = startX - pursuer.x;
+    expect(closed, `only closed ${closed.toFixed(1)} units leftward`).toBeGreaterThan(150);
+    expect(Math.abs(D_CENTRES[0] - pursuer.x)).toBeLessThan(100);
+  });
+
+  /**
+   * The detour has to be a detour: the smallest lift that clears the band, and
+   * given back once the way is open. A pursuer that climbed away to solve this
+   * would pass the headline test and still be broken.
+   */
+  it('lifts only as far as the band requires, and comes back down', () => {
+    let pursuer = frozenPursuer();
+    const player = { ...D_LEARNER, traveling: false, capturable: true, platform: D_ROW(10)[2] };
+
+    let highest = FROZEN.y;
+    for (let frame = 0; frame < 400; frame += 1) {
+      pursuer = updatePursuer(pursuer, player, D_WORLD, 16.7, undefined, D_GEOMETRY);
+      highest = Math.min(highest, pursuer.y);
+    }
+
+    expect(pursuer.state).toBe('CAUGHT');
+    expect(FROZEN.y - highest).toBeLessThan(10);
+    expect(pursuer.y).toBe(FROZEN.y);
+  });
+  /**
+   * The detour is a fallback, not an override. When the frame's own vertical
+   * move would already clear the band, that move must survive intact — which is
+   * why the band test looks at where the move ENDS, not at where the pursuer
+   * currently is. At a normal frame budget the two readings agree (a frame moves
+   * ~3 units and the band edge is 5 away), so this uses one large frame to tell
+   * them apart: the honest move closes the full 10-unit gap, the override would
+   * substitute a 6-unit hop and leave the pursuer short.
+   */
+  it('does not override a vertical move that already clears the band', () => {
+    const rects = computePlatformCollisionRects(D_WORLD, G.playerRadius);
+    const blocking = rects.find(r => r.platform.id === 'row-10-column-1')!;
+
+    const pursuer = frozenPursuer();
+    const player = { x: D_LEARNER.x, y: FROZEN.y - 10, traveling: false, capturable: true, platform: D_ROW(10)[2] };
+    const next = updatePursuer(pursuer, player, D_WORLD, 300, undefined, D_GEOMETRY);
+
+    expect(next.x).toBe(FROZEN.x);            // still walled off sideways
+    expect(next.y).toBe(FROZEN.y - 10);       // the whole gap, not a 6-unit hop
+    expect(next.y).toBeLessThan(blocking.top);
+  });
+
+  /**
+   * Why the near edge is always the top edge for a resting learner, at every
+   * framing: a learner rests playerRadius + 3 above its platform, and the
+   * inflated rect starts routePlatformPadding + playerRadius above it, so the
+   * gap is routePlatformPadding - 3 — five units — whatever the view scale. The
+   * far edge is platformHeight + 11 + 2 * playerRadius away. The nearest-edge
+   * choice therefore only ever picks "down" for a learner in transit, which is
+   * why the recorded freezes are all top-edge cases.
+   */
+  it('a resting learner always sits five units inside the top of the band', () => {
+    for (const zoom of [0.8, 0.9, 1.0, 1.2]) {
+      const radius = G.playerRadius * zoom;
+      const height = G.platformHeight * Math.pow(zoom, 0.48);
+      const platform = { id: 'p', row: 3, column: 1, x: 300, y: -3 * G.rowGap * zoom, width: G.platformWidth, height };
+      const [rect] = computePlatformCollisionRects([platform], radius, G.routePlatformPadding);
+      const restY = platform.y - radius - 3;
+
+      expect(restY - rect.top, `zoom ${zoom}`).toBeCloseTo(5, 9);
+      expect(rect.bottom - restY).toBeCloseTo(height + 11 + 2 * radius, 9);
+    }
+  });
+});

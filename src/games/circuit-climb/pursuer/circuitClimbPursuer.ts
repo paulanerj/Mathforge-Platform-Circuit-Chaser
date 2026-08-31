@@ -400,6 +400,7 @@ export function updatePursuer(
   // moves faster than the pursuer can follow cannot eat the whole frame.
   const horizontalBudget = remainingStep * (1 - Math.min(0.95, Math.max(0, tuning.climbReserve || 0)));
   const dx = targetX - next.x;
+  let blockingRect: any = null;
   let hAttempted = 0;
   let hBlocked = false;
   let hApplied = 0;
@@ -417,6 +418,11 @@ export function updatePursuer(
       // A blocked sideways step must not also cancel this frame's climb. The
       // budget is left intact so the pursuer can still make vertical progress.
       hBlocked = true;
+      // Remember what stopped it: if this frame also turns out to have no
+      // vertical intent to spend, that rect is the thing to climb around.
+      blockingRect = rects.find(
+        (rect) => !pathIsClear([{ x: next.x, y: next.y }, { x: candX, y: next.y }], [rect]),
+      ) || null;
     }
   }
 
@@ -441,6 +447,39 @@ export function updatePursuer(
       vIntent = dy;
       if (Math.abs(dy) > 0.1) {
         moveY = Math.sign(dy) * Math.min(Math.abs(dy), remainingStep);
+      }
+
+      // Level with the target, and walled off from it.
+      //
+      // DIRECT mode assumes the way to the learner is open, because the only
+      // obstacle it reasons about is the row it has to cross — and when the
+      // learner is on the pursuer's own row there is no such row, so no
+      // corridor is ever chosen. With the vertical gap already closed there is
+      // nothing left to spend the frame on either, so a pursuer standing beside
+      // a platform in its own row simply pressed against it forever. Observed
+      // for 767 frames, level with the learner, 282 units of horizontal intent,
+      // every frame refused.
+      //
+      // Going around begins with leaving the band that platform occupies, so
+      // when the frame's own vertical move would not do that, aim for whichever
+      // of its edges is nearer instead. Checking the move's DESTINATION rather
+      // than just the current position is what stops the pursuer lifting clear
+      // and then immediately dropping back to close the vertical gap again,
+      // which is a slower way of standing still.
+      //
+      // This is intent only. The move below is collision-checked like any
+      // other, so a genuinely boxed-in pursuer still cannot pass through
+      // anything.
+      if (hBlocked && blockingRect) {
+        const candidateY = next.y + moveY;
+        const stillInBand = candidateY > blockingRect.top && candidateY < blockingRect.bottom;
+        if (stillInBand) {
+          const toTop = next.y - blockingRect.top;
+          const toBottom = blockingRect.bottom - next.y;
+          const clearance = Math.min(toTop, toBottom) + 1;
+          vIntent = toTop <= toBottom ? -clearance : clearance;
+          moveY = Math.sign(vIntent) * Math.min(clearance, remainingStep);
+        }
       }
     }
 
