@@ -65,10 +65,37 @@ export const BASELINE_PURSUER_TUNING: Readonly<PursuerTuning> = Object.freeze({
 /**
  * Starting point for the living pursuer. Deliberately provisional — these are
  * the numbers the dev panel exists to argue with.
+ *
+ * `searchSpeed` is the continuity setting, not `chaseSpeed`.
+ *
+ * The pursuer spends nearly the whole run in SEARCH: acquisition needs the
+ * learner inside `senseRadius`, and closing that distance is itself a SEARCH
+ * job. At 0.095 it was travelling at almost exactly the learner's own average
+ * climb rate — 205 units per (travel + think) cycle is 0.0956 u/ms at a
+ * 1200 ms think, against a 0.095 search speed — so the gap froze wherever the
+ * opening transient left it, about two rows, and never re-entered sensing
+ * range. The pursuer then trailed the climb forever without ever chasing:
+ * visible, moving, and permanently harmless. That is the "it gives up after
+ * about five moves" report; five is where the spawn transient ends and the
+ * speed-matched equilibrium begins.
+ *
+ * Measured over 20 landings, share of frames spent in CHASE:
+ *
+ *            fast(300ms)  brisk(800ms)  typical(1200ms)  slow(2000ms)
+ *   0.095        0%            0%              0%             27%
+ *   0.130        0%            9%             21%             34%
+ *
+ * Raising `chaseSpeed` does not move those numbers at all — the pursuer is not
+ * in CHASE to benefit. Raising `senseRadius` does not either: a wider radius
+ * grabs a lock the pursuer cannot hold, and it drops straight back out.
+ *
+ * A genuinely fast learner still escapes at every value tested, which is the
+ * product rule; 0.130 buys presence at ordinary pace without removing that.
  */
 export const ALIVE_PURSUER_TUNING: Readonly<PursuerTuning> = Object.freeze({
-  searchSpeed: 0.095,
-  chaseSpeed: 0.16,
+  searchSpeed: 0.13,
+  // Live chase pace, +20% over the previous 0.16 at PM request.
+  chaseSpeed: 0.192,
   senseRadius: 260,
   loseRadius: 420,
   alertDwellMs: 260,

@@ -173,6 +173,15 @@ export function updatePursuer(
     // is what makes the baseline tuning reproduce the frozen behaviour exactly.
     next.behaviour = tuning.alertDwellMs > 0 ? 'ALERT' : 'CHASE';
     next.alertElapsed = 0;
+    // The sighting that caused this transition is the freshest information the
+    // pursuer will ever have, so record it. Without this, an ALERT beat orients
+    // on whatever the previous sighting was and spends its dwell drifting
+    // toward a place the learner has already left. Only the acquisition frame
+    // writes here; a continuous refresh while searching was measured and makes
+    // pursuit worse, because horizontal tracking then competes with the climb
+    // for the same frame budget.
+    next.lastKnownX = player.x;
+    next.lastKnownY = player.y;
   }
 
   if (next.behaviour === 'CHASE') {
