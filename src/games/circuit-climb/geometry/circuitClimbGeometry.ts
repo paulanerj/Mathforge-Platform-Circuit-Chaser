@@ -246,6 +246,61 @@ export function computePlatformCollisionRects(
   return rects;
 }
 
+/**
+ * The shortest way out, for an actor that is already inside an inflated rect.
+ *
+ * `segmentHitsRect` is a pure overlap test with no notion of direction, so a
+ * segment that starts inside a rect overlaps it no matter which way it points
+ * and `pathIsClear` rejects it. For an actor in a legal position that is
+ * correct — it is what stops anything walking into a platform. For an actor
+ * that is ALREADY inside one it is a trap: every direction is refused,
+ * including the one that leads out, and the actor can never move again.
+ *
+ * An actor can arrive inside a rect legitimately. The pursuer is allowed into
+ * the top padding of the platform the learner is standing on, so that it can
+ * actually reach a learner resting there; the moment the learner leaves, that
+ * exception is withdrawn and the full inflated rect closes over the pursuer.
+ * A change of world framing can do the same thing by moving a platform.
+ *
+ * This returns the axis-aligned move that leaves the rect by its nearest edge,
+ * or null when the point is not inside anything. It is an escape, not a licence
+ * to pass through: it only exists while the actor is inside, it always points
+ * at the closest boundary, and it stops there.
+ */
+export function computeRectEscape(
+  point: { x: number; y: number },
+  rects: any[],
+): { dx: number; dy: number; distance: number; rect: any } | null {
+  let best: { dx: number; dy: number; distance: number; rect: any } | null = null;
+
+  for (const rect of rects) {
+    const inside =
+      point.x > rect.left && point.x < rect.right &&
+      point.y > rect.top && point.y < rect.bottom;
+    if (!inside) continue;
+
+    // Distance to each edge, and the move that reaches it.
+    const options = [
+      { distance: point.x - rect.left, dx: -(point.x - rect.left), dy: 0 },
+      { distance: rect.right - point.x, dx: rect.right - point.x, dy: 0 },
+      { distance: point.y - rect.top, dx: 0, dy: -(point.y - rect.top) },
+      { distance: rect.bottom - point.y, dx: 0, dy: rect.bottom - point.y },
+    ];
+    let nearest = options[0];
+    for (const option of options) {
+      if (option.distance < nearest.distance) nearest = option;
+    }
+
+    // When several rects overlap the point, the deepest one decides: leaving
+    // the shallowest first would only push further into the others.
+    if (!best || nearest.distance > best.distance) {
+      best = { dx: nearest.dx, dy: nearest.dy, distance: nearest.distance, rect };
+    }
+  }
+
+  return best;
+}
+
 export function segmentHitsRect(a: any, b: any, rect: any) {
   if (a.x === b.x) {
     if (a.x <= rect.left || a.x >= rect.right) return false;

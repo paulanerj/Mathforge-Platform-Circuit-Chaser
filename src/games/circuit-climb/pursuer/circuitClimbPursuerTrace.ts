@@ -9,7 +9,9 @@
  * "which link in the chain stopped producing movement, and why?"
  */
 
-export type PursuerMode = 'NO_ROW' | 'DIRECT' | 'CORRIDOR';
+/** `ESCAPE` is the frame a pursuer spends leaving an inflated rect it had
+ *  become embedded in — see `computeRectEscape`. */
+export type PursuerMode = 'NO_ROW' | 'DIRECT' | 'CORRIDOR' | 'ESCAPE';
 
 export interface PursuerAxisStep {
   /** Signed distance the pursuer wanted to cover on this axis. */

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createPursuer, updatePursuer, getPursuerCaptureDistance } from '../pursuer/circuitClimbPursuer';
-import { CIRCUIT_CLIMB_GEOMETRY as CONFIG, computePlatformBounds, computeActorSafeCorridors } from '../geometry/circuitClimbGeometry';
+import { CIRCUIT_CLIMB_GEOMETRY as CONFIG, computePlatformBounds, computeActorSafeCorridors, computePlatformCollisionRects } from '../geometry/circuitClimbGeometry';
 import { defaultTestGeometry } from './support/circuitClimbProductionFixtures';
 
 describe('Circuit Climb Pursuer (PURSUER-01-R2)', () => {
@@ -158,14 +158,26 @@ describe('Circuit Climb Pursuer (PURSUER-01-R2)', () => {
   });
 
   it('H. Pursuer cannot cross actor-expanded platform rectangle', () => {
-    const pursuer = createPursuer(300, 0, undefined, defaultTestGeometry());
-    pursuer.y = 100 + CONFIG.platformHeight/2 + CONFIG.playerRadius + CONFIG.routePlatformPadding + 1; // just below padding
-    const activePlatforms = [{ id: 'p1', row: 1, column: 1, x: 300, y: 100, width: CONFIG.platformWidth, height: CONFIG.platformHeight }];
-    
-    // Force a purely vertical move with a massive step
-    const next = updatePursuer(pursuer, { x: 300, y: 0 }, activePlatforms, 2000);
-    
-    expect(next.y).toBe(pursuer.y); 
+    // Start LEGALLY below the inflated rect. The previous version of this test
+    // started 1 unit inside it (100 + 31 + 32 + 8 + 1 = 172, against a rect
+    // spanning y 60..202) and asserted the pursuer could not move at all. That
+    // is immobility-while-embedded, not crossing — and it was the corridor-entry
+    // deadlock, which froze a real session for 1605 frames. The property this
+    // test is named for is that the rect cannot be passed through, so that is
+    // what it now asserts, from a position where the pursuer is genuinely
+    // outside and trying to climb in.
+    const geometry = defaultTestGeometry();
+    const platform = { id: 'p1', row: 1, column: 1, x: 300, y: 100, width: CONFIG.platformWidth, height: CONFIG.platformHeight };
+    const [rect] = computePlatformCollisionRects([platform], geometry.playerRadius);
+
+    const pursuer = createPursuer(300, 0, undefined, geometry);
+    pursuer.y = rect.bottom + 1; // just below the padding, outside it
+
+    // A single enormous step, straight up through the platform.
+    const next = updatePursuer(pursuer, { x: 300, y: 0 }, [platform], 2000, undefined, geometry);
+
+    expect(next.y).toBe(pursuer.y);
+    expect(next.y).toBeGreaterThan(platform.y + platform.height);
   });
 
   it('I. World-edge bounds remain safe', () => {

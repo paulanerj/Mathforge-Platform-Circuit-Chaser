@@ -1,4 +1,4 @@
-import { CIRCUIT_CLIMB_GEOMETRY as CONFIG, computePlatformCollisionRects, pathIsClear, computeActorSafeCorridors } from '../geometry/circuitClimbGeometry';
+import { CIRCUIT_CLIMB_GEOMETRY as CONFIG, computePlatformCollisionRects, pathIsClear, computeActorSafeCorridors, computeRectEscape } from '../geometry/circuitClimbGeometry';
 import type { PursuerMode, PursuerStep, PursuerStallReason } from './circuitClimbPursuerTrace';
 import { BASELINE_PURSUER_TUNING, PursuerTuning } from './circuitClimbPursuerTuning';
 
@@ -339,6 +339,60 @@ export function updatePursuer(
     }
     return rect;
   });
+
+  // 0. Escape, if the pursuer is somehow already inside an inflated rect.
+  //
+  // It can get there legitimately. The exception above lets it into the top
+  // padding of the platform the learner is standing on; when the learner moves
+  // on, that exception is withdrawn and the full rect closes over a pursuer
+  // sitting in the band. A world-framing change can do the same by moving a
+  // platform. From inside, every direction overlaps the rect, so `pathIsClear`
+  // refuses all of them — including the way out — and the pursuer is stuck
+  // forever, reporting HORIZONTAL_BLOCKED while still tracking the learner
+  // perfectly. That was observed for 1605 consecutive frames.
+  //
+  // Leaving by the nearest edge is the whole of the repair. It cannot be used
+  // to travel through a platform: it only runs while the pursuer is inside one,
+  // it always heads for the closest boundary, and it stops on reaching it.
+  const escape = computeRectEscape({ x: next.x, y: next.y }, rects);
+  if (escape) {
+    // Move at the pursuer's own pace, and never further than just past the
+    // edge, so the frame after this one is a normal collision-checked frame.
+    const reach = Math.min(remainingStep, escape.distance + 0.5);
+    if (escape.dx !== 0) next.x += Math.sign(escape.dx) * reach;
+    else next.y += Math.sign(escape.dy) * reach;
+
+    if (onStep) {
+      onStep({
+        frame: 0,
+        behaviour: next.behaviour,
+        distanceToPlayer,
+        desired: { x: desiredX, y: desiredY },
+        lastKnown: { x: next.lastKnownX, y: next.lastKnownY },
+        speedScale: jitter * alertScale,
+        delta,
+        budget: step,
+        from: { x: pursuer.x, y: pursuer.y },
+        to: { x: next.x, y: next.y },
+        player: { x: player.x, y: player.y },
+        nextRowY: nextRowY === undefined ? null : nextRowY,
+        rowTop,
+        rowBottom,
+        mustCrossRow: isTargetingCorridor,
+        mode: 'ESCAPE',
+        rowPlatformCount,
+        corridors: tracedCorridors,
+        chosenCorridor,
+        targetX,
+        horizontal: { intent: escape.dx, attempted: escape.dx, blocked: false, applied: escape.dx === 0 ? 0 : Math.sign(escape.dx) * reach },
+        vertical: { intent: escape.dy, attempted: escape.dy, blocked: false, applied: escape.dy === 0 ? 0 : Math.sign(escape.dy) * reach },
+        budgetAfterHorizontal: remainingStep,
+        stalled: false,
+        stallReason: null,
+      });
+    }
+    return next;
+  }
 
   // 1. Horizontal Movement
   //
