@@ -94,6 +94,7 @@ export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
    * than an error. No devtools, no console.
    */
   const [pursuitLogText, setPursuitLogText] = React.useState('');
+  const [pursuitLogTitle, setPursuitLogTitle] = React.useState('Pursuit log');
   const [showPursuitLog, setShowPursuitLog] = React.useState(false);
   const pursuitLogRef = React.useRef<HTMLTextAreaElement | null>(null);
   const pursuitStatusRef = React.useRef<HTMLDivElement | null>(null);
@@ -129,6 +130,7 @@ export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
   };
 
   const handleShowPursuitLog = () => {
+    setPursuitLogTitle('Pursuit log');
     const json = runtime.getPursuitLogJson?.() ?? '';
     const summary = runtime.getPursuitLogSummary?.() ?? { frames: 0, events: 0, routes: 0, bytes: 0 };
     setPursuitLogText(json);
@@ -142,7 +144,21 @@ export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
   };
 
   const handleCopyPursuitLog = () =>
-    copyFrom(pursuitLogRef.current, pursuitStatusRef.current, 'Pursuit log');
+    copyFrom(pursuitLogRef.current, pursuitStatusRef.current, pursuitLogTitle);
+
+  /**
+   * The way out of a host that cannot save. Whatever produced the text, showing
+   * it in a selectable field is always possible, so no diagnostic control is
+   * ever allowed to end at "saving is not available in this view".
+   */
+  const showLogAsText = (title: string, text: string, note: string) => {
+    setPursuitLogTitle(title);
+    setPursuitLogText(text);
+    setShowPursuitLog(true);
+    window.requestAnimationFrame(() => {
+      if (pursuitStatusRef.current) pursuitStatusRef.current.textContent = note;
+    });
+  };
 
   /**
    * A file, when the host allows one. Never the only way out — if this silently
@@ -225,14 +241,24 @@ export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
       try {
         const downloads = await host.use('downloads');
         if (!downloads) {
-          setLogStatus('Saving is not available in this view.');
+          // Not a dead end. The host will not hand over a file, so hand over
+          // the text: it is the same evidence, and it is the whole reason this
+          // control exists.
+          setLogStatus('Saving is off in this view — the log is shown below.');
+          showLogAsText('Bot event log', text,
+            'Saving is unavailable here. Copy this text, or select it and copy by hand.');
           return;
         }
         await downloads.save({ filename, data: text });
         setLogStatus(`Saved ${log.summary.framesRecorded} frames.`);
       } catch (error: any) {
-        if (error?.code === 'declined') setLogStatus('Save cancelled.');
-        else setLogStatus(error?.message ? `Save failed: ${error.message}` : 'Save failed.');
+        if (error?.code === 'declined') {
+          setLogStatus('Save cancelled.');
+        } else {
+          setLogStatus(error?.message ? `Save failed: ${error.message}` : 'Save failed.');
+          showLogAsText('Bot event log', text,
+            'Saving failed here. Copy this text, or select it and copy by hand.');
+        }
       }
       return;
     }
@@ -248,7 +274,9 @@ export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
       URL.revokeObjectURL(url);
       setLogStatus(`Saved ${log.summary.framesRecorded} frames.`);
     } catch {
-      setLogStatus('This view cannot save files.');
+      setLogStatus('This view cannot save files — the log is shown below.');
+      showLogAsText('Bot event log', text,
+        'This view cannot save files. Copy this text, or select it and copy by hand.');
     }
   };
 
@@ -504,7 +532,7 @@ export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
               />
               <div className="settingsActions">
                 <button id="copyPursuitLogButton" className="settingsAction primary" type="button" onClick={handleCopyPursuitLog}>
-                  Copy
+                  Copy {pursuitLogTitle.toLowerCase()}
                 </button>
                 <button id="downloadPursuitLogButton" className="settingsAction" type="button" onClick={handleDownloadPursuitLog}>
                   Save file
