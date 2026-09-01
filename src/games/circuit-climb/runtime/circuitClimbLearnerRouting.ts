@@ -27,6 +27,7 @@ import {
   computeRouteCrossingOffset,
   chooseRouteAgainstThreat,
   pathIsClear,
+  sharedOpeningDistance,
 } from '../geometry/circuitClimbGeometry';
 
 export interface RoutePoint { x: number; y: number }
@@ -245,12 +246,31 @@ export function chooseDestinationCorridor(
     })[0];
 }
 
+/**
+ * Which way the serpentine's free legs lean.
+ *
+ * The route's opening horizontal legs alternate around a guide line, and which
+ * way they alternate was fixed: leg 0 always leaned one way, so when the guide
+ * sat within the minimum run of the spark's own position the clamp below turned
+ * that lean into a hard 22-unit step in one direction — the same direction,
+ * every route, every time. On a right-hand platform with the bot approaching
+ * from the left that is a step straight toward it, and because both corridor
+ * candidates leaned the same way there was no alternative for the threat
+ * scoring to prefer.
+ *
+ * Flipping the phase gives a second legal route through the same corridor to
+ * the same platform, leaning the other way. Neither is preferred here — that is
+ * chooseRouteAgainstThreat's decision, and it is made on measured clearance.
+ */
+export type RoutePhase = -1 | 1;
+
 export function buildSteppedRoute(
   world: LearnerRoutingWorld,
   from: RoutePoint,
   to: RoutePoint,
   destinationPlatform: any,
   corridor: any,
+  phase: RoutePhase = -1,
 ): RoutePoint[] {
   const config = world.config;
   const turns = clamp(Math.round(config.routeTurnCount / 2) * 2, 6, 12);
@@ -305,7 +325,7 @@ export function buildSteppedRoute(
   for (let index = 0; index < freeHorizontalCount; index += 1) {
     const progress = (index + 1) / (freeHorizontalCount + 1);
     const guide = lerp(from.x, corridorA, progress);
-    const alternatingDirection = index % 2 === 0 ? -1 : 1;
+    const alternatingDirection = index % 2 === 0 ? phase : -phase;
     const targetDirection = Math.sign(corridorA - from.x) || 1;
 
     let candidate = guide + alternatingDirection * targetDirection * config.routeHorizontalJitter;
@@ -351,6 +371,12 @@ export function buildSteppedRoute(
   return cleanCircuitPath(points);
 }
 
+/** Two routes are the same route when every point matches. */
+function samePath(a: RoutePoint[], b: RoutePoint[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((point, index) => point.x === b[index].x && point.y === b[index].y);
+}
+
 export interface LearnerRouteOutcome {
   route: RoutePoint[] | null;
   candidatesBuilt: number;
@@ -386,9 +412,18 @@ export function chooseLearnerRoute(
   let built = 0;
   const clear: { points: RoutePoint[] }[] = [];
   for (const corridor of ordered) {
-    const candidate = buildSteppedRoute(world, from, to, destinationPlatform, corridor);
-    built += 1;
-    if (isRouteClear(world, candidate, destinationPlatform)) clear.push({ points: candidate });
+    // Both leans, through the same corridor, to the same platform. The natural
+    // one is offered first so that with no threat, or with avoidance off, the
+    // route chosen is exactly the route that was always chosen.
+    for (const phase of [-1, 1] as RoutePhase[]) {
+      const candidate = buildSteppedRoute(world, from, to, destinationPlatform, corridor, phase);
+      built += 1;
+      if (!isRouteClear(world, candidate, destinationPlatform)) continue;
+      // A phase that produced the same route as one already accepted is not a
+      // second option, and offering it twice would weight that route.
+      const duplicate = clear.some((existing) => samePath(existing.points, candidate));
+      if (!duplicate) clear.push({ points: candidate });
+    }
   }
 
   if (clear.length > 0) {
@@ -397,7 +432,12 @@ export function chooseLearnerRoute(
       world.threat,
       world.avoidance,
       threatRadiusFor(config),
-      threatSkipDistanceFor(config),
+      // Only the part the candidates actually differ on, never more than the
+      // old fixed opening. Skipping the fixed 186 units hid the first
+      // horizontal leg — the leg that commits the spark toward the pursuer or
+      // away from it — behind an opening the candidates stopped sharing after
+      // 29.5.
+      Math.min(threatSkipDistanceFor(config), sharedOpeningDistance(clear)),
     );
     return { route: clear[Math.max(0, chosen)].points, candidatesBuilt: built, candidatesClear: clear.length };
   }

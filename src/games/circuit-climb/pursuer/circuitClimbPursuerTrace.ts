@@ -39,8 +39,20 @@ export interface PursuerStep {
   speedScale: number;
   /** Frame time in ms, as handed to updatePursuer. */
   delta: number;
-  /** Total movement budget for this frame (speed * delta). */
+  /** Total movement budget for this frame (speed * delta). 0 while hesitating. */
   budget: number;
+  /**
+   * Whether the frame was spent travelling or hesitating. A hesitation is a
+   * deliberate beat of the locomotion cadence, not a navigation failure, which
+   * is why a motionless hesitating frame is not counted as a stall.
+   */
+  cadence: 'MOVING' | 'HESITATING';
+  /**
+   * The leg the pursuer is travelling: which axis, and which way along it.
+   * `changed` is true on exactly the frame the leg turns and false for every
+   * frame it holds course, so it can drive a turn sound with no debouncing.
+   */
+  direction: { axis: 'x' | 'y'; sign: -1 | 0 | 1; changed: boolean };
 
   from: { x: number; y: number };
   to: { x: number; y: number };

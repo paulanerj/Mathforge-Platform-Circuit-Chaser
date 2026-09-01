@@ -43,12 +43,18 @@ describe('LOCKED: a searching pursuer keeps hunting upward at its real speed', (
   });
 
   it('keeps climbing once it is past the sighting, aiming a whole row on', () => {
-    const pursuer = searchingAt(-1000, -1000);
+    let pursuer = searchingAt(-1000, -1000);
+    const start = pursuer.y;
     let step: PursuerStep | undefined;
-    const next = updatePursuer(pursuer, unreachablePlayer, [], 16, (s) => { step = s; });
+    // A short window rather than a single frame: the live pursuer's locomotion
+    // cadence is allowed to spend a beat hesitating, and this test is about
+    // where the search is aimed, not about which frame it spends.
+    for (let f = 0; f < 40; f += 1) {
+      pursuer = updatePursuer(pursuer, unreachablePlayer, [], 16, (s) => { if (!step) step = s; });
+    }
 
     expect(step!.desired.y).toBeCloseTo(-1000 - CONFIG.rowGap, 3);
-    expect(next.y).toBeLessThan(pursuer.y);
+    expect(pursuer.y).toBeLessThan(start);
   });
 
   it('does not oscillate around the sighting it has passed', () => {
@@ -70,10 +76,12 @@ describe('LOCKED: a searching pursuer keeps hunting upward at its real speed', (
     expect(-1000 - heights[heights.length - 1]).toBeGreaterThan(100);
   });
 
-  // Isolating the cap: no sweep and no climb reserve, so the whole frame budget
-  // is available vertically and nothing else can explain a short climb.
+  // Isolating the cap: no sweep, no climb reserve and no hesitation, so the
+  // whole frame budget is available vertically and nothing else can explain a
+  // short climb. `agitation: 0` belongs with the others — it redistributes the
+  // budget across frames, which is exactly the variable this test holds still.
   const pureClimb = (searchSpeed: number) =>
-    ({ ...ALIVE_PURSUER_TUNING, searchSpeed, speedJitter: 0, wanderAmplitude: 0, climbReserve: 0 });
+    ({ ...ALIVE_PURSUER_TUNING, searchSpeed, speedJitter: 0, wanderAmplitude: 0, climbReserve: 0, agitation: 0 });
 
   it('spends its whole frame budget climbing, rather than one unit a frame', () => {
     // The crawl: when `y - 1` won, vertical intent was a single unit, so the
@@ -119,6 +127,7 @@ describe('LOCKED: the tracer notices a pursuer that moves but never closes', () 
     frame: 0, behaviour: 'SEARCH', distanceToPlayer: distance,
     desired: { x, y: 0 }, lastKnown: { x, y: 0 }, speedScale: 1,
     delta: 16, budget: 1.5,
+    cadence: 'MOVING', direction: { axis: 'x', sign: 1, changed: false },
     from: { x, y: 0 }, to: { x, y: 0 }, player: { x: 0, y: distance },
     nextRowY: null, rowTop: null, rowBottom: null, mustCrossRow: false,
     mode: 'DIRECT', rowPlatformCount: 0, corridors: [], chosenCorridor: null,

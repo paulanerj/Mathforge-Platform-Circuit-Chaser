@@ -1,6 +1,13 @@
 import { CIRCUIT_CLIMB_GEOMETRY as CONFIG, computePlatformCollisionRects, pathIsClear, computeActorSafeCorridors, computeRectEscape } from '../geometry/circuitClimbGeometry';
 import type { PursuerMode, PursuerStep, PursuerStallReason } from './circuitClimbPursuerTrace';
 import { BASELINE_PURSUER_TUNING, PursuerTuning } from './circuitClimbPursuerTuning';
+import {
+  advanceCadence,
+  cadenceSpeedCompensation,
+  chooseLegAxis,
+  createLocomotion,
+  type LocomotionState,
+} from './circuitClimbPursuerLocomotion';
 
 /**
  * Current game geometry used by pursuer calculations.
@@ -47,6 +54,18 @@ export interface PursuerState {
   tuning: PursuerTuning;
   /** Current game geometry at time of creation/update. Used for all calculations. */
   geometry: CurrentGameGeometry;
+  /**
+   * How the pursuer is spending time, as opposed to where it is going. Kept
+   * deliberately separate — see circuitClimbPursuerLocomotion. Nothing in here
+   * may change the target, the committed corridor, or the behaviour state.
+   */
+  locomotion: LocomotionState;
+  /**
+   * Axis and direction of the leg the pursuer is currently travelling, for
+   * anything that needs to draw or sound the turn.
+   */
+  facingAxis: 'x' | 'y';
+  facingSign: -1 | 0 | 1;
 }
 
 /**
@@ -89,6 +108,9 @@ export function createPursuer(
     crossingCorridorX: null,
     tuning,
     geometry,
+    locomotion: createLocomotion(1.7),
+    facingAxis: 'x',
+    facingSign: 0,
   };
 }
 
@@ -218,13 +240,31 @@ export function updatePursuer(
     : player.y;
 
   const baseSpeed = next.behaviour === 'CHASE' ? tuning.chaseSpeed : tuning.searchSpeed;
+  // Speed variation only. The floor keeps it from ever reaching a standstill:
+  // when this could stop the pursuer it was also the only source of pausing,
+  // and because it is a pair of fixed-period sines the pauses arrived on a
+  // beat — raising the setting just made a louder metronome. Pausing now
+  // belongs to `agitation`, which draws its timings instead. At both shipped
+  // tunings (0 and 0.45) this floor is never reached, so neither changes.
   const jitter = tuning.speedJitter > 0
-    ? Math.max(0.12, 1 + tuning.speedJitter * wobble(next.age, tuning.wanderPeriodMs * 0.61, next.seed * 2.3))
+    ? Math.max(0.35, 1 + tuning.speedJitter * wobble(next.age, tuning.wanderPeriodMs * 0.61, next.seed * 2.3))
     : 1;
   // ALERT is the beat where it has noticed but not yet committed: it nearly stops.
   const alertScale = next.behaviour === 'ALERT' ? 0.18 : 1;
 
-  const step = baseSpeed * jitter * alertScale * delta;
+  // Bursts of travel broken by irregular hesitations. This decides only whether
+  // the frame's budget is spent, never where it would have been spent: a
+  // hesitating pursuer still senses, still tracks the learner, and still holds
+  // the corridor it committed to, so the pause cannot cost it its route.
+  const cadence = advanceCadence(next.locomotion, delta, tuning);
+  next.locomotion = cadence.state;
+  const hesitating = !cadence.moving;
+
+  // A moving frame carries the travel the hesitating frames gave up, so
+  // agitation changes the rhythm of the pursuit without quietly slowing it.
+  const step = hesitating
+    ? 0
+    : baseSpeed * jitter * alertScale * delta * cadenceSpeedCompensation(tuning.agitation);
   const platformYs = Array.from(new Set(activePlatforms.map(p => p.y))).sort((a, b) => b - a);
 
   // Find the next blocking row ABOVE the pursuer
@@ -372,6 +412,10 @@ export function updatePursuer(
         speedScale: jitter * alertScale,
         delta,
         budget: step,
+        cadence: hesitating ? 'HESITATING' : 'MOVING',
+        // Leaving a rect is not a route decision, so it reports the leg the
+        // pursuer is already on and never claims a turn.
+        direction: { axis: next.facingAxis, sign: next.facingSign, changed: false },
         from: { x: pursuer.x, y: pursuer.y },
         to: { x: next.x, y: next.y },
         player: { x: player.x, y: player.y },
@@ -394,106 +438,171 @@ export function updatePursuer(
     return next;
   }
 
-  // 1. Horizontal Movement
+  // 1. Intent, on each axis independently.
   //
-  // Capped at the share of the budget the climb reserve leaves, so a sweep that
-  // moves faster than the pursuer can follow cannot eat the whole frame.
-  const horizontalBudget = remainingStep * (1 - Math.min(0.95, Math.max(0, tuning.climbReserve || 0)));
+  // Both intents are worked out before either is spent, because the leg model
+  // has to choose between them and cannot do that from a move it has already
+  // made. Nothing here decides where the pursuer is going — targetX and
+  // desiredY were settled above and are not touched.
+  const legMode = tuning.legPeriodMs > 0;
+  // In leg mode the whole frame goes to one axis, so the per-frame climb
+  // reserve does not apply; it becomes a share of LEG TIME instead, which is
+  // the same average split expressed over a longer window. With the leg model
+  // off this is exactly the cap it always was.
+  const horizontalBudget = legMode
+    ? remainingStep
+    : remainingStep * (1 - Math.min(0.95, Math.max(0, tuning.climbReserve || 0)));
   const dx = targetX - next.x;
-  let blockingRect: any = null;
-  let hAttempted = 0;
-  let hBlocked = false;
-  let hApplied = 0;
-  if (Math.abs(dx) > 0.1) {
-    const moveX = Math.sign(dx) * Math.min(Math.abs(dx), horizontalBudget);
-    const candX = next.x + moveX;
-    hAttempted = moveX;
 
-    // Validate horizontal segment
-    if (pathIsClear([{ x: next.x, y: next.y }, { x: candX, y: next.y }], rects)) {
-      next.x = candX;
-      hApplied = moveX;
-      remainingStep -= Math.abs(moveX);
-    } else {
-      // A blocked sideways step must not also cancel this frame's climb. The
-      // budget is left intact so the pursuer can still make vertical progress.
-      hBlocked = true;
-      // Remember what stopped it: if this frame also turns out to have no
-      // vertical intent to spend, that rect is the thing to climb around.
-      blockingRect = rects.find(
-        (rect) => !pathIsClear([{ x: next.x, y: next.y }, { x: candX, y: next.y }], [rect]),
-      ) || null;
+  /**
+   * Can the pursuer go this way at all? A one-unit probe, because what ends a
+   * leg is the direction being refused, not the exact distance being refused.
+   */
+  const refused = (axis: 'x' | 'y', direction: number) => {
+    if (direction === 0) return false;
+    const reach = Math.sign(direction);
+    const to = axis === 'x'
+      ? { x: next.x + reach, y: next.y }
+      : { x: next.x, y: next.y + reach };
+    return !pathIsClear([{ x: next.x, y: next.y }, to], rects);
+  };
+
+  const wantsX = Math.abs(dx) > 0.1;
+  const blockedXProbe = wantsX && refused('x', dx);
+  // What stopped it: if this frame also turns out to have no vertical intent to
+  // spend, that rect is the thing to climb around.
+  const blockingRect = blockedXProbe
+    ? rects.find((rect) => !pathIsClear(
+        [{ x: next.x, y: next.y }, { x: next.x + Math.sign(dx), y: next.y }],
+        [rect],
+      )) || null
+    : null;
+
+  let vIntent = 0;
+  let verticalDirection = 0;
+  if (isTargetingCorridor) {
+    // Keep moving upwards through the corridor to pass the blocking row.
+    vIntent = -Infinity;
+    verticalDirection = -1;
+  } else {
+    // No blocking row between us and where we are headed: close the vertical
+    // gap to the target point (the player, or the last sighting).
+    const dy = desiredY - next.y;
+    vIntent = dy;
+    verticalDirection = Math.abs(dy) > 0.1 ? Math.sign(dy) : 0;
+
+    // Level with the target, and walled off from it.
+    //
+    // DIRECT mode assumes the way to the learner is open, because the only
+    // obstacle it reasons about is the row it has to cross — and when the
+    // learner is on the pursuer's own row there is no such row, so no corridor
+    // is ever chosen. With the vertical gap already closed there is nothing
+    // left to spend the frame on either, so a pursuer standing beside a
+    // platform in its own row simply pressed against it forever. Observed for
+    // 767 frames, level with the learner, 282 units of horizontal intent, every
+    // frame refused.
+    //
+    // Going around begins with leaving the band that platform occupies, so when
+    // the frame's own vertical move would not do that, aim for whichever of its
+    // edges is nearer instead. Checking where the move ENDS rather than where
+    // the pursuer currently stands is what keeps a sufficient move intact and
+    // stops the pursuer lifting clear then dropping straight back, which is a
+    // slower way of standing still.
+    //
+    // This is intent only. Every move below is collision-checked, so a
+    // genuinely boxed-in pursuer still cannot pass through anything.
+    if (blockedXProbe && blockingRect) {
+      const provisional = verticalDirection * Math.min(Math.abs(dy), remainingStep);
+      const candidateY = next.y + provisional;
+      const stillInBand = candidateY > blockingRect.top && candidateY < blockingRect.bottom;
+      if (stillInBand) {
+        const toTop = next.y - blockingRect.top;
+        const toBottom = blockingRect.bottom - next.y;
+        const clearance = Math.min(toTop, toBottom) + 1;
+        vIntent = toTop <= toBottom ? -clearance : clearance;
+        verticalDirection = Math.sign(vIntent);
+      }
     }
   }
 
-  const budgetAfterHorizontal = remainingStep;
+  const blockedYProbe = verticalDirection !== 0 && refused('y', verticalDirection);
 
-  // 2. Vertical Movement
-  let vIntent = 0;
+  // 2. Which axis this frame belongs to.
+  //
+  // Cadence and leg choice are the only things decided here, and neither can
+  // reach the target, the committed corridor or the behaviour state.
+  const leg = chooseLegAxis(
+    next.locomotion,
+    {
+      x: wantsX ? dx : 0,
+      y: verticalDirection === 0 ? 0 : (Number.isFinite(vIntent) ? vIntent : verticalDirection * Infinity),
+      blockedX: blockedXProbe,
+      blockedY: blockedYProbe,
+    },
+    delta,
+    tuning,
+  );
+  next.locomotion = leg.state;
+  next.facingAxis = leg.axis;
+  if (leg.sign !== 0) next.facingSign = leg.sign;
+
+  // With the leg model off the order is the one it always was: sideways first,
+  // then whatever budget the climb reserve left. With it on, the committed leg
+  // goes first and the other axis sees a budget only once the leg's own intent
+  // is spent — the learner's behaviour at a corner of its route.
+  const axisOrder: Array<'x' | 'y'> = legMode
+    ? (leg.axis === 'x' ? ['x', 'y'] : ['y', 'x'])
+    : ['x', 'y'];
+
+  // 3. Move.
+  let hAttempted = 0;
+  let hBlocked = false;
+  let hApplied = 0;
   let vAttempted = 0;
   let vBlocked = false;
   let vApplied = 0;
-  if (remainingStep > 0) {
-    let moveY = 0;
+  let budgetAfterHorizontal = remainingStep;
 
-    if (isTargetingCorridor) {
-      // Keep moving upwards through the corridor to pass the blocking row
-      vIntent = -Infinity;
-      moveY = -remainingStep;
-    } else {
-      // No blocking row between us and where we are headed: close the vertical
-      // gap to the target point (the player, or the last sighting).
-      const dy = desiredY - next.y;
-      vIntent = dy;
-      if (Math.abs(dy) > 0.1) {
-        moveY = Math.sign(dy) * Math.min(Math.abs(dy), remainingStep);
-      }
-
-      // Level with the target, and walled off from it.
-      //
-      // DIRECT mode assumes the way to the learner is open, because the only
-      // obstacle it reasons about is the row it has to cross — and when the
-      // learner is on the pursuer's own row there is no such row, so no
-      // corridor is ever chosen. With the vertical gap already closed there is
-      // nothing left to spend the frame on either, so a pursuer standing beside
-      // a platform in its own row simply pressed against it forever. Observed
-      // for 767 frames, level with the learner, 282 units of horizontal intent,
-      // every frame refused.
-      //
-      // Going around begins with leaving the band that platform occupies, so
-      // when the frame's own vertical move would not do that, aim for whichever
-      // of its edges is nearer instead. Checking the move's DESTINATION rather
-      // than just the current position is what stops the pursuer lifting clear
-      // and then immediately dropping back to close the vertical gap again,
-      // which is a slower way of standing still.
-      //
-      // This is intent only. The move below is collision-checked like any
-      // other, so a genuinely boxed-in pursuer still cannot pass through
-      // anything.
-      if (hBlocked && blockingRect) {
-        const candidateY = next.y + moveY;
-        const stillInBand = candidateY > blockingRect.top && candidateY < blockingRect.bottom;
-        if (stillInBand) {
-          const toTop = next.y - blockingRect.top;
-          const toBottom = blockingRect.bottom - next.y;
-          const clearance = Math.min(toTop, toBottom) + 1;
-          vIntent = toTop <= toBottom ? -clearance : clearance;
-          moveY = Math.sign(vIntent) * Math.min(clearance, remainingStep);
-        }
+  const moveHorizontal = () => {
+    const budget = Math.min(remainingStep, horizontalBudget);
+    if (wantsX && budget > 0) {
+      const moveX = Math.sign(dx) * Math.min(Math.abs(dx), budget);
+      const candX = next.x + moveX;
+      hAttempted = moveX;
+      if (pathIsClear([{ x: next.x, y: next.y }, { x: candX, y: next.y }], rects)) {
+        next.x = candX;
+        hApplied = moveX;
+        remainingStep -= Math.abs(moveX);
+      } else {
+        // A blocked sideways step must not also cancel this frame's climb. The
+        // budget is left intact so the pursuer can still make vertical progress.
+        hBlocked = true;
       }
     }
+    budgetAfterHorizontal = remainingStep;
+  };
 
+  const moveVertical = () => {
+    if (remainingStep <= 0 || verticalDirection === 0) return;
+    const moveY = Number.isFinite(vIntent)
+      ? Math.sign(vIntent) * Math.min(Math.abs(vIntent), remainingStep)
+      : verticalDirection * remainingStep;
     vAttempted = moveY;
-
     if (moveY !== 0) {
       const candY = next.y + moveY;
       if (pathIsClear([{ x: next.x, y: next.y }, { x: next.x, y: candY }], rects)) {
         next.y = candY;
         vApplied = moveY;
+        remainingStep -= Math.abs(moveY);
       } else {
         vBlocked = true;
       }
     }
+  };
+
+  for (const axis of axisOrder) {
+    if (axis === 'x') moveHorizontal();
+    else moveVertical();
   }
 
   // Keep pursuer within logical width bounds
@@ -510,7 +619,10 @@ export function updatePursuer(
   if (onStep) {
     const mode: PursuerMode =
       nextRowY === undefined ? 'NO_ROW' : isTargetingCorridor ? 'CORRIDOR' : 'DIRECT';
-    const stalled = next.x === pursuer.x && next.y === pursuer.y;
+    // A hesitating frame is motionless on purpose. Counting it as a stall would
+    // make the diagnostic that finds real deadlocks fire on the cadence doing
+    // its job, so the pause is reported as itself and nothing more.
+    const stalled = next.x === pursuer.x && next.y === pursuer.y && !hesitating;
 
     let stallReason: PursuerStallReason | null = null;
     if (stalled) {
@@ -532,6 +644,8 @@ export function updatePursuer(
       speedScale: jitter * alertScale,
       delta,
       budget: step,
+      cadence: hesitating ? 'HESITATING' : 'MOVING',
+      direction: { axis: leg.axis, sign: leg.sign, changed: leg.changed },
       from: { x: pursuer.x, y: pursuer.y },
       to: { x: next.x, y: next.y },
       player: { x: player.x, y: player.y },

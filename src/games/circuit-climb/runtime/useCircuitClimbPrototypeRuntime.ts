@@ -797,6 +797,14 @@ export function useCircuitClimbPrototypeRuntime() {
       corner() {
         tone(1300, 0.04, 0.018, 'triangle');
       },
+      /**
+       * The bot turning a corner. Deliberately unlike the spark's corner: lower,
+       * shorter, and a harder waveform, so the two are told apart by ear alone
+       * when both are moving at once.
+       */
+      botTurn() {
+        tone(196, 0.05, 0.022, 'square');
+      },
       correct() {
         tone(392, 0.36, 0.05, 'sine');
         tone(494, 0.38, 0.045, 'sine', 0.07);
@@ -1243,6 +1251,11 @@ export function useCircuitClimbPrototypeRuntime() {
         };
         pursuer = updatePursuer(pursuer, sensedPlayer, getActivePlatforms(), delta, (rawStep) => {
           const pursuerStep = { ...rawStep, frame: pursuerTracer.nextFrame() };
+          // The bot's own corner, on the same seam the spark uses: one signal
+          // per genuine change of leg, nothing while it holds course. The
+          // pursuer decides that — see chooseLegAxis — so nothing here has to
+          // debounce or remember.
+          if (pursuerStep.direction.changed) sound.botTurn();
           if (pursuerTraceVerbose) {
             console.log('CIRCUIT_CLIMB_PURSUER_STEP', PursuerTracer.format(pursuerStep));
           }

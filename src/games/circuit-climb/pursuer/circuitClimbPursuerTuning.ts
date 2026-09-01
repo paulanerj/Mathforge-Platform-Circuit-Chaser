@@ -22,8 +22,28 @@ export interface PursuerTuning {
   wanderAmplitude: number;
   /** Period of that sweep, in ms. Shorter reads as more frantic. */
   wanderPeriodMs: number;
-  /** 0 = constant speed. Higher surges and hesitates more. */
+  /**
+   * 0 = constant speed. Higher surges and eases more.
+   *
+   * Speed only. It never reaches zero, so it cannot produce a pause — pausing
+   * is `agitation`'s job, and keeping the two apart is what stopped raising
+   * this one from simply exaggerating a move/stop metronome.
+   */
   speedJitter: number;
+  /**
+   * How nervous the locomotion is: 0 never hesitates, 1 hesitates often and
+   * unevenly. It sets pause propensity and the spread of burst and hesitation
+   * lengths, not a cadence — the sequence itself is drawn, so it wanders
+   * instead of alternating. It cannot affect where the pursuer is going.
+   */
+  agitation: number;
+  /**
+   * How long the pursuer commits to one axis before the other may have a turn,
+   * in ms. This is what gives it the learner's orthogonal movement language:
+   * runs along one axis meeting at right angles, rather than both axes mixed
+   * every frame into a diagonal drift. 0 restores per-frame mixing.
+   */
+  legPeriodMs: number;
   /**
    * When true, a travelling spark breaks the lock: the pursuer drops to the
    * player's last known position and has to pick the trail up again.
@@ -58,6 +78,8 @@ export const BASELINE_PURSUER_TUNING: Readonly<PursuerTuning> = Object.freeze({
   wanderAmplitude: 0,
   wanderPeriodMs: 1000,
   speedJitter: 0,
+  agitation: 0,
+  legPeriodMs: 0,
   reacquireOnPlayerMove: false,
   climbReserve: 0,
 });
@@ -102,6 +124,13 @@ export const ALIVE_PURSUER_TUNING: Readonly<PursuerTuning> = Object.freeze({
   wanderAmplitude: 80,
   wanderPeriodMs: 2200,
   speedJitter: 0.45,
+  // Frantic, not stuttering: bursts of travel broken by short irregular
+  // hesitations, drawn rather than alternated.
+  agitation: 0.55,
+  // Long enough to read as a leg at the live chase pace — 0.192 u/ms over
+  // ~230ms of horizontal share is about 44 units of unbroken travel — and
+  // short enough that the pursuer still turns often while threading a row.
+  legPeriodMs: 420,
   reacquireOnPlayerMove: true,
   climbReserve: 0.45,
 });
@@ -123,6 +152,8 @@ export const PURSUER_TUNING_RANGES = {
   wanderAmplitude: { min: 0, max: 260, step: 5, label: 'Search sweep', unit: 'u' },
   wanderPeriodMs: { min: 300, max: 4000, step: 50, label: 'Sweep period', unit: 'ms' },
   speedJitter: { min: 0, max: 1, step: 0.05, label: 'Speed jitter', unit: '' },
+  agitation: { min: 0, max: 1, step: 0.05, label: 'Agitation', unit: '' },
+  legPeriodMs: { min: 0, max: 1200, step: 20, label: 'Leg period', unit: 'ms' },
   climbReserve: { min: 0, max: 0.9, step: 0.05, label: 'Climb reserve', unit: '' },
 } as const;
 

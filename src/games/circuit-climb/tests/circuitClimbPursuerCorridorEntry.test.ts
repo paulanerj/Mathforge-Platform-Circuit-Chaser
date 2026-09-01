@@ -411,12 +411,19 @@ describe('direct mode: level with the learner and walled off', () => {
     const blocking = rects.find(r => r.platform.id === 'row-10-column-1')!;
 
     const pursuer = frozenPursuer();
+    // One frame, measured exactly, so the locomotion cadence is held still: a
+    // hesitating beat is legitimate behaviour and would say nothing about the
+    // detour this test is about.
+    pursuer.tuning = { ...pursuer.tuning, agitation: 0 };
     const player = { x: D_LEARNER.x, y: FROZEN.y - 10, traveling: false, capturable: true, platform: D_ROW(10)[2] };
     const next = updatePursuer(pursuer, player, D_WORLD, 300, undefined, D_GEOMETRY);
 
-    expect(next.x).toBe(FROZEN.x);            // still walled off sideways
     expect(next.y).toBe(FROZEN.y - 10);       // the whole gap, not a 6-unit hop
     expect(next.y).toBeLessThan(blocking.top);
+    // One frame this large has budget left after the leg is spent, so it turns
+    // the corner within the frame exactly as the learner does at a vertex of
+    // its route. What it must never do is enter the rect it was walled off by.
+    expect(computeRectEscape({ x: next.x, y: next.y }, rects)).toBeNull();
   });
 
   /**
