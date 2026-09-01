@@ -22,7 +22,7 @@ import { defaultTestGeometry } from './support/circuitClimbProductionFixtures';
 const samplePursuer = (over: Partial<PursuitPursuerSample> = {}): PursuitPursuerSample => ({
   x: 300, y: -100, row: 0, behaviour: 'SEARCH', targetSource: 'LAST_KNOWN',
   desired: { x: 300, y: -300 }, lastKnown: { x: 300, y: -100 }, distance: 200,
-  mode: 'DIRECT', chosenCorridor: null, cadence: 'MOVING',
+  mode: 'DIRECT', targetX: 300, chosenCorridor: null, cadence: 'MOVING',
   direction: { axis: 'y', sign: -1, changed: false }, budget: 2.2,
   hBlocked: false, vBlocked: false, stalled: false, stallReason: null,
   ...over,
@@ -459,5 +459,133 @@ describe('AUDIT: what the current pursuit model does when the learner reverses',
       pursuer = updatePursuer(pursuer, { x: 300 + frame, y: -650 - frame * 2, traveling: true, capturable: true }, [], 16, undefined, geometry);
     }
     expect({ x: pursuer.lastKnownX, y: pursuer.lastKnownY }).toEqual(frozen);
+  });
+});
+
+/**
+ * STALL EPISODES.
+ *
+ * `stalledFrames = 208` is not an answer. 208 frames spread over forty brief
+ * routing blocks and 208 frames in one unbroken freeze are opposite
+ * behaviours, and the count cannot tell them apart. These tests hold the
+ * distinction the count was missing.
+ */
+describe('stall episodes separate routing from deadlock', () => {
+  const stalled = (over: Record<string, any> = {}) =>
+    samplePursuer({ stalled: true, stallReason: 'VERTICAL_BLOCKED', ...over });
+
+  it('groups consecutive stalled frames into one episode', () => {
+    const log = new PursuitLog();
+    for (let i = 0; i < 5; i += 1) log.frame(i * 16.7, samplePlayer(), samplePursuer());
+    for (let i = 0; i < 20; i += 1) log.frame((5 + i) * 16.7, samplePlayer(), stalled());
+    for (let i = 0; i < 5; i += 1) log.frame((25 + i) * 16.7, samplePlayer(), samplePursuer({ targetX: 400 }));
+
+    const { stalls, stallEpisodes } = log.toExport();
+    expect(stalls.stallFrames).toBe(20);
+    expect(stalls.stallEpisodes).toBe(1);
+    expect(stallEpisodes[0].frames).toBe(20);
+    expect(stallEpisodes[0].recovered).toBe(true);
+    expect(stallEpisodes[0].severity).toBe('TRANSIENT');
+  });
+
+  /**
+   * The distinction the PM asked for, in one test: the same total, two
+   * completely different behaviours.
+   */
+  it('the same stall count reads differently when it is scattered or solid', () => {
+    const scattered = new PursuitLog();
+    for (let block = 0; block < 20; block += 1) {
+      for (let i = 0; i < 10; i += 1) scattered.frame((block * 20 + i) * 16.7, samplePlayer(), stalled());
+      for (let i = 0; i < 10; i += 1) scattered.frame((block * 20 + 10 + i) * 16.7, samplePlayer(), samplePursuer({ targetX: 300 + block }));
+    }
+    const solid = new PursuitLog();
+    for (let i = 0; i < 200; i += 1) solid.frame(i * 16.7, samplePlayer(), stalled());
+
+    expect(scattered.toExport().stalls.stallFrames).toBe(200);
+    expect(solid.toExport().stalls.stallFrames).toBe(200);
+
+    // Identical totals, opposite shapes.
+    expect(scattered.toExport().stalls.stallEpisodes).toBe(20);
+    expect(scattered.toExport().stalls.maximumConsecutiveStallFrames).toBe(10);
+    expect(scattered.toExport().stalls.unrecoveredEpisodes).toBe(0);
+
+    expect(solid.toExport().stalls.stallEpisodes).toBe(1);
+    expect(solid.toExport().stalls.maximumConsecutiveStallFrames).toBe(200);
+    expect(solid.toExport().stalls.unrecoveredEpisodes).toBe(1);
+  });
+
+  it('an episode still open when the run ends is a DEADLOCK, not an omission', () => {
+    const log = new PursuitLog();
+    for (let i = 0; i < 10; i += 1) log.frame(i * 16.7, samplePlayer(), samplePursuer());
+    for (let i = 0; i < 120; i += 1) log.frame((10 + i) * 16.7, samplePlayer(), stalled());
+
+    const { stalls, stallEpisodes } = log.toExport();
+    expect(stallEpisodes).toHaveLength(1);
+    expect(stallEpisodes[0].severity).toBe('DEADLOCK');
+    expect(stallEpisodes[0].recovered).toBe(false);
+    expect(stalls.unrecoveredEpisodes).toBe(1);
+    expect(stalls.maximumStallDurationMs).toBeGreaterThan(1900);
+  });
+
+  it('a recovered episode past the threshold is SUSTAINED, never DEADLOCK', () => {
+    const log = new PursuitLog();
+    for (let i = 0; i < 60; i += 1) log.frame(i * 16.7, samplePlayer(), stalled());
+    log.frame(60 * 16.7, samplePlayer(), samplePursuer({ targetX: 480 }));
+
+    const episode = log.toExport().stallEpisodes[0];
+    expect(episode.severity).toBe('SUSTAINED');
+    expect(episode.recovered).toBe(true);
+    expect(log.toExport().stalls.sustainedThresholdFrames).toBe(45);
+  });
+
+  it('names what changed to end the episode', () => {
+    const cause = (recoveryFrame: Record<string, any>) => {
+      const log = new PursuitLog();
+      for (let i = 0; i < 10; i += 1) {
+        log.frame(i * 16.7, samplePlayer(), stalled({ targetX: 300, mode: 'DIRECT', chosenCorridor: null, behaviour: 'CHASE' }));
+      }
+      log.frame(200, samplePlayer(), samplePursuer({ targetX: 300, mode: 'DIRECT', chosenCorridor: null, behaviour: 'CHASE', ...recoveryFrame }));
+      return log.toExport().stallEpisodes[0].recoveryCause;
+    };
+    expect(cause({ targetX: 480 })).toBe('TARGET_X_CHANGED');
+    expect(cause({ chosenCorridor: 205 })).toBe('CORRIDOR_CHANGED');
+    expect(cause({ mode: 'CORRIDOR' })).toBe('MODE_CHANGED');
+    expect(cause({ behaviour: 'SEARCH' })).toBe('BEHAVIOUR_CHANGED');
+    expect(cause({})).toBe('UNCHANGED_INPUTS');
+  });
+
+  it('reports the reason the episode mostly held, not merely its first frame', () => {
+    const log = new PursuitLog();
+    log.frame(0, samplePlayer(), stalled({ stallReason: 'HORIZONTAL_BLOCKED' }));
+    for (let i = 0; i < 40; i += 1) log.frame((i + 1) * 16.7, samplePlayer(), stalled({ stallReason: 'VERTICAL_BLOCKED' }));
+    log.frame(999, samplePlayer(), samplePursuer({ targetX: 400 }));
+
+    expect(log.toExport().stallEpisodes[0].reason).toBe('VERTICAL_BLOCKED');
+  });
+
+  /**
+   * Episodes are counted on every frame, so a sampled log still reports true
+   * durations. Counting them off the stored frames would divide by the stride.
+   */
+  it('sampling does not distort episode length', () => {
+    const build = (stride: number) => {
+      const log = new PursuitLog(1000, 500, 10, stride);
+      for (let i = 0; i < 90; i += 1) log.frame(i * 16.7, samplePlayer(), stalled());
+      log.frame(90 * 16.7, samplePlayer(), samplePursuer({ targetX: 400 }));
+      return log.toExport();
+    };
+    expect(build(3).stalls.maximumConsecutiveStallFrames).toBe(90);
+    expect(build(1).stalls.maximumConsecutiveStallFrames).toBe(90);
+    expect(build(3).stalls.stallFrames).toBe(build(1).stalls.stallFrames);
+  });
+
+  it('a deliberate cadence hesitation is not a stall', () => {
+    const log = new PursuitLog();
+    for (let i = 0; i < 60; i += 1) {
+      // The pursuer reports hesitation as cadence, never as stalled — see 07A.
+      log.frame(i * 16.7, samplePlayer(), samplePursuer({ cadence: 'HESITATING', stalled: false }));
+    }
+    expect(log.toExport().stalls.stallFrames).toBe(0);
+    expect(log.toExport().stalls.stallEpisodes).toBe(0);
   });
 });

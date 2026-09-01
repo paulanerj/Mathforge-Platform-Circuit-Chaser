@@ -88,6 +88,7 @@ export interface PursuitPursuerSample {
   lastKnown: PursuitLogPoint;
   distance: number;
   mode: string;
+  targetX: number;
   chosenCorridor: number | null;
   cadence: string;
   direction: { axis: string; sign: number; changed: boolean };
@@ -96,6 +97,58 @@ export interface PursuitPursuerSample {
   vBlocked: boolean;
   stalled: boolean;
   stallReason: string | null;
+}
+
+/**
+ * A run of consecutive motionless frames, and what ended it.
+ *
+ * `stalledFrames = 208` cannot distinguish 208 isolated blocks from one
+ * 208-frame freeze, and those are completely different behaviours — the first
+ * is a bot routing around obstacles, the second is a bot that has stopped
+ * playing. An episode is the unit that tells them apart.
+ */
+export interface PursuitStallEpisode {
+  startFrame: number;
+  endFrame: number;
+  frames: number;
+  durationMs: number;
+  /** The stall reason held for the majority of the episode. */
+  reason: string;
+  /**
+   * TRANSIENT  — shorter than the runtime's own 45-frame alert threshold. A
+   *              blocked axis while the bot reroutes; normal.
+   * SUSTAINED  — 45 frames or more, but movement resumed. Worth reading.
+   * DEADLOCK   — sustained, and the run ended still stalled. Never recovered.
+   */
+  severity: 'TRANSIENT' | 'SUSTAINED' | 'DEADLOCK';
+  startPosition: PursuitLogPoint;
+  endPosition: PursuitLogPoint;
+  /** Displacement over the whole episode; ~0 confirms it really was stuck. */
+  displacement: number;
+  /** True when every frame of the episode asked for the same target x. */
+  repeatedTarget: boolean;
+  targetAtStart: number;
+  modeAtStart: string;
+  modeAtRecovery: string | null;
+  behaviourAtStart: string;
+  /** What differed on the first moving frame after it. */
+  recoveryCause:
+    | 'TARGET_X_CHANGED' | 'CORRIDOR_CHANGED' | 'MODE_CHANGED'
+    | 'BEHAVIOUR_CHANGED' | 'PLAYER_MOVED' | 'UNCHANGED_INPUTS' | null;
+  recovered: boolean;
+}
+
+export interface PursuitStallSummary {
+  stallFrames: number;
+  stallEpisodes: number;
+  transientEpisodes: number;
+  sustainedEpisodes: number;
+  recoveredEpisodes: number;
+  unrecoveredEpisodes: number;
+  maximumConsecutiveStallFrames: number;
+  maximumStallDurationMs: number;
+  /** The threshold separating TRANSIENT from SUSTAINED, so the log is self-describing. */
+  sustainedThresholdFrames: number;
 }
 
 export interface PursuitFrame {
@@ -133,6 +186,9 @@ export interface PursuitLogExport {
     routesRecorded: number;
     routesRetained: number;
   };
+  /** Derived, never a substitute for the raw frames below. */
+  stalls: PursuitStallSummary;
+  stallEpisodes: PursuitStallEpisode[];
   routes: PursuitRouteRecord[];
   events: PursuitEvent[];
   frames: PursuitFrame[];
@@ -191,6 +247,18 @@ const DEFAULT_ROUTE_CAPACITY = 40;
 const DEFAULT_FRAME_STRIDE = 3;
 
 /**
+ * Where a stall stops being routing and starts being worth reading.
+ *
+ * 45 frames is not a new number: it is the runtime's own PursuerTracer
+ * threshold, the point at which it already raises CIRCUIT_CLIMB_PURSUER_STALLED.
+ * Reusing it keeps one definition of "stuck" in the project rather than two
+ * that can drift.
+ */
+const SUSTAINED_STALL_FRAMES = 45;
+
+const EPISODE_CAPACITY = 120;
+
+/**
  * A ring buffer that also remembers how much it has thrown away, so an export
  * can never quietly look like a complete run when it is a tail.
  */
@@ -228,6 +296,15 @@ export class PursuitLog {
   private lastTargetSource: PursuerTargetSource | null = null;
   private lastPlayer: { x: number; y: number } | null = null;
 
+  // Stall episodes are accumulated on EVERY frame, never on the sampled ones:
+  // a duration measured off one frame in three would be wrong by a factor of
+  // three, which is exactly the kind of quietly-wrong number this log exists
+  // to stop producing.
+  private episodes: Bounded<PursuitStallEpisode>;
+  private openEpisode: PursuitStallEpisode | null = null;
+  private episodeReasons = new Map<string, number>();
+  private stallFrameTotal = 0;
+
   constructor(
     frameCapacity = DEFAULT_FRAME_CAPACITY,
     eventCapacity = DEFAULT_EVENT_CAPACITY,
@@ -237,6 +314,7 @@ export class PursuitLog {
     this.frames = new Bounded(frameCapacity);
     this.events = new Bounded(eventCapacity);
     this.routes = new Bounded(routeCapacity);
+    this.episodes = new Bounded(EPISODE_CAPACITY);
     this.identity = {
       build: 'unknown',
       branch: 'unknown',
@@ -254,6 +332,10 @@ export class PursuitLog {
     this.frames.clear();
     this.events.clear();
     this.routes.clear();
+    this.episodes.clear();
+    this.openEpisode = null;
+    this.episodeReasons.clear();
+    this.stallFrameTotal = 0;
     this.frameCounter = 0;
     this.nextRouteId = 1;
     this.openRoute = null;
@@ -396,11 +478,121 @@ export class PursuitLog {
       }
     }
 
+    if (pursuer) this.accumulateStall(at, pursuer);
+
     // Transitions above were evaluated on EVERY frame, so no event can be
     // sampled away; only the routine context between them is thinned.
     if (this.frameCounter % this.frameStride === 0) {
       this.frames.push({ frame: this.frameCounter, at, player: { ...player, dx, dy }, pursuer });
     }
+  }
+
+  /**
+   * Grow, or close, the current run of motionless frames.
+   *
+   * A stall frame is one the pursuer itself reported as stalled — which already
+   * excludes a deliberate cadence hesitation, so a nervous bot standing still on
+   * purpose never inflates these numbers.
+   */
+  private accumulateStall(at: number, pursuer: PursuitPursuerSample) {
+    if (pursuer.stalled) {
+      this.stallFrameTotal += 1;
+      if (!this.openEpisode) {
+        this.episodeReasons.clear();
+        this.openEpisode = {
+          startFrame: this.frameCounter,
+          endFrame: this.frameCounter,
+          frames: 0,
+          durationMs: 0,
+          reason: pursuer.stallReason || 'NONE',
+          severity: 'TRANSIENT',
+          startPosition: { x: pursuer.x, y: pursuer.y },
+          endPosition: { x: pursuer.x, y: pursuer.y },
+          displacement: 0,
+          repeatedTarget: true,
+          targetAtStart: pursuer.targetX,
+          modeAtStart: pursuer.mode,
+          modeAtRecovery: null,
+          behaviourAtStart: pursuer.behaviour,
+          recoveryCause: null,
+          recovered: false,
+        };
+        (this.openEpisode as any).__startedAt = at;
+        (this.openEpisode as any).__corridorAtStart = pursuer.chosenCorridor;
+        (this.openEpisode as any).__playerAtStart = null;
+      }
+      const episode = this.openEpisode;
+      episode.endFrame = this.frameCounter;
+      episode.frames += 1;
+      episode.durationMs = at - (episode as any).__startedAt;
+      episode.endPosition = { x: pursuer.x, y: pursuer.y };
+      episode.displacement = Math.hypot(
+        pursuer.x - episode.startPosition.x, pursuer.y - episode.startPosition.y);
+      if (pursuer.targetX !== episode.targetAtStart) episode.repeatedTarget = false;
+      const reason = pursuer.stallReason || 'NONE';
+      this.episodeReasons.set(reason, (this.episodeReasons.get(reason) || 0) + 1);
+      episode.severity = episode.frames >= SUSTAINED_STALL_FRAMES ? 'SUSTAINED' : 'TRANSIENT';
+      return;
+    }
+
+    if (!this.openEpisode) return;
+
+    // Movement resumed. What is different about this frame is the answer to
+    // "why did it get out", and it is read rather than guessed.
+    const episode = this.openEpisode;
+    episode.recovered = true;
+    episode.modeAtRecovery = pursuer.mode;
+    episode.recoveryCause =
+      pursuer.targetX !== episode.targetAtStart ? 'TARGET_X_CHANGED'
+      : pursuer.chosenCorridor !== (episode as any).__corridorAtStart ? 'CORRIDOR_CHANGED'
+      : pursuer.mode !== episode.modeAtStart ? 'MODE_CHANGED'
+      : pursuer.behaviour !== episode.behaviourAtStart ? 'BEHAVIOUR_CHANGED'
+      : this.lastPlayer && (episode as any).__playerAtStart
+        && (this.lastPlayer.x !== (episode as any).__playerAtStart.x
+          || this.lastPlayer.y !== (episode as any).__playerAtStart.y) ? 'PLAYER_MOVED'
+      : 'UNCHANGED_INPUTS';
+    // The majority reason, not the first: an episode that starts
+    // HORIZONTAL_BLOCKED and spends 40 frames VERTICAL_BLOCKED is the latter.
+    let top = episode.reason;
+    let best = -1;
+    this.episodeReasons.forEach((count, reason) => { if (count > best) { best = count; top = reason; } });
+    episode.reason = top;
+    delete (episode as any).__startedAt;
+    delete (episode as any).__corridorAtStart;
+    delete (episode as any).__playerAtStart;
+    this.episodes.push(episode);
+    this.openEpisode = null;
+  }
+
+  /**
+   * Episodes, including one still open at export time — a run that ended while
+   * the pursuer was still stuck is precisely the case worth seeing, so it is
+   * reported as DEADLOCK rather than omitted for being unfinished.
+   */
+  private episodeList(): PursuitStallEpisode[] {
+    const closed = this.episodes.all();
+    if (!this.openEpisode) return closed;
+    const open = { ...this.openEpisode };
+    delete (open as any).__startedAt;
+    delete (open as any).__corridorAtStart;
+    delete (open as any).__playerAtStart;
+    open.recovered = false;
+    open.severity = open.frames >= SUSTAINED_STALL_FRAMES ? 'DEADLOCK' : 'TRANSIENT';
+    return [...closed, open];
+  }
+
+  private stallSummary(episodes: PursuitStallEpisode[]): PursuitStallSummary {
+    return {
+      stallFrames: this.stallFrameTotal,
+      stallEpisodes: episodes.length,
+      transientEpisodes: episodes.filter((e) => e.severity === 'TRANSIENT').length,
+      sustainedEpisodes: episodes.filter((e) => e.severity !== 'TRANSIENT').length,
+      recoveredEpisodes: episodes.filter((e) => e.recovered).length,
+      unrecoveredEpisodes: episodes.filter((e) => !e.recovered).length,
+      maximumConsecutiveStallFrames: episodes.reduce((m, e) => Math.max(m, e.frames), 0),
+      maximumStallDurationMs: round2(episodes.reduce((m, e) => Math.max(m, e.durationMs), 0)),
+      sustainedThresholdFrames: SUSTAINED_STALL_FRAMES,
+    };
   }
 
   // --- export -----------------------------------------------------------------
@@ -419,6 +611,15 @@ export class PursuitLog {
         routesRecorded: this.routes.recorded,
         routesRetained: this.routes.retained,
       },
+      stalls: this.stallSummary(this.episodeList()),
+      stallEpisodes: this.episodeList().map((episode) => ({
+        ...episode,
+        durationMs: round2(episode.durationMs),
+        displacement: round2(episode.displacement),
+        startPosition: roundPoint(episode.startPosition),
+        endPosition: roundPoint(episode.endPosition),
+        targetAtStart: round2(episode.targetAtStart),
+      })),
       routes: this.routes.all().map((route) => ({
         ...route,
         plannedTotal: round2(route.plannedTotal),

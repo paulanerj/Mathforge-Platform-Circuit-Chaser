@@ -1336,6 +1336,7 @@ export function useCircuitClimbPrototypeRuntime() {
                 lastKnown: loggedStep.lastKnown,
                 distance: loggedStep.distanceToPlayer,
                 mode: loggedStep.mode,
+                targetX: loggedStep.targetX,
                 chosenCorridor: loggedStep.chosenCorridor,
                 cadence: loggedStep.cadence,
                 direction: loggedStep.direction,
