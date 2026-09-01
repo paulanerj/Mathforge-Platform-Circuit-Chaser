@@ -2,6 +2,8 @@ import { CircuitClimbMathAdapter } from '../services/CircuitClimbMathAdapter';
 import { useState, useEffect, useRef } from 'react';
 import { CIRCUIT_CLIMB_GEOMETRY, computeColumnCentres, computeActorSafeCorridors, computeInversePointerTransform, computePlatformCollisionRects, computeRouteCrossingOffset, chooseRouteAgainstThreat, pathClearance, pathIsClear } from '../geometry/circuitClimbGeometry';
 import { createPursuer, updatePursuer, PursuerState, type CurrentGameGeometry } from '../pursuer/circuitClimbPursuer';
+import { PursuitLog, classifyTargetSource } from '../diagnostics/circuitClimbPursuitLog';
+import { CIRCUIT_CLIMB_BUILD } from '../diagnostics/circuitClimbBuildIdentity';
 import { PursuerTracer } from '../pursuer/circuitClimbPursuerTrace';
 import { parseStoredNumber, computeKeepBehindRow, pursuerRowFromWorldY } from './circuitClimbRuntimeRules';
 import {
@@ -364,6 +366,8 @@ export function useCircuitClimbPrototypeRuntime() {
       savePursuerTuning();
     }
     const pursuerTracer = new PursuerTracer();
+    // Evidence only. Nothing below ever reads from this — see the module note.
+    const pursuitLog = new PursuitLog();
     let pursuerTraceVerbose = false;
     try {
       pursuerTraceVerbose = window.localStorage.getItem('circuitClimbPursuerTrace') === '1';
@@ -842,6 +846,16 @@ export function useCircuitClimbPrototypeRuntime() {
       rows = [];
       obstacleRevision = 0;
       traces = [];
+      pursuitLog.reset({
+        build: CIRCUIT_CLIMB_BUILD.commit,
+        branch: CIRCUIT_CLIMB_BUILD.branch,
+        viewScalePercent: viewScalePercentInternal,
+        routeTurnCount: CONFIG.routeTurnCount,
+        sparkAvoidance: engineSparkAvoidance,
+        sparkShielded: engineSparkShielded,
+        geometry: captureRuntimeGeometry() as any,
+        tuning: { ...enginePursuerTuning },
+      });
       particles = [];
       travel = null;
       nextRowIndex = 0;
@@ -991,6 +1005,10 @@ export function useCircuitClimbPrototypeRuntime() {
         const selection = planLearnerSelection(routingWorld(), from, platform);
         if (selectionRouted(selection)) {
           travel = selection.travel;
+          pursuitLog.routeStarted(
+            elapsed, selection.travel.points, selection.travel.total,
+            platform.id ?? null, platform.correct,
+          );
         } else {
           // A learner destination that produces no route is a defect, not a
           // gameplay outcome, and it used to be silent: the click vanished and
@@ -1076,6 +1094,7 @@ export function useCircuitClimbPrototypeRuntime() {
             points: currentTravel.points.map((point: any) => ({ ...point })),
             born: elapsed,
           });
+          pursuitLog.routeCompleted(elapsed, destination, currentTravel.total, true);
         }
 
         player.row += 1;
@@ -1126,6 +1145,9 @@ export function useCircuitClimbPrototypeRuntime() {
       setMessage('Short circuit. That platform is offline. Choose another.', 'error', 1300);
 
       const back = landingPoint(player.platform);
+      if (currentTravel.type === 'circuit') {
+        pursuitLog.routeCompleted(elapsed, destination, currentTravel.total, false);
+      }
       travel = {
         type: 'return',
         from: { x: destination.x, y: destination.y },
@@ -1133,6 +1155,7 @@ export function useCircuitClimbPrototypeRuntime() {
         time: 0,
         duration: CONFIG.returnDuration,
       };
+      pursuitLog.wrongReturnStarted(elapsed, { x: destination.x, y: destination.y }, back, CONFIG.returnDuration);
     }
 
     function updateTravel(delta: number) {
@@ -1144,6 +1167,7 @@ export function useCircuitClimbPrototypeRuntime() {
         if (point.segment > travel.segment) {
           travel.segment = point.segment;
           sound.corner();
+          pursuitLog.routeSegmentEntered(elapsed, point.segment, point, travel.distance);
         }
         player.x = point.x;
         player.y = point.y;
@@ -1168,6 +1192,7 @@ export function useCircuitClimbPrototypeRuntime() {
         if (amount >= 1) {
           player.x = travel.to.x;
           player.y = travel.to.y;
+          pursuitLog.wrongReturnCompleted(elapsed, { x: travel.to.x, y: travel.to.y });
           travel = null;
         }
       }
@@ -1249,8 +1274,10 @@ export function useCircuitClimbPrototypeRuntime() {
           // avoid is not a fair way to lose. Hesitating still is.
           capturable: !(engineSparkShielded && !!travel),
         };
+        let loggedStep: any = null;
         pursuer = updatePursuer(pursuer, sensedPlayer, getActivePlatforms(), delta, (rawStep) => {
           const pursuerStep = { ...rawStep, frame: pursuerTracer.nextFrame() };
+          loggedStep = pursuerStep;
           // The bot's own corner, on the same seam the spark uses: one signal
           // per genuine change of leg, nothing while it holds course. The
           // pursuer decides that — see chooseLegAxis — so nothing here has to
@@ -1265,6 +1292,11 @@ export function useCircuitClimbPrototypeRuntime() {
             // simply closed as far as the geometry allows, and resumes the moment
             // the player moves. Only a pursuer motionless a row or more away is a
             // genuine break in the navigation chain.
+            pursuitLog.event(
+              stall.kind === 'NOT_CLOSING' ? 'PURSUER_NOT_CLOSING' : 'PURSUER_STALLED',
+              elapsed,
+              { frames: stall.frames, reason: stall.reason, distanceToPlayer: stall.distanceToPlayer, mode: stall.mode },
+            );
             if (stall.kind === 'NOT_CLOSING') {
               console.warn('CIRCUIT_CLIMB_PURSUER_NOT_CLOSING', stall);
             } else if (stall.distanceToPlayer > CONFIG.rowGap) {
@@ -1275,12 +1307,54 @@ export function useCircuitClimbPrototypeRuntime() {
           }
         }, captureRuntimeGeometry());
 
+        // One frame of evidence, assembled from state that has already been
+        // decided. Nothing here is read back: see circuitClimbPursuitLog.
+        pursuitLog.frame(
+          elapsed,
+          {
+            x: player.x,
+            y: player.y,
+            row: player.row,
+            platformId: player.platform ? player.platform.id ?? null : null,
+            destinationId: travel && travel.platform ? travel.platform.id ?? null : null,
+            travelType: travel ? (String(travel.type).toUpperCase() as any) : 'NONE',
+            settled: !travel,
+            correct: travel && travel.correct !== undefined ? travel.correct : null,
+            segment: travel && travel.type === 'circuit' ? travel.segment : null,
+            progress: travel && travel.type === 'circuit' && travel.total > 0
+              ? Math.min(1, travel.distance / travel.total)
+              : null,
+          },
+          loggedStep
+            ? {
+                x: pursuer.x,
+                y: pursuer.y,
+                row: pursuerRowFromWorldY(pursuer.y, CONFIG.rowGap),
+                behaviour: loggedStep.behaviour,
+                targetSource: classifyTargetSource(loggedStep),
+                desired: loggedStep.desired,
+                lastKnown: loggedStep.lastKnown,
+                distance: loggedStep.distanceToPlayer,
+                mode: loggedStep.mode,
+                chosenCorridor: loggedStep.chosenCorridor,
+                cadence: loggedStep.cadence,
+                direction: loggedStep.direction,
+                budget: loggedStep.budget,
+                hBlocked: loggedStep.horizontal.blocked,
+                vBlocked: loggedStep.vertical.blocked,
+                stalled: loggedStep.stalled,
+                stallReason: loggedStep.stallReason,
+              }
+            : null,
+        );
+
         if (pursuer.behaviour !== previousBehaviour) {
           setPursuerBehaviour(pursuer.behaviour);
         }
 
         if (wasPursuing && pursuer.state === 'CAUGHT') {
           setPursuerBehaviour('CAUGHT');
+          pursuitLog.capture(elapsed, { x: pursuer.x, y: pursuer.y }, { x: player.x, y: player.y });
           onCaptured();
         }
       }
@@ -2183,6 +2257,18 @@ export function useCircuitClimbPrototypeRuntime() {
         return threat ? pathClearance(points, threat, threatSkipDistance()) : Infinity;
       },
       debugGetPursuerSteps: () => pursuerTracer.steps(),
+      // The pursuit log, as text, through the normal runtime surface. It is a
+      // read: building the export cannot change anything it reports on.
+      getPursuitLogJson: () => pursuitLog.toJSON(0),
+      getPursuitLogSummary: () => {
+        const held = pursuitLog.toExport();
+        return {
+          frames: held.counts.framesRetained,
+          events: held.counts.eventsRetained,
+          routes: held.counts.routesRetained,
+          bytes: pursuitLog.toJSON(0).length,
+        };
+      },
       buildPursuerLog: () => {
         const steps = pursuerTracer.steps();
         const stalled = steps.filter((entry) => entry.stalled);
@@ -2374,6 +2460,15 @@ export function useCircuitClimbPrototypeRuntime() {
     setPursuerTuning: setPursuerTuningControl,
     setSparkAvoidance: setSparkAvoidanceControl,
     setSparkShielded: setSparkShieldedControl,
+    /**
+     * The pursuit log, as text. A plain read on the runtime surface rather than
+     * something behind a devtools console, because the person who can reproduce
+     * a pursuit defect is the person playing the game — not whoever happens to
+     * have a terminal open.
+     */
+    getPursuitLogJson: () => (loopControlRef.current as any).getPursuitLogJson?.() || '',
+    getPursuitLogSummary: () =>
+      (loopControlRef.current as any).getPursuitLogSummary?.() || { frames: 0, events: 0, routes: 0, bytes: 0 },
     debug: {
       getRows: () => (loopControlRef.current as any).debugGetRows?.() || [],
       getPursuer: () => (loopControlRef.current as any).debugGetPursuer?.() || null,

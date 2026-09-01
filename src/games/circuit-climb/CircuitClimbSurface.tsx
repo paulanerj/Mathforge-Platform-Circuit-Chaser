@@ -83,6 +83,94 @@ export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
   const copyStatusRef = useRef<HTMLDivElement | null>(null);
   const configOutputRef = useRef<HTMLTextAreaElement | null>(null);
 
+  /**
+   * The pursuit log, in the game's own UI.
+   *
+   * The evidence has to reach the PM from wherever the run happened, and the
+   * host may offer no file saving at all — "Saving is not available in this
+   * view" must not be the end of the road. So the text itself is always
+   * produced and always shown; the clipboard is an attempt, not a requirement,
+   * and a failed attempt leaves the text selected with an instruction rather
+   * than an error. No devtools, no console.
+   */
+  const [pursuitLogText, setPursuitLogText] = React.useState('');
+  const [showPursuitLog, setShowPursuitLog] = React.useState(false);
+  const pursuitLogRef = React.useRef<HTMLTextAreaElement | null>(null);
+  const pursuitStatusRef = React.useRef<HTMLDivElement | null>(null);
+
+  const copyFrom = async (
+    field: HTMLTextAreaElement | null,
+    status: HTMLDivElement | null,
+    noun: string,
+  ) => {
+    if (!field) return;
+    const text = field.value;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        if (status) status.textContent = `${noun} copied.`;
+        return;
+      }
+    } catch {
+      // Clipboard refused or is unavailable: fall through to selection.
+    }
+    field.focus();
+    field.select();
+    try {
+      const copied = document.execCommand('copy');
+      if (status) {
+        status.textContent = copied
+          ? `${noun} copied.`
+          : `${noun} selected. Use Copy from the selection menu.`;
+      }
+    } catch {
+      if (status) status.textContent = `${noun} selected. Use Copy from the selection menu.`;
+    }
+  };
+
+  const handleShowPursuitLog = () => {
+    const json = runtime.getPursuitLogJson?.() ?? '';
+    const summary = runtime.getPursuitLogSummary?.() ?? { frames: 0, events: 0, routes: 0, bytes: 0 };
+    setPursuitLogText(json);
+    setShowPursuitLog(true);
+    window.requestAnimationFrame(() => {
+      if (pursuitStatusRef.current) {
+        pursuitStatusRef.current.textContent =
+          `${summary.frames} frames, ${summary.events} events, ${summary.routes} routes — ${Math.round(summary.bytes / 1024)} KB. Copy it, or select the text and copy by hand.`;
+      }
+    });
+  };
+
+  const handleCopyPursuitLog = () =>
+    copyFrom(pursuitLogRef.current, pursuitStatusRef.current, 'Pursuit log');
+
+  /**
+   * A file, when the host allows one. Never the only way out — if this silently
+   * does nothing, the text above is still on screen and still selectable.
+   */
+  const handleDownloadPursuitLog = () => {
+    try {
+      const blob = new Blob([pursuitLogText], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `circuit-climb-pursuit-${Date.now()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+      if (pursuitStatusRef.current) {
+        pursuitStatusRef.current.textContent =
+          'Download attempted. If nothing arrived, this view blocks saving — copy the text instead.';
+      }
+    } catch {
+      if (pursuitStatusRef.current) {
+        pursuitStatusRef.current.textContent =
+          'This view cannot save files. Copy the text instead.';
+      }
+    }
+  };
+
   const handleCopyConfig = async () => {
     if (!configOutputRef.current) return;
     const text = configOutputRef.current.value;
@@ -400,7 +488,36 @@ export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
             <button id="exportSettingsButton" className="settingsAction primary" type="button" onClick={exportViewConfig}>
               Show config
             </button>
+            <button id="pursuitLogButton" className="settingsAction primary" type="button" onClick={handleShowPursuitLog}>
+              Copy pursuit log
+            </button>
           </div>
+
+          {showPursuitLog && (
+            <div id="pursuitLogArea">
+              <textarea
+                ref={pursuitLogRef}
+                id="pursuitLogOutput"
+                readOnly
+                aria-label="Pursuit log JSON"
+                value={pursuitLogText}
+              />
+              <div className="settingsActions">
+                <button id="copyPursuitLogButton" className="settingsAction primary" type="button" onClick={handleCopyPursuitLog}>
+                  Copy
+                </button>
+                <button id="downloadPursuitLogButton" className="settingsAction" type="button" onClick={handleDownloadPursuitLog}>
+                  Save file
+                </button>
+                <button id="hidePursuitLogButton" className="settingsAction" type="button" onClick={() => setShowPursuitLog(false)}>
+                  Hide
+                </button>
+              </div>
+              <div id="pursuitLogStatus" ref={pursuitStatusRef}>
+                The whole run, as JSON. Copy it even if saving is unavailable.
+              </div>
+            </div>
+          )}
 
           {showConfig && (
             <div id="configExportArea">

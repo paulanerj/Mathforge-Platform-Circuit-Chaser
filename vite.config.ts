@@ -1,7 +1,21 @@
+import { execSync } from 'child_process';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig, loadEnv} from 'vite';
+
+/**
+ * Git identity for the pursuit log. Diagnostics that cannot name their build
+ * are hard to act on, and a failed git call must never fail a build, so this
+ * degrades to 'unknown' rather than throwing.
+ */
+const git = (command: string) => {
+  try {
+    return execSync(command, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch {
+    return 'unknown';
+  }
+};
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
@@ -9,6 +23,8 @@ export default defineConfig(({mode}) => {
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      __CIRCUIT_CLIMB_COMMIT__: JSON.stringify(git('git rev-parse --short HEAD')),
+      __CIRCUIT_CLIMB_BRANCH__: JSON.stringify(git('git rev-parse --abbrev-ref HEAD')),
     },
     resolve: {
       alias: {

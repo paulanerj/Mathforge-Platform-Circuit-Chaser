@@ -505,12 +505,34 @@
   -webkit-user-select: text;
 }
 
-.circuit-climb-surface #copyStatus {
+.circuit-climb-surface #copyStatus,
+.circuit-climb-surface #pursuitLogStatus {
   min-height: 15px;
   margin-top: 5px;
   color: rgba(184, 210, 227, 0.78);
   font-size: 9px;
   text-align: center;
+}
+
+.circuit-climb-surface #pursuitLogArea {
+  margin-top: 10px;
+}
+
+/* A pursuit log is long. Taller than the config box, still scrollable and
+   still hand-selectable, because copying by hand is the guaranteed path out
+   when the host offers no file saving. */
+.circuit-climb-surface #pursuitLogOutput {
+  width: 100%;
+  min-height: 168px;
+  resize: vertical;
+  border: 1px solid rgba(97, 155, 197, 0.26);
+  border-radius: 11px;
+  padding: 9px;
+  background: rgba(1, 5, 12, 0.82);
+  color: #d9f3ff;
+  font: 10px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* Responsive adjustments scoped to container */
