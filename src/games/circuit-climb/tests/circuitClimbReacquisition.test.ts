@@ -251,36 +251,39 @@ describe('TASK 3 — the general lateral condition', () => {
 // TASK 4 — the upward-only search target
 // ---------------------------------------------------------------------------
 
-describe('TASK 4 — SEARCH cannot aim downward', () => {
+describe('TASK 4 — SEARCH can now aim downward (repaired in 07B1)', () => {
   /**
-   * `desiredY = min(lastKnownY, y - rowGap)` on an axis where up is negative.
-   * `y - rowGap` is always above the pursuer, so the minimum is too — the
-   * expression has no reachable branch that points down.
+   * Before 07B1 this asserted the opposite: `min(lastKnownY, y - rowGap)` on an
+   * axis where up is negative can only return a point above the pursuer, so the
+   * target came back a row overhead even with the sighting 2000 units below.
+   * The repair gives that expression a downward branch, taken once per sighting.
    */
-  it('the vertical target is always at least a row above the pursuer', () => {
-    for (const sightingBelow of [0, 100, 500, 2000]) {
+  it('a sighting below the pursuer is targeted downward', () => {
+    for (const sightingBelow of [300, 500, 2000]) {
       const pursuer = searchingPursuer(300, -1000);
       pursuer.lastKnownX = 300;
       pursuer.lastKnownY = -1000 + sightingBelow;
       let step: any;
       updatePursuer(pursuer, { x: 300, y: -1000 + sightingBelow, traveling: true }, [], 16, (s) => { step = s; }, geometry);
-      expect(step.desired.y, `sighting ${sightingBelow} below`).toBeLessThanOrEqual(-1000 - geometry.rowGap);
+      expect(step.desired.y, `sighting ${sightingBelow} below`).toBe(-1000 + sightingBelow);
     }
   });
 
-  it('a pursuer already above the learner climbs further away', () => {
-    let pursuer = searchingPursuer(190, ROUTE4.pursuerY);
-    const player = { ...ROUTE4.player, traveling: false, capturable: true };
-    const start = pursuer.y;
-    for (let frame = 0; frame < 600; frame += 1) {
-      pursuer = updatePursuer(pursuer, player, [], 16.7, undefined, geometry);
-    }
-    expect(pursuer.y).toBeLessThan(start);                        // climbed
-    expect(Math.abs(player.y - pursuer.y)).toBeGreaterThan(Math.abs(player.y - start));
+  /**
+   * The trip is owed only from a clear row above, so ordinary forward search —
+   * which spends most of its life within a row of the sighting — is untouched.
+   */
+  it('a sighting less than a row below does not divert the search', () => {
+    const pursuer = searchingPursuer(300, -1000);
+    pursuer.lastKnownX = 300;
+    pursuer.lastKnownY = -900;   // 100 below, inside one row
+    let step: any;
+    updatePursuer(pursuer, { x: 300, y: -900, traveling: true }, [], 16, (s) => { step = s; }, geometry);
+    expect(step.desired.y).toBeLessThan(-1000);   // still climbing
   });
 
-  /** CHASE has no such limit — the asymmetry is the whole of the defect. */
-  it('CHASE aims at a learner below it; SEARCH does not', () => {
+  /** Both states can now aim at something below them. */
+  it('CHASE and SEARCH both aim at a learner below', () => {
     const chasing = searchingPursuer(300, -900);
     chasing.behaviour = 'CHASE';
     let chaseStep: any;
@@ -292,7 +295,21 @@ describe('TASK 4 — SEARCH cannot aim downward', () => {
     searching.lastKnownY = -650;
     let searchStep: any;
     updatePursuer(searching, { x: 300, y: -650, traveling: true, capturable: true }, [], 16, (s) => { searchStep = s; }, geometry);
-    expect(searchStep.desired.y).toBeLessThan(-900);
+    expect(searchStep.desired.y).toBe(-650);
+  });
+
+  /**
+   * The lateral failure is unaffected by the vertical repair — the pursuer in
+   * the recorded route-4 state is above its sighting, so it now goes back down
+   * to it, and the learner still is not there.
+   */
+  it('going back down does not rescue the cross-board case', () => {
+    let pursuer = searchingPursuer(190, ROUTE4.pursuerY);
+    const player = { ...ROUTE4.player, traveling: false, capturable: true };
+    for (let frame = 0; frame < 2000; frame += 1) {
+      pursuer = updatePursuer(pursuer, player, [], 16.7, undefined, geometry);
+      expect(pursuer.behaviour).toBe('SEARCH');
+    }
   });
 });
 
@@ -317,14 +334,14 @@ describe('TASK 5 — the wrong-answer return is the vertical failure, not the la
     }
   });
 
-  it('but the pursuer still cannot aim down at the returning learner', () => {
+  it('and the pursuer can now aim down at the returning learner', () => {
     const pursuer = searchingPursuer(110, -900);
     pursuer.lastKnownX = 110;
     pursuer.lastKnownY = -650;
     let step: any;
     // The learner is on its way back down, below the pursuer.
     updatePursuer(pursuer, { x: 110, y: -700, traveling: true, capturable: true }, [], 16, (s) => { step = s; }, geometry);
-    expect(step.desired.y).toBeLessThan(-900);
+    expect(step.desired.y).toBe(-650);
   });
 
   /**

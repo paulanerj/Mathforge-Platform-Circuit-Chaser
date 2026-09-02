@@ -399,16 +399,17 @@ describe('the target source is read off the decision, never guessed', () => {
  * whatever 07B does, the starting point is written down and cannot be
  * misremembered.
  */
-describe('AUDIT: what the current pursuit model does when the learner reverses', () => {
+describe('AUDIT: what the pursuit model does when the learner reverses', () => {
   const geometry = defaultTestGeometry();
 
   /**
-   * `desiredY = Math.min(lastKnownY, y - rowGap)` on an axis where up is
-   * negative. The second term is always above the pursuer, so the minimum is
-   * too — whatever the sighting says. A searching pursuer cannot aim downward.
+   * Repaired in 07B1. `min(lastKnownY, y - rowGap)` on an axis where up is
+   * negative had no branch that could point below the pursuer, whatever the
+   * sighting said; it now has one, taken once per sighting from a clear row
+   * above.
    */
-  it('a SEARCHING pursuer can never aim below itself, however far below the sighting is', () => {
-    for (const sightingBelow of [0, 100, 500, 2000]) {
+  it('a SEARCHING pursuer aims at a sighting a clear row below it', () => {
+    for (const sightingBelow of [300, 500, 2000]) {
       const pursuer = createPursuer(300, 0, ALIVE_PURSUER_TUNING, geometry);
       pursuer.y = -1000;
       pursuer.behaviour = 'SEARCH';
@@ -417,7 +418,7 @@ describe('AUDIT: what the current pursuit model does when the learner reverses',
 
       let step: any;
       updatePursuer(pursuer, { x: 300, y: -1000 + sightingBelow, traveling: true }, [], 16, (s) => { step = s; }, geometry);
-      expect(step.desired.y, `sighting ${sightingBelow} below`).toBeLessThanOrEqual(-1000 - geometry.rowGap);
+      expect(step.desired.y, `sighting ${sightingBelow} below`).toBe(-1000 + sightingBelow);
     }
   });
 

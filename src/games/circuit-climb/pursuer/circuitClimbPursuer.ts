@@ -66,6 +66,22 @@ export interface PursuerState {
    */
   facingAxis: 'x' | 'y';
   facingSign: -1 | 0 | 1;
+  /**
+   * The one trip back down that each sighting is owed.
+   *
+   * PENDING    — the sighting has not been re-checked from above.
+   * DESCENDING — committed to going back down to it.
+   * SPENT      — it went and looked; search runs forward from here.
+   *
+   * A memoryless rule cannot express this. Targeting the sighting whenever it
+   * is below parks the pursuer on it — search stops going forward, which is the
+   * behaviour this must not become. Gating that on a row of clearance instead
+   * moves the problem rather than solving it: the two branches then swap every
+   * frame at exactly one row above the sighting, measured at 674 direction
+   * reversals in 1800 frames. One bit of memory is what makes the descent a
+   * trip rather than an equilibrium.
+   */
+  searchDescent: 'PENDING' | 'DESCENDING' | 'SPENT';
 }
 
 /**
@@ -111,6 +127,7 @@ export function createPursuer(
     locomotion: createLocomotion(1.7),
     facingAxis: 'x',
     facingSign: 0,
+    searchDescent: 'PENDING',
   };
 }
 
@@ -133,6 +150,18 @@ function wobble(age: number, periodMs: number, seed: number) {
  * invisible. Committing to a direction makes it travel — a patrol at its own
  * speed, reversing on a beat.
  */
+/**
+ * How close counts as arrived, when descending to a sighting.
+ *
+ * Vertical movement is skipped entirely once the remaining gap is under a tenth
+ * of a unit, so a descent that only completes on reaching the sighting EXACTLY
+ * never completes: the pursuer parks a hair above it with the trip still
+ * committed, and stops moving for good. Measured at 1394 frozen frames before
+ * this band existed. A unit is far below anything visible and comfortably
+ * clear of the movement threshold it has to agree with.
+ */
+const ARRIVAL_BAND = 1;
+
 function sweepDirection(age: number, periodMs: number, seed: number) {
   return Math.sin((age / periodMs) * Math.PI * 2 + seed) >= 0 ? 1 : -1;
 }
@@ -179,6 +208,9 @@ export function updatePursuer(
     next.alertElapsed = 0;
     next.lastKnownX = player.x;
     next.lastKnownY = player.y;
+    // A new sighting is owed a new trip. Written beside the sighting, never
+    // instead of it: when and what lastKnown records is unchanged.
+    next.searchDescent = 'PENDING';
   };
 
   if (next.behaviour === 'CHASE') {
@@ -204,6 +236,7 @@ export function updatePursuer(
     // for the same frame budget.
     next.lastKnownX = player.x;
     next.lastKnownY = player.y;
+    next.searchDescent = 'PENDING';
   }
 
   if (next.behaviour === 'CHASE') {
@@ -223,8 +256,28 @@ export function updatePursuer(
   // choice it can never travel far enough to act on.
   const desiredX = searching ? next.lastKnownX + sweep : player.x;
   const navigationX = searching ? next.lastKnownX : player.x;
+  // Going back to look below.
+  //
+  // `Math.min` on an axis where up is negative can only return a point above
+  // the pursuer, so a searching pursuer had no expression that could ask to
+  // descend — whatever the sighting said. Measured with the sighting 2000 units
+  // BELOW it, the target still came back a row above its own head. A learner
+  // that reverses, after a wrong answer or otherwise, was therefore searched
+  // for in the one direction it had not gone.
+  //
+  // The trip is taken once per sighting and only from a clear row above, so it
+  // is a re-check rather than a destination: search still runs forward past the
+  // sighting afterwards, exactly as it always did.
+  if (searching) {
+    if (next.searchDescent === 'PENDING' && next.lastKnownY > next.y + geometry.rowGap) {
+      next.searchDescent = 'DESCENDING';
+    } else if (next.searchDescent === 'DESCENDING' && next.y >= next.lastKnownY - ARRIVAL_BAND) {
+      next.searchDescent = 'SPENT';
+    }
+  }
+
   // Searching heads for the last sighting, and once it is past that it keeps
-  // pushing upward, because up is the only way the player ever goes.
+  // pushing upward, because up is the way the player usually goes.
   //
   // The second term used to be `next.y - 1`. Once the pursuer drew level with
   // the sighting that branch won every frame, and a vertical intent of one unit
@@ -235,9 +288,11 @@ export function updatePursuer(
   // It has to stay a `min` against the sighting rather than a tolerance band: an
   // "arrived yet?" test flips back and forth as the pursuer crosses the band and
   // leaves it oscillating around the sighting instead of searching onward.
-  const desiredY = searching
-    ? Math.min(next.lastKnownY, next.y - geometry.rowGap)
-    : player.y;
+  const desiredY = !searching
+    ? player.y
+    : next.searchDescent === 'DESCENDING'
+      ? next.lastKnownY
+      : Math.min(next.lastKnownY, next.y - geometry.rowGap);
 
   const baseSpeed = next.behaviour === 'CHASE' ? tuning.chaseSpeed : tuning.searchSpeed;
   // Speed variation only. The floor keeps it from ever reaching a standstill:
