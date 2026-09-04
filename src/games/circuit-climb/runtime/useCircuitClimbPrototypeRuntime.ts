@@ -1,7 +1,15 @@
 import { CircuitClimbMathAdapter } from '../services/CircuitClimbMathAdapter';
 import { useState, useEffect, useRef } from 'react';
 import { CIRCUIT_CLIMB_GEOMETRY, computeColumnCentres, computeActorSafeCorridors, computeInversePointerTransform, computePlatformCollisionRects, computeRouteCrossingOffset, chooseRouteAgainstThreat, pathClearance, pathIsClear } from '../geometry/circuitClimbGeometry';
-import { createPursuer, updatePursuer, PursuerState, type CurrentGameGeometry } from '../pursuer/circuitClimbPursuer';
+import { createPursuer, updatePursuer, getPursuerCaptureDistance, PursuerState, type CurrentGameGeometry } from '../pursuer/circuitClimbPursuer';
+// --- PURSUER INTEGRATION 04A -------------------------------------------
+// Graph V2 is a SEPARATE pursuer implementation, not a reconfiguration of the
+// legacy one. It is selected in exactly one place (see `pursuerKind` below);
+// everything else in this file that touches a pursuer works off the shared
+// `pursuer` view, so the rest of the application never learns which is running.
+import { resolvePursuerController, resolveCaptureArmed, type PursuerControllerKind } from '../pursuer-v2/pursuerControllerKind';
+import { GraphPursuerController } from '../pursuer-v2/runtime/graphPursuerController';
+import { graphWorldFromLiveGeometry } from '../pursuer-v2/runtime/graphWorld';
 import { PursuitLog, classifyTargetSource } from '../diagnostics/circuitClimbPursuitLog';
 import { CIRCUIT_CLIMB_BUILD } from '../diagnostics/circuitClimbBuildIdentity';
 import { PursuerTracer } from '../pursuer/circuitClimbPursuerTrace';
@@ -145,6 +153,25 @@ export function useCircuitClimbPrototypeRuntime() {
       };
     }
 
+    /**
+     * PURSUER INTEGRATION 04A — the live board, as GRAPH_V2 consumes it.
+     *
+     * Reads the same mutated CONFIG the renderer does, so a view-scale change
+     * reaches the graph on the next frame rather than leaving it on a stale
+     * lattice. Nothing here pins a framing percentage.
+     */
+    function captureGraphWorld() {
+      return graphWorldFromLiveGeometry({
+        logicalWidth: CONFIG.logicalWidth,
+        rowGap: CONFIG.rowGap,
+        platformWidth: CONFIG.platformWidth,
+        platformHeight: CONFIG.platformHeight,
+        playerRadius: CONFIG.playerRadius,
+        routePlatformPadding: CONFIG.routePlatformPadding,
+        columns: CONFIG.columns,
+      }, viewScalePercentInternal);
+    }
+
     const BASE_VIEW = Object.freeze({
       rowGap: CIRCUIT_CLIMB_GEOMETRY.rowGap,
       platformWidth: CIRCUIT_CLIMB_GEOMETRY.platformWidth,
@@ -231,6 +258,15 @@ export function useCircuitClimbPrototypeRuntime() {
     let travel: any = null;
     let cameraY = 0;
     let engineBestRow = 0;
+    /**
+     * PURSUER INTEGRATION 04A — how often the pursuer actually got within
+     * capture distance this run, whether or not the contact converted.
+     *
+     * Diagnostic only; nothing reads it back into behaviour. It exists so PM
+     * review can answer "is the accepted bot too effective in the real game?"
+     * from evidence rather than impression.
+     */
+    let engineCaptureRangeContacts = 0;
     let viewScalePercentInternal = 100;
     let routeTurnCountInternal = 8;
 
@@ -274,6 +310,21 @@ export function useCircuitClimbPrototypeRuntime() {
     };
 
     let pursuer: PursuerState | null = null;
+
+    // --- PURSUER INTEGRATION 04A: the selector seam ----------------------
+    //
+    // Resolved ONCE per mount. On this integration branch the default is the
+    // Graph V2 candidate, so a normal launch exercises what is under review;
+    // `?pursuer=legacy` (or the stored key) puts the legacy pursuer back for
+    // rollback comparison. That override is developer-only and deliberately
+    // absent from the product HUD.
+    const pursuerKind: PursuerControllerKind = resolvePursuerController();
+    // Diagnostic only — see resolveCaptureArmed. Normal launches are ARMED.
+    const captureArmed = resolveCaptureArmed();
+    let graphController: GraphPursuerController | null = null;
+    // Graph V2's own turn signal, so the existing bot-turn sound seam keeps
+    // working without the audio layer knowing which pursuer is running.
+    let graphTurnPending = false;
     let engineCaptured = false;
 
     function readSavedPursuerTuning(): { preset: PursuerTuningPreset; tuning: PursuerTuning } {
@@ -874,6 +925,7 @@ export function useCircuitClimbPrototypeRuntime() {
       basePlatform.powered = true;
 
       player.row = 0;
+      engineCaptureRangeContacts = 0;
       player.platform = basePlatform;
       player.x = basePlatform.x;
       player.y = basePlatform.y - CONFIG.playerRadius - 3;
@@ -891,7 +943,31 @@ export function useCircuitClimbPrototypeRuntime() {
       targetPresentation.phaseStartedAt = 0;
       targetPresentation.progress = 0;
 
+      // --- PURSUER INTEGRATION 04A: create / RESTART ---------------------
+      //
+      // Both implementations spawn from the same place, and both are fully
+      // reset here. For Graph V2 that means the Brain's memory, the consumed
+      // trail watermark, the search episode, the strategic commitment, the
+      // sensor confirmation counters, cadence and wake — `restart()` rebuilds
+      // rather than clearing fields one by one, so nothing added later can be
+      // forgotten. No state survives from one run into the next.
       pursuer = createPursuer(player.x, player.y, enginePursuerTuning, captureRuntimeGeometry());
+      if (pursuerKind === 'GRAPH_PURSUER_V2') {
+        const learnerStart = { x: player.x, y: player.y, row: player.row };
+        const graphWorld = captureGraphWorld();
+        // The board itself is generated six rows ahead of the learner
+        // (`ensureRows`); the graph spans a little further so the search
+        // frontier always has somewhere above to look.
+        const graphRows = Math.max(nextRowIndex, player.row + 8);
+        if (graphController) graphController.restart(learnerStart, graphWorld, graphRows);
+        else graphController = new GraphPursuerController({
+          world: graphWorld, rowCount: graphRows, learnerStart,
+        });
+        pursuer.x = graphController.position.x;
+        pursuer.y = graphController.position.y;
+        pursuer.radius = graphController.radius;
+      }
+      graphTurnPending = false;
       pursuerTracer.reset();
       engineCaptured = false;
       setCaptured(false);
@@ -1275,6 +1351,52 @@ export function useCircuitClimbPrototypeRuntime() {
           capturable: !(engineSparkShielded && !!travel),
         };
         let loggedStep: any = null;
+
+        // --- PURSUER INTEGRATION 04A: THE ONE BRANCH ---------------------
+        //
+        // Graph V2 owns its own movement and strategy; the legacy pursuer
+        // owns its own. Below this block nothing cares which ran — both leave
+        // the same `pursuer` view for rendering, the keep-behind rule, the
+        // HUD and capture adjudication.
+        if (pursuerKind === 'GRAPH_PURSUER_V2' && graphController) {
+          const graphFrame = graphController.step(
+            delta,
+            // THE FIREWALL, at the seam. Physical presence only: no
+            // destination, no route, no correctness, no capture distance.
+            // `sensedPlayer` above carries `capturable`, which is exactly the
+            // kind of fact the Brain may not have, so it is NOT passed here.
+            { x: player.x, y: player.y, row: player.row, moving: !!travel },
+            captureGraphWorld(),
+            Math.max(nextRowIndex, player.row + 8),
+          );
+
+          pursuer.x = graphFrame.x;
+          pursuer.y = graphFrame.y;
+          pursuer.radius = graphFrame.radius;
+          // The three product-facing states, from the strategic mode. This is
+          // presentation only — the Brain has three modes and gains no fourth.
+          pursuer.behaviour = graphFrame.mode === 'VISIBLE_PURSUIT' ? 'CHASE'
+            : graphFrame.mode === 'TRAIL_TRACK' ? 'ALERT' : 'SEARCH';
+
+          if (graphFrame.turnEvent) graphTurnPending = true;
+          if (graphTurnPending) {
+            graphTurnPending = false;
+            sound.botTurn();
+          }
+
+          // CAPTURE REMAINS THE SIMULATION'S. The Brain never adjudicates it
+          // and never sees the distance; production applies exactly the rule
+          // the legacy pursuer is held to, including the shielded-transit
+          // exemption for a learner mid-route.
+          if (
+            captureArmed
+            && sensedPlayer.capturable !== false
+            && Math.hypot(player.x - pursuer.x, player.y - pursuer.y)
+              <= getPursuerCaptureDistance(captureRuntimeGeometry())
+          ) {
+            pursuer.state = 'CAUGHT';
+          }
+        } else {
         pursuer = updatePursuer(pursuer, sensedPlayer, getActivePlatforms(), delta, (rawStep) => {
           const pursuerStep = { ...rawStep, frame: pursuerTracer.nextFrame() };
           loggedStep = pursuerStep;
@@ -1306,6 +1428,15 @@ export function useCircuitClimbPrototypeRuntime() {
             }
           }
         }, captureRuntimeGeometry());
+        }
+        // --- end PURSUER INTEGRATION 04A branch --------------------------
+
+        // Contact accounting, identical for both implementations so the two
+        // can be compared on the same terms.
+        if (Math.hypot(player.x - pursuer.x, player.y - pursuer.y)
+          <= getPursuerCaptureDistance(captureRuntimeGeometry())) {
+          engineCaptureRangeContacts += 1;
+        }
 
         // One frame of evidence, assembled from state that has already been
         // decided. Nothing here is read back: see circuitClimbPursuitLog.
@@ -2216,6 +2347,34 @@ export function useCircuitClimbPrototypeRuntime() {
       }
     }
 
+    /**
+     * PURSUER INTEGRATION 04A — developer diagnostic hook.
+     *
+     * Deliberately on `window` and not in the product HUD. It is a read-only
+     * snapshot for PM review and the browser verification script: which
+     * candidate is running and what it has done this run. Nothing reads it
+     * back into behaviour, and the normal player never sees it.
+     */
+    if (typeof window !== 'undefined') {
+      (window as any).__CIRCUIT_CLIMB_PURSUER__ = () => ({
+        kind: pursuerKind,
+        captureArmed,
+        paused: enginePaused,
+        captured: engineCaptured,
+        playerRow: player.row,
+        highestLearnerRow: engineBestRow,
+        captureRangeContacts: engineCaptureRangeContacts,
+        pursuer: pursuer ? { x: pursuer.x, y: pursuer.y, behaviour: pursuer.behaviour, state: pursuer.state } : null,
+        graph: graphController
+          ? {
+              mode: graphController.mode,
+              ...graphController.diagnostics,
+              finalDistance: Math.hypot(player.x - graphController.position.x, player.y - graphController.position.y),
+            }
+          : null,
+      });
+    }
+
     // Connect Engine callbacks to React Ref controllers
     loopControlRef.current = {
       beginGame,
@@ -2303,6 +2462,26 @@ export function useCircuitClimbPrototypeRuntime() {
           pursuer: pursuer
             ? { x: roundTo(pursuer.x, 2), y: roundTo(pursuer.y, 2), radius: pursuer.radius, speed: pursuer.speed, state: pursuer.state }
             : null,
+          /**
+           * PURSUER INTEGRATION 04A — developer diagnostics.
+           *
+           * Enough for PM review to tell what the candidate actually did,
+           * without any of it reaching the product HUD. Present only when the
+           * Graph V2 candidate is the one running.
+           */
+          pursuerController: {
+            kind: pursuerKind,
+            graph: graphController
+              ? {
+                  mode: graphController.mode,
+                  ...graphController.diagnostics,
+                  captureRangeContacts: engineCaptureRangeContacts,
+                  finalDistance: roundTo(
+                    Math.hypot(player.x - graphController.position.x, player.y - graphController.position.y), 2),
+                  highestLearnerRow: engineBestRow,
+                }
+              : null,
+          },
           summary: {
             framesRecorded: steps.length,
             bufferCapacity: pursuerTracer.capacityFrames,

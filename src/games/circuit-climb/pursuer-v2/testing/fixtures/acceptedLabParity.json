@@ -1,0 +1,265 @@
+{
+ "source": {
+  "labCommit": "f22acf63e168807b566a307e83d9c8556de582e1",
+  "labTree": "e8eb1ce620d617c621a6ffb3a98463c97f5a0d4d"
+ },
+ "framingPercent": 90,
+ "rowCount": 20,
+ "frames": 900,
+ "dtMs": 16.7,
+ "scenarios": [
+  {
+   "key": "490,-2245.8|A11",
+   "streamSha256": "1dedff17a58c26e755619c121473a75bdb6c9c9c82be69e32f277fff4d512460",
+   "metrics": {
+    "frames": 900,
+    "durationMs": 15013.300000000288,
+    "modeTransitions": 5,
+    "rawDirectSensorEdges": 3,
+    "strategicDirectAcquisitions": 1,
+    "confirmedDirectLosses": 0,
+    "stableReacquisitions": 0,
+    "oneTickModeEpisodes": 0,
+    "episodesUnder60ms": 0,
+    "targetReversals": 0,
+    "maxSameNodeDwellFrames": 177,
+    "maxMsWithoutNewEvidence": 11172.300000000067,
+    "maxABACyclesIn2s": 1,
+    "maxRedundantModeRevisitsIn2s": 1,
+    "pursuerXRange": {
+     "min": 29.052,
+     "max": 570.948
+    },
+    "distinctNodesVisited": 5,
+    "finalDistanceToLearner": 1.6174457239201403,
+    "minDistanceToLearner": 1.6174457239201403,
+    "modeEpisodeMedianMs": 1586.4999999999932
+   }
+  },
+  {
+   "key": "490,-2245.8|B12",
+   "streamSha256": "390da3c3d0f263246453e189499ff8fc05e6bb30f586c95dce2a4654e1bf1ef8",
+   "metrics": {
+    "frames": 900,
+    "durationMs": 15013.300000000288,
+    "modeTransitions": 3,
+    "rawDirectSensorEdges": 3,
+    "strategicDirectAcquisitions": 1,
+    "confirmedDirectLosses": 0,
+    "stableReacquisitions": 0,
+    "oneTickModeEpisodes": 0,
+    "episodesUnder60ms": 0,
+    "targetReversals": 0,
+    "maxSameNodeDwellFrames": 207,
+    "maxMsWithoutNewEvidence": 8233.099999999939,
+    "maxABACyclesIn2s": 0,
+    "maxRedundantModeRevisitsIn2s": 0,
+    "pursuerXRange": {
+     "min": 28.55228526039822,
+     "max": 570.948
+    },
+    "distinctNodesVisited": 6,
+    "finalDistanceToLearner": 19.06463088677254,
+    "minDistanceToLearner": 0.25,
+    "modeEpisodeMedianMs": 4241.800000000048
+   }
+  },
+  {
+   "key": "490,-2245.8|C10",
+   "streamSha256": "d99a6e0df26fde33a7539cf040dbd48639148058491596912239bd15bbec8de4",
+   "metrics": {
+    "frames": 900,
+    "durationMs": 15013.300000000288,
+    "modeTransitions": 6,
+    "rawDirectSensorEdges": 2,
+    "strategicDirectAcquisitions": 1,
+    "confirmedDirectLosses": 0,
+    "stableReacquisitions": 0,
+    "oneTickModeEpisodes": 0,
+    "episodesUnder60ms": 0,
+    "targetReversals": 0,
+    "maxSameNodeDwellFrames": 167,
+    "maxMsWithoutNewEvidence": 8800.899999999963,
+    "maxABACyclesIn2s": 1,
+    "maxRedundantModeRevisitsIn2s": 1,
+    "pursuerXRange": {
+     "min": 28.55228526039822,
+     "max": 395
+    },
+    "distinctNodesVisited": 5,
+    "finalDistanceToLearner": 285.7212129161704,
+    "minDistanceToLearner": 258.62764892200414,
+    "modeEpisodeMedianMs": 3206.4000000001115
+   }
+  },
+  {
+   "key": "490,-2061.3|A11",
+   "streamSha256": "f3cbd6e226e3a6e30b487128c42789794b8f30e5aa0e36e2196dc104a9ddba39",
+   "metrics": {
+    "frames": 900,
+    "durationMs": 15013.300000000263,
+    "modeTransitions": 4,
+    "rawDirectSensorEdges": 1,
+    "strategicDirectAcquisitions": 1,
+    "confirmedDirectLosses": 0,
+    "stableReacquisitions": 0,
+    "oneTickModeEpisodes": 0,
+    "episodesUnder60ms": 0,
+    "targetReversals": 0,
+    "maxSameNodeDwellFrames": 492,
+    "maxMsWithoutNewEvidence": 13426.800000000165,
+    "maxABACyclesIn2s": 0,
+    "maxRedundantModeRevisitsIn2s": 0,
+    "pursuerXRange": {
+     "min": 29.052,
+     "max": 570.948
+    },
+    "distinctNodesVisited": 4,
+    "finalDistanceToLearner": 42.847737677657925,
+    "minDistanceToLearner": 0.25,
+    "modeEpisodeMedianMs": 1586.5000000000014
+   }
+  },
+  {
+   "key": "490,-2061.3|B12",
+   "streamSha256": "73b60e48b4879455931ab64df51d33e7f4ae17ad4eda2ca5147829923c1d5bf6",
+   "metrics": {
+    "frames": 900,
+    "durationMs": 15013.300000000263,
+    "modeTransitions": 3,
+    "rawDirectSensorEdges": 1,
+    "strategicDirectAcquisitions": 1,
+    "confirmedDirectLosses": 0,
+    "stableReacquisitions": 0,
+    "oneTickModeEpisodes": 0,
+    "episodesUnder60ms": 0,
+    "targetReversals": 0,
+    "maxSameNodeDwellFrames": 300,
+    "maxMsWithoutNewEvidence": 10704.700000000046,
+    "maxABACyclesIn2s": 0,
+    "maxRedundantModeRevisitsIn2s": 0,
+    "pursuerXRange": {
+     "min": 28.55228526039822,
+     "max": 570.948
+    },
+    "distinctNodesVisited": 6,
+    "finalDistanceToLearner": 26.983166499043328,
+    "minDistanceToLearner": 0.25,
+    "modeEpisodeMedianMs": 3991.3000000000047
+   }
+  },
+  {
+   "key": "490,-2061.3|C10",
+   "streamSha256": "1fb2b6d9a415f6c6434120f9c53fbbade8bdedc0a328f11f927d8fef5a062e35",
+   "metrics": {
+    "frames": 900,
+    "durationMs": 15013.300000000263,
+    "modeTransitions": 0,
+    "rawDirectSensorEdges": 0,
+    "strategicDirectAcquisitions": 1,
+    "confirmedDirectLosses": 0,
+    "stableReacquisitions": 0,
+    "oneTickModeEpisodes": 0,
+    "episodesUnder60ms": 0,
+    "targetReversals": 0,
+    "maxSameNodeDwellFrames": 768,
+    "maxMsWithoutNewEvidence": 14645.900000000218,
+    "maxABACyclesIn2s": 0,
+    "maxRedundantModeRevisitsIn2s": 0,
+    "pursuerXRange": {
+     "min": 398.173,
+     "max": 570.948
+    },
+    "distinctNodesVisited": 3,
+    "finalDistanceToLearner": 81.23277013402608,
+    "minDistanceToLearner": 0.25,
+    "modeEpisodeMedianMs": 0
+   }
+  },
+  {
+   "key": "300,-2245.8|A11",
+   "streamSha256": "310403ad057100489e9e5b69821023609cf8bfa127e2fb73936fab45f96ac473",
+   "metrics": {
+    "frames": 900,
+    "durationMs": 15013.300000000288,
+    "modeTransitions": 1,
+    "rawDirectSensorEdges": 1,
+    "strategicDirectAcquisitions": 1,
+    "confirmedDirectLosses": 0,
+    "stableReacquisitions": 0,
+    "oneTickModeEpisodes": 0,
+    "episodesUnder60ms": 0,
+    "targetReversals": 0,
+    "maxSameNodeDwellFrames": 762,
+    "maxMsWithoutNewEvidence": 12692.000000000133,
+    "maxABACyclesIn2s": 0,
+    "maxRedundantModeRevisitsIn2s": 0,
+    "pursuerXRange": {
+     "min": 29.052,
+     "max": 300
+    },
+    "distinctNodesVisited": 3,
+    "finalDistanceToLearner": 95.40144845380806,
+    "minDistanceToLearner": 0.25,
+    "modeEpisodeMedianMs": 684.7000000000019
+   }
+  },
+  {
+   "key": "300,-2245.8|B12",
+   "streamSha256": "afce398f64244673f8acd17f6ec5452f83b6d1e6d0c60386735fc5010ba0ddbe",
+   "metrics": {
+    "frames": 900,
+    "durationMs": 15013.300000000288,
+    "modeTransitions": 0,
+    "rawDirectSensorEdges": 0,
+    "strategicDirectAcquisitions": 1,
+    "confirmedDirectLosses": 0,
+    "stableReacquisitions": 0,
+    "oneTickModeEpisodes": 0,
+    "episodesUnder60ms": 0,
+    "targetReversals": 0,
+    "maxSameNodeDwellFrames": 900,
+    "maxMsWithoutNewEvidence": 15013.300000000234,
+    "maxABACyclesIn2s": 0,
+    "maxRedundantModeRevisitsIn2s": 0,
+    "pursuerXRange": {
+     "min": 205,
+     "max": 300
+    },
+    "distinctNodesVisited": 1,
+    "finalDistanceToLearner": 31.755975737272625,
+    "minDistanceToLearner": 0.25,
+    "modeEpisodeMedianMs": 0
+   }
+  },
+  {
+   "key": "300,-2245.8|C10",
+   "streamSha256": "42562fe46dce82e090732114bae6a7817d762ad158ed3d9595fe70d3ad508f72",
+   "metrics": {
+    "frames": 900,
+    "durationMs": 15013.300000000288,
+    "modeTransitions": 1,
+    "rawDirectSensorEdges": 3,
+    "strategicDirectAcquisitions": 1,
+    "confirmedDirectLosses": 0,
+    "stableReacquisitions": 0,
+    "oneTickModeEpisodes": 0,
+    "episodesUnder60ms": 0,
+    "targetReversals": 0,
+    "maxSameNodeDwellFrames": 470,
+    "maxMsWithoutNewEvidence": 7832.299999999941,
+    "maxABACyclesIn2s": 0,
+    "maxRedundantModeRevisitsIn2s": 0,
+    "pursuerXRange": {
+     "min": 27.92906499767336,
+     "max": 395
+    },
+    "distinctNodesVisited": 6,
+    "finalDistanceToLearner": 22.23739699005311,
+    "minDistanceToLearner": 0.25,
+    "modeEpisodeMedianMs": 4909.799999999957
+   }
+  }
+ ],
+ "combinedSha256": "abedac9af71b2e6f7cd7f50bb33420d3e1a4ed1145259fb11efcc2ac081ea4ff"
+}
