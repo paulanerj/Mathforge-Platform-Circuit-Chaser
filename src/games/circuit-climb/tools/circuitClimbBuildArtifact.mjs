@@ -97,13 +97,13 @@ const branch = (() => {
 })();
 
 html = html.replace('<title>MathForge</title>',
-  `<title>Circuit Climb — Pursuer 04B</title>\n`
-  + `    <!-- PURSUER INTEGRATION 04B human acceptance build\n`
+  `<title>Circuit Climb — Pursuer 04B-R1</title>\n`
+  + `    <!-- PURSUER INTEGRATION 04B-R1 human acceptance build\n`
   + `         branch ${branch}\n`
   + `         commit ${commit}\n`
   + `         controller GRAPH_PURSUER_V2, capture ARMED -->`);
 
-const outFile = join(OUT_DIR, 'circuit-climb-pursuer-04b.html');
+const outFile = join(OUT_DIR, 'circuit-climb-pursuer-04b-r1.html');
 writeFileSync(outFile, html);
 rmSync(BUILD_DIR, { recursive: true, force: true });
 rmSync(CONFIG, { force: true });
