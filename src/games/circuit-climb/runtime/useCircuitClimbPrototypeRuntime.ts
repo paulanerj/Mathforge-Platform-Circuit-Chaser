@@ -2449,6 +2449,54 @@ export function useCircuitClimbPrototypeRuntime() {
     }
 
     /**
+     * A transient, selectable copy of the evidence.
+     *
+     * The clipboard API is unavailable in a sandboxed frame, and a tester
+     * playing an embedded build has no console. So the hotkey also puts the
+     * text on screen, selected and ready to copy, and takes it away again on
+     * the next key or click. It is not part of the HUD: nothing draws it
+     * unless a developer explicitly asks for it.
+     */
+    function showEvidencePanel(text: string) {
+      document.getElementById('circuitClimbEvidencePanel')?.remove();
+      const panel = document.createElement('div');
+      panel.id = 'circuitClimbEvidencePanel';
+      panel.style.cssText = [
+        'position:fixed', 'inset:0', 'z-index:99999', 'background:rgba(8,12,20,0.92)',
+        'display:flex', 'flex-direction:column', 'gap:8px', 'padding:16px',
+        'font:12px ui-monospace,SFMono-Regular,Menlo,monospace', 'color:#dfe7ef',
+      ].join(';');
+
+      const heading = document.createElement('div');
+      heading.textContent = 'PURSUER 04B EVIDENCE — copied to clipboard if permitted. '
+        + 'Select and copy, then press Esc or click to close.';
+      heading.style.cssText = 'flex:0 0 auto;line-height:1.5;color:#4fb3d9';
+
+      const area = document.createElement('textarea');
+      area.readOnly = true;
+      area.value = text;
+      area.style.cssText = [
+        'flex:1 1 auto', 'width:100%', 'background:#0b0f14', 'color:#dfe7ef',
+        'border:1px solid #233040', 'border-radius:6px', 'padding:10px',
+        'font:12px ui-monospace,SFMono-Regular,Menlo,monospace', 'resize:none',
+      ].join(';');
+
+      panel.appendChild(heading);
+      panel.appendChild(area);
+      document.body.appendChild(panel);
+      area.focus();
+      area.select();
+
+      const close = (event?: Event) => {
+        if (event && event.type === 'keydown' && (event as KeyboardEvent).key !== 'Escape') return;
+        panel.remove();
+        window.removeEventListener('keydown', close, true);
+      };
+      panel.addEventListener('click', (event) => { if (event.target === panel) close(); });
+      window.addEventListener('keydown', close, true);
+    }
+
+    /**
      * PURSUER INTEGRATION 04B — the human acceptance evidence export.
      *
      * Deliberately NOT in the product HUD. Two ways to reach it, both
@@ -2475,15 +2523,16 @@ export function useCircuitClimbPrototypeRuntime() {
           : null,
       });
 
-      (window as any).__CIRCUIT_CLIMB_PURSUER_REPORT__ = () => {
+      (window as any).__CIRCUIT_CLIMB_PURSUER_REPORT__ = (show = false) => {
         const evidence = pursuerEvidence();
         const text = JSON.stringify(evidence, null, 2);
         try {
           navigator.clipboard?.writeText(text);
         } catch {
-          /* clipboard unavailable — the console copy below still works */
+          /* clipboard blocked — the console copy and the panel below still work */
         }
         console.log('CIRCUIT_CLIMB_PURSUER_EVIDENCE_04B\n' + text);
+        if (show) showEvidencePanel(text);
         return evidence;
       };
     }
@@ -2640,7 +2689,7 @@ export function useCircuitClimbPrototypeRuntime() {
       if (!event.ctrlKey || !event.shiftKey) return;
       if (event.key !== 'D' && event.key !== 'd') return;
       event.preventDefault();
-      (window as any).__CIRCUIT_CLIMB_PURSUER_REPORT__?.();
+      (window as any).__CIRCUIT_CLIMB_PURSUER_REPORT__?.(true);
     };
     window.addEventListener('keydown', evidenceHotkey);
 
