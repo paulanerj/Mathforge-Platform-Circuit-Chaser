@@ -88,7 +88,7 @@ describe('lifecycle: RESTART leaves nothing behind', () => {
     expect(controller.diagnostics).toEqual({
       modeChanges: 0, commitmentEnds: 0, rawSenseAcquired: 0, rawSenseLost: 0,
       trailFragmentsDetected: 0, graphExtensions: 0, targetChanges: 0,
-      lostRoutes: 0, diagonalFrames: 0, frames: 0,
+      lostRoutes: 0, diagonalFrames: 0, frames: 0, longestStallFrames: 0,
     });
   });
 

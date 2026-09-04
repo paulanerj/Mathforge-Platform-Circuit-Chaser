@@ -118,7 +118,14 @@ export class GraphPursuerController {
     lostRoutes: 0,
     diagonalFrames: 0,
     frames: 0,
+    /**
+     * Longest unbroken run of frames the actor did not move. The legacy
+     * pursuer has its own tracer for this; Graph V2 is a different chassis, so
+     * it counts its own. Diagnostic only.
+     */
+    longestStallFrames: 0,
   };
+  private stallRun = 0;
   private previousMode: BrainMode | null = null;
   private previousSensedPresent = false;
   private knownFragmentIds = new Set<string>();
@@ -189,8 +196,9 @@ export class GraphPursuerController {
     this.counters = {
       modeChanges: 0, commitmentEnds: 0, rawSenseAcquired: 0, rawSenseLost: 0,
       trailFragmentsDetected: 0, graphExtensions: 0, targetChanges: 0,
-      lostRoutes: 0, diagonalFrames: 0, frames: 0,
+      lostRoutes: 0, diagonalFrames: 0, frames: 0, longestStallFrames: 0,
     };
+    this.stallRun = 0;
     this.runStartOrigin = Object.freeze({
       x: learnerStart.x, y: learnerStart.y, row: learnerStart.row, tMs: 0,
     });
@@ -276,6 +284,15 @@ export class GraphPursuerController {
     // as evidence instead of as a claim.
     if (Math.abs(after.x - before.x) > 1e-9 && Math.abs(after.y - before.y) > 1e-9) {
       this.counters.diagonalFrames += 1;
+    }
+
+    // A frame that moved the actor nowhere. Cadence hesitation makes short
+    // runs of these entirely normal; a long one would not be.
+    if (Math.hypot(after.x - before.x, after.y - before.y) < 1e-9) {
+      this.stallRun += 1;
+      this.counters.longestStallFrames = Math.max(this.counters.longestStallFrames, this.stallRun);
+    } else {
+      this.stallRun = 0;
     }
 
     // --- diagnostic counters, kept strictly separate from decisions --------

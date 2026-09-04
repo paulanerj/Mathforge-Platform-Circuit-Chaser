@@ -267,6 +267,22 @@ export function useCircuitClimbPrototypeRuntime() {
      * from evidence rather than impression.
      */
     let engineCaptureRangeContacts = 0;
+    /**
+     * PURSUER INTEGRATION 04B — session bookkeeping for the human acceptance
+     * export. Diagnostic only: nothing here is read back into behaviour, and
+     * none of it appears in the product HUD.
+     */
+    const sessionEvidence = {
+      selectionsAttempted: 0,
+      selectionsAccepted: 0,
+      wrongAnswers: 0,
+      pauses: 0,
+      resumes: 0,
+      restarts: 0,
+      capturedAtMs: null as number | null,
+      capturedAtRow: null as number | null,
+      captureOutcome: 'NOT_CAPTURED' as 'NOT_CAPTURED' | 'CAPTURED',
+    };
     let viewScalePercentInternal = 100;
     let routeTurnCountInternal = 8;
 
@@ -926,6 +942,15 @@ export function useCircuitClimbPrototypeRuntime() {
 
       player.row = 0;
       engineCaptureRangeContacts = 0;
+      // `restart()` also runs once at mount, so this counts RUNS STARTED; the
+      // number of times the tester actually pressed Restart is one fewer.
+      sessionEvidence.restarts += 1;
+      sessionEvidence.selectionsAttempted = 0;
+      sessionEvidence.selectionsAccepted = 0;
+      sessionEvidence.wrongAnswers = 0;
+      sessionEvidence.capturedAtMs = null;
+      sessionEvidence.capturedAtRow = null;
+      sessionEvidence.captureOutcome = 'NOT_CAPTURED';
       player.platform = basePlatform;
       player.x = basePlatform.x;
       player.y = basePlatform.y - CONFIG.playerRadius - 3;
@@ -1073,6 +1098,7 @@ export function useCircuitClimbPrototypeRuntime() {
       if (platform.row !== player.row + 1) return;
 
       getAudioContext();
+      sessionEvidence.selectionsAttempted += 1;
       platform.selected = true;
       const destination = landingPoint(platform);
       const from = { x: player.x, y: player.y };
@@ -1128,6 +1154,9 @@ export function useCircuitClimbPrototypeRuntime() {
 
     function onCaptured() {
       engineCaptured = true;
+      sessionEvidence.captureOutcome = 'CAPTURED';
+      sessionEvidence.capturedAtMs = Math.round(elapsed);
+      sessionEvidence.capturedAtRow = player.row;
       setCaptured(true);
       travel = null;
       spawnBurst(player.x, player.y, COLORS.red, 42, 0.3);
@@ -1174,6 +1203,7 @@ export function useCircuitClimbPrototypeRuntime() {
         }
 
         player.row += 1;
+        sessionEvidence.selectionsAccepted += 1;
         player.platform = platform;
         player.pulseAt = elapsed;
         engineBestRow = Math.max(engineBestRow, player.row);
@@ -1231,6 +1261,7 @@ export function useCircuitClimbPrototypeRuntime() {
         time: 0,
         duration: CONFIG.returnDuration,
       };
+      sessionEvidence.wrongAnswers += 1;
       pursuitLog.wrongReturnStarted(elapsed, { x: destination.x, y: destination.y }, back, CONFIG.returnDuration);
     }
 
@@ -2270,7 +2301,12 @@ export function useCircuitClimbPrototypeRuntime() {
         closeViewSettings();
       }
       if (!engineStarted) return;
+      const wasPaused = enginePaused;
       enginePaused = typeof force === 'boolean' ? force : !enginePaused;
+      if (enginePaused !== wasPaused) {
+        if (enginePaused) sessionEvidence.pauses += 1;
+        else sessionEvidence.resumes += 1;
+      }
       setPaused(enginePaused);
       if (!enginePaused) lastTimestamp = performance.now();
     }
@@ -2355,6 +2391,71 @@ export function useCircuitClimbPrototypeRuntime() {
      * candidate is running and what it has done this run. Nothing reads it
      * back into behaviour, and the normal player never sees it.
      */
+    function pursuerEvidence() {
+      const graph = graphController;
+      return {
+        schema: 'circuit-climb/pursuer-acceptance/04B',
+        capturedAt: new Date().toISOString(),
+        candidate: {
+          controllerKind: pursuerKind,
+          captureArmed,
+          commit: CIRCUIT_CLIMB_BUILD.commit,
+          branch: CIRCUIT_CLIMB_BUILD.branch,
+        },
+        run: {
+          elapsedMs: Math.round(elapsed),
+          paused: enginePaused,
+          viewScalePercent: viewScalePercentInternal,
+          selectionsAttempted: sessionEvidence.selectionsAttempted,
+          selectionsAccepted: sessionEvidence.selectionsAccepted,
+          wrongAnswers: sessionEvidence.wrongAnswers,
+          playerRow: player.row,
+          highestLearnerRow: engineBestRow,
+          runsStarted: sessionEvidence.restarts,
+          pauses: sessionEvidence.pauses,
+          resumes: sessionEvidence.resumes,
+        },
+        capture: {
+          outcome: sessionEvidence.captureOutcome,
+          capturedAtMs: sessionEvidence.capturedAtMs,
+          capturedAtRow: sessionEvidence.capturedAtRow,
+          captureRangeContacts: engineCaptureRangeContacts,
+        },
+        pursuer: pursuer
+          ? {
+              x: roundTo(pursuer.x, 2), y: roundTo(pursuer.y, 2),
+              behaviour: pursuer.behaviour, state: pursuer.state,
+            }
+          : null,
+        graph: graph
+          ? {
+              mode: graph.mode,
+              modeChanges: graph.diagnostics.modeChanges,
+              commitmentEnds: graph.diagnostics.commitmentEnds,
+              rawSenseAcquired: graph.diagnostics.rawSenseAcquired,
+              rawSenseLost: graph.diagnostics.rawSenseLost,
+              trailFragmentsDetected: graph.diagnostics.trailFragmentsDetected,
+              targetChanges: graph.diagnostics.targetChanges,
+              graphExtensions: graph.diagnostics.graphExtensions,
+              lostRoutes: graph.diagnostics.lostRoutes,
+              longestStallFrames: graph.diagnostics.longestStallFrames,
+              diagonalFrames: graph.diagnostics.diagonalFrames,
+              frames: graph.diagnostics.frames,
+              finalDistance: roundTo(
+                Math.hypot(player.x - graph.position.x, player.y - graph.position.y), 2),
+            }
+          : null,
+      };
+    }
+
+    /**
+     * PURSUER INTEGRATION 04B — the human acceptance evidence export.
+     *
+     * Deliberately NOT in the product HUD. Two ways to reach it, both
+     * developer-facing: press Ctrl+Shift+D (copies to the clipboard and logs),
+     * or call `__CIRCUIT_CLIMB_PURSUER_REPORT__()` in the browser console.
+     * Read-only — nothing here is read back into behaviour.
+     */
     if (typeof window !== 'undefined') {
       (window as any).__CIRCUIT_CLIMB_PURSUER__ = () => ({
         kind: pursuerKind,
@@ -2373,6 +2474,18 @@ export function useCircuitClimbPrototypeRuntime() {
             }
           : null,
       });
+
+      (window as any).__CIRCUIT_CLIMB_PURSUER_REPORT__ = () => {
+        const evidence = pursuerEvidence();
+        const text = JSON.stringify(evidence, null, 2);
+        try {
+          navigator.clipboard?.writeText(text);
+        } catch {
+          /* clipboard unavailable — the console copy below still works */
+        }
+        console.log('CIRCUIT_CLIMB_PURSUER_EVIDENCE_04B\n' + text);
+        return evidence;
+      };
     }
 
     // Connect Engine callbacks to React Ref controllers
@@ -2517,6 +2630,20 @@ export function useCircuitClimbPrototypeRuntime() {
     canvas.addEventListener('pointerdown', handlePointer, { passive: false });
     window.addEventListener('resize', resize);
 
+    /**
+     * PURSUER INTEGRATION 04B — Ctrl+Shift+D copies the acceptance evidence.
+     *
+     * A modifier chord no gameplay input uses, so it cannot be hit by
+     * accident while playing, and nothing is drawn on screen.
+     */
+    const evidenceHotkey = (event: KeyboardEvent) => {
+      if (!event.ctrlKey || !event.shiftKey) return;
+      if (event.key !== 'D' && event.key !== 'd') return;
+      event.preventDefault();
+      (window as any).__CIRCUIT_CLIMB_PURSUER_REPORT__?.();
+    };
+    window.addEventListener('keydown', evidenceHotkey);
+
     const observer = typeof ResizeObserver !== 'undefined'
       ? new ResizeObserver(resize)
       : null;
@@ -2538,6 +2665,7 @@ export function useCircuitClimbPrototypeRuntime() {
       cancelAnimationFrame(animationFrame);
       canvas.removeEventListener('pointerdown', handlePointer);
       window.removeEventListener('resize', resize);
+    window.removeEventListener('keydown', evidenceHotkey);
       if (observer) {
         observer.disconnect();
       }
