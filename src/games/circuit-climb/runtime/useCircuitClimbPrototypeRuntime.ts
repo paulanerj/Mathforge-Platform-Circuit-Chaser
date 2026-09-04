@@ -9,6 +9,13 @@ import { createPursuer, updatePursuer, getPursuerCaptureDistance, PursuerState, 
 // `pursuer` view, so the rest of the application never learns which is running.
 import { resolvePursuerController, resolveCaptureArmed, type PursuerControllerKind } from '../pursuer-v2/pursuerControllerKind';
 import { GraphPursuerController } from '../pursuer-v2/runtime/graphPursuerController';
+import {
+  loadStoreState, effectiveConfiguration, type ConfigurationStoreState,
+} from '../pursuer-v2/config/configurationStore';
+import {
+  selectConfiguration, baselineSelection, type ConfigurationSelection,
+} from '../pursuer-v2/config/resolvePursuerConfiguration';
+import { BASELINE_CONFIGURATION_ID } from '../pursuer-v2/config/configurationLibrary';
 import { graphWorldFromLiveGeometry } from '../pursuer-v2/runtime/graphWorld';
 import { PursuitLog, classifyTargetSource } from '../diagnostics/circuitClimbPursuitLog';
 import { CIRCUIT_CLIMB_BUILD } from '../diagnostics/circuitClimbBuildIdentity';
@@ -338,6 +345,44 @@ export function useCircuitClimbPrototypeRuntime() {
     // Diagnostic only — see resolveCaptureArmed. Normal launches are ARMED.
     const captureArmed = resolveCaptureArmed();
     let graphController: GraphPursuerController | null = null;
+    /**
+     * PURSUER 04C — the configuration this run is using.
+     *
+     * Chosen once per run, at the only boundary `SAFE_TRANSITION_BOUNDARIES`
+     * marks active, and frozen for its duration. Re-read from the store on
+     * every restart so a tuning applied in the panel takes effect on the next
+     * run and never mid-run.
+     */
+    let graphConfiguration: ConfigurationSelection = baselineSelection({
+      logicalWidth: CONFIG.logicalWidth,
+    });
+    let graphConfigurationStore: ConfigurationStoreState = loadStoreState();
+
+    /**
+     * What the next run should use, read fresh from the store.
+     *
+     * A configuration that will not validate does not stop the game: the
+     * baseline runs and the selection records exactly what was refused, which
+     * the tuning panel and the evidence export both show. Losing an experiment
+     * is annoying; losing a test session to a pursuer that quietly reverted
+     * without saying so is worse.
+     */
+    function readPursuerConfigurationSelection(): ConfigurationSelection {
+      graphConfigurationStore = loadStoreState();
+      const wanted = effectiveConfiguration(graphConfigurationStore);
+      const untouched = !graphConfigurationStore.draft
+        && wanted.identity.configurationId === BASELINE_CONFIGURATION_ID;
+      if (untouched) return baselineSelection({ logicalWidth: CONFIG.logicalWidth });
+      return selectConfiguration(
+        wanted,
+        graphConfigurationStore.draft ? 'HUMAN_TUNED' : 'HUMAN_SELECTED',
+        {
+          logicalWidth: CONFIG.logicalWidth,
+          requestedConfigurationId: wanted.identity.configurationId,
+          selectedAt: new Date().toISOString(),
+        },
+      );
+    }
     // Graph V2's own turn signal, so the existing bot-turn sound seam keeps
     // working without the audio layer knowing which pursuer is running.
     let graphTurnPending = false;
@@ -984,9 +1029,19 @@ export function useCircuitClimbPrototypeRuntime() {
         // (`ensureRows`); the graph spans a little further so the search
         // frontier always has somewhere above to look.
         const graphRows = Math.max(nextRowIndex, player.row + 8);
-        if (graphController) graphController.restart(learnerStart, graphWorld, graphRows);
-        else graphController = new GraphPursuerController({
+
+        // 04C: a run starts on whatever configuration is selected now. A
+        // controller's configuration is frozen for its lifetime, so a changed
+        // selection means a NEW controller rather than a restarted one —
+        // restarting would keep the old parameters and the evidence would name
+        // a pursuer that never ran.
+        const previousHash = graphConfiguration.resolved.hash;
+        graphConfiguration = readPursuerConfigurationSelection();
+        if (graphController && graphConfiguration.resolved.hash === previousHash) {
+          graphController.restart(learnerStart, graphWorld, graphRows);
+        } else graphController = new GraphPursuerController({
           world: graphWorld, rowCount: graphRows, learnerStart,
+          configuration: graphConfiguration.resolved,
         });
         pursuer.x = graphController.position.x;
         pursuer.y = graphController.position.y;
@@ -2393,8 +2448,14 @@ export function useCircuitClimbPrototypeRuntime() {
      */
     function pursuerEvidence() {
       const graph = graphController;
+      const frames = graph ? graph.diagnostics.frames : 0;
+      // Notes are written DURING a run, so they are read at export time
+      // rather than from the snapshot taken when the run started. The
+      // configuration is not: that is the one the pursuer is actually using,
+      // and it comes from the controller, which cannot have drifted.
+      const noteState = loadStoreState();
       return {
-        schema: 'circuit-climb/pursuer-acceptance/04B',
+        schema: 'circuit-climb/pursuer-acceptance/04C',
         capturedAt: new Date().toISOString(),
         candidate: {
           controllerKind: pursuerKind,
@@ -2402,6 +2463,44 @@ export function useCircuitClimbPrototypeRuntime() {
           commit: CIRCUIT_CLIMB_BUILD.commit,
           branch: CIRCUIT_CLIMB_BUILD.branch,
         },
+        /**
+         * 04C — EXACT REPRODUCIBILITY.
+         *
+         * Everything needed to rebuild this run's pursuer: the schema version
+         * it was written against, its identity, its behaviour hash, and the
+         * full resolved payload. `payload` is what the run actually used after
+         * validation, not what was asked for — if a stored configuration was
+         * refused, `selection.fallbackFrom` says so and the payload is the
+         * baseline's.
+         */
+        configuration: graph
+          ? {
+              configurationSchemaVersion: graph.configuration.configuration.identity.schemaVersion,
+              configurationId: graph.configuration.configuration.identity.configurationId,
+              configurationLabel: graph.configuration.configuration.identity.label,
+              configurationHash: graph.configuration.hash,
+              configurationShortHash: graph.configuration.shortHash,
+              lifecycle: graph.configuration.configuration.metadata.lifecycle,
+              experimental: graph.configuration.configuration.metadata.experimental,
+              authorityCommit: graph.configuration.configuration.metadata.authorityCommit,
+              payload: graph.configuration.configuration,
+              selection: {
+                reason: graphConfiguration.reason,
+                selectedAt: graphConfiguration.selectedAt,
+                requestedConfigurationId: graphConfiguration.requestedConfigurationId,
+                fallbackFrom: graphConfiguration.fallbackFrom,
+              },
+              /** Computed by the run, not authored. See the frame-rate note. */
+              derived: graph.derivedValues(frames > 0 ? elapsed / frames : null),
+              storeWarnings: noteState.loadWarnings,
+            }
+          : null,
+        /**
+         * HUMAN PRODUCT EVIDENCE. Recorded verbatim and never interpreted:
+         * nothing scores, averages or thresholds these, and no configuration
+         * is selected because of them.
+         */
+        testNotes: noteState.notes,
         run: {
           elapsedMs: Math.round(elapsed),
           paused: enginePaused,
@@ -2672,7 +2771,16 @@ export function useCircuitClimbPrototypeRuntime() {
       debugGetWorldMetrics: () => ({ width, height, worldScale, logicalHeight, logicalWidth: CONFIG.logicalWidth }),
       debugSelectPlatform: selectPlatform,
       debugUpdate: (delta: number) => { update(delta); },
-      debugDraw: () => { render(); }
+      debugDraw: () => { render(); },
+      /**
+       * 04C — what the RUNNING pursuer is configured as.
+       *
+       * Read by the developer tuning panel so it can show what is actually on
+       * screen rather than what the store happens to hold. They differ for a
+       * whole run whenever somebody edits a slider without applying it, which
+       * is exactly when a tester most needs to be told.
+       */
+      getPursuerConfigurationSelection: () => graphConfiguration,
     };
 
     // DOM Event Listeners matching index.html
@@ -2823,6 +2931,12 @@ export function useCircuitClimbPrototypeRuntime() {
      * a pursuit defect is the person playing the game — not whoever happens to
      * have a terminal open.
      */
+    /**
+     * 04C — the configuration the running pursuer is using, or null before a
+     * run has started. The developer tuning panel's only read into the engine.
+     */
+    getPursuerConfigurationSelection: (): ConfigurationSelection | null =>
+      (loopControlRef.current as any).getPursuerConfigurationSelection?.() ?? null,
     getPursuitLogJson: () => (loopControlRef.current as any).getPursuitLogJson?.() || '',
     getPursuitLogSummary: () =>
       (loopControlRef.current as any).getPursuitLogSummary?.() || { frames: 0, events: 0, routes: 0, bytes: 0 },

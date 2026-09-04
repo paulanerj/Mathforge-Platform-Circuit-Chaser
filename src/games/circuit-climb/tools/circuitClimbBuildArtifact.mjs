@@ -1,5 +1,5 @@
 /**
- * PURSUER INTEGRATION 04B — one-file build for human product acceptance.
+ * PURSUER 04B/04C — one-file build for human product acceptance.
  *
  *   node src/games/circuit-climb/tools/circuitClimbBuildArtifact.mjs
  *
@@ -97,13 +97,14 @@ const branch = (() => {
 })();
 
 html = html.replace('<title>MathForge</title>',
-  `<title>Circuit Climb — Pursuer 04B-R1</title>\n`
-  + `    <!-- PURSUER INTEGRATION 04B-R1 human acceptance build\n`
+  `<title>Circuit Climb — Pursuer 04C</title>\n`
+  + `    <!-- PURSUER 04C human acceptance build\n`
   + `         branch ${branch}\n`
   + `         commit ${commit}\n`
-  + `         controller GRAPH_PURSUER_V2, capture ARMED -->`);
+  + `         controller GRAPH_PURSUER_V2, capture ARMED\n`
+  + `         configuration 04B-R1 BASELINE (Ctrl+Shift+T to tune, Ctrl+Shift+D to export) -->`);
 
-const outFile = join(OUT_DIR, 'circuit-climb-pursuer-04b-r1.html');
+const outFile = join(OUT_DIR, 'circuit-climb-pursuer-04c.html');
 writeFileSync(outFile, html);
 rmSync(BUILD_DIR, { recursive: true, force: true });
 rmSync(CONFIG, { force: true });

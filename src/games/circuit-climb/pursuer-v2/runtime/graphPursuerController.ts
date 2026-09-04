@@ -35,7 +35,7 @@ import {
 import { nearestNode } from '../graph/graphRouting';
 import { graphActorRadiusFor } from '../graph/graphActorRadius';
 import { GroundTruthTrail } from '../contracts/trailRecorder';
-import { buildBrainObservation, SPARK_SENSE_RADIUS } from '../brain/sensors';
+import { buildBrainObservation, deriveTrailSenseRadius, SPARK_SENSE_RADIUS } from '../brain/sensors';
 import { createBrainState, updateBrain } from '../brain/graphBrainV1';
 import type {
   BrainState, BrainEvidence, PursuitIntent, SensedSpark, RunStartOrigin, BrainMode,
@@ -48,8 +48,10 @@ import {
   MAX_REMEMBERED_FRAGMENTS,
 } from '../brain/graphBrainV1';
 import {
-  resolveBaselineConfiguration, type ResolvedPursuerConfiguration,
+  resolveBaselineConfiguration, describeDerivedValues,
+  type ResolvedPursuerConfiguration,
 } from '../config/resolvePursuerConfiguration';
+import type { ResolvedDerivedValues } from '../config/pursuerConfigurationSchema';
 
 /**
  * Connector levels below row 0 the pursuer may start on. The accepted Lab
@@ -310,6 +312,26 @@ export class GraphPursuerController {
   get state() { return this.brainState; }
   /** The one configuration this run is using. Frozen; read by the export. */
   get configuration(): ResolvedPursuerConfiguration { return this.resolvedConfiguration; }
+
+  /**
+   * The values this run computed for itself rather than being told.
+   *
+   * `frameMs` is the run's own mean frame time, which the controller cannot
+   * know — it is given a `dtMs` per step and has no wall clock. Pass it in from
+   * whoever does, and the commitment windows come back in milliseconds. That
+   * conversion is the one that explains the 04B report: these windows are
+   * counted in frames, so the same configuration reacts in 40% of the
+   * wall-clock time on a 144Hz display.
+   */
+  derivedValues(frameMs?: number | null): ResolvedDerivedValues {
+    return describeDerivedValues({
+      actorRadius: this.pursuer.radius,
+      trailSenseRadius: deriveTrailSenseRadius(this.pursuer.graph),
+      trunkCount: this.pursuer.graph.trunks.length,
+      frameMs,
+      configuration: this.resolvedConfiguration.configuration,
+    });
+  }
 
   /**
    * RESTART. Everything the accepted contract says must not survive a run:

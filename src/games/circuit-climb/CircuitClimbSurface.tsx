@@ -5,6 +5,7 @@
 
 import React, { useRef, useState } from 'react';
 import { useCircuitClimbPrototypeRuntime } from './runtime/useCircuitClimbPrototypeRuntime';
+import PursuerConfigurationPanel from './devtools/PursuerConfigurationPanel';
 import './styles/circuit-climb.css';
 
 interface CircuitClimbSurfaceProps {
@@ -291,6 +292,36 @@ export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [showCollisionHitboxes, setShowCollisionHitboxes]);
+
+  /**
+   * PURSUER 04C — the developer tuning panel.
+   *
+   * Deliberately NOT in the HUD. A tester playing the acceptance build must
+   * see the game, not a wall of parameters, so this opens only when it is
+   * asked for: `?tuning=1` in the URL, or Ctrl+Shift+T, a chord no gameplay
+   * input uses. Ctrl+Shift+D still exports the evidence, unchanged.
+   *
+   * It renders only once a run has started, for two reasons: there is no
+   * running configuration to show before one, and a drawer over the start
+   * overlay would sit between a tester and the button they came to press.
+   */
+  const [showTuning, setShowTuning] = React.useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('tuning') === '1';
+    } catch {
+      return false;
+    }
+  });
+  React.useEffect(() => {
+    const toggle = (event: KeyboardEvent) => {
+      if (!event.ctrlKey || !event.shiftKey) return;
+      if (event.key !== 'T' && event.key !== 't') return;
+      event.preventDefault();
+      setShowTuning((open) => !open);
+    };
+    window.addEventListener('keydown', toggle);
+    return () => window.removeEventListener('keydown', toggle);
+  }, []);
 
   return (
     <div className="circuit-climb-surface" ref={appRef} id="app">
@@ -649,6 +680,10 @@ export const CircuitClimbSurface: React.FC<CircuitClimbSurfaceProps> = ({
             </button>
           </div>
         </section>
+      )}
+
+      {showTuning && started && (
+        <PursuerConfigurationPanel runtime={runtime} onClose={() => setShowTuning(false)} />
       )}
     </div>
   );
