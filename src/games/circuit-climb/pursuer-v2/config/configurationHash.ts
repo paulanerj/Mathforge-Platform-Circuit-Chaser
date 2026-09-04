@@ -1,0 +1,153 @@
+/**
+ * CANONICALIZATION AND THE BEHAVIOUR HASH (04C).
+ *
+ * A tester says "the one where it felt like it was actually hunting me". A
+ * bug report carries a JSON blob. A diagnostic export names a configuration
+ * that has since been renamed. The question all three raise is the same: was
+ * the pursuer in THIS run the same pursuer as in THAT one?
+ *
+ * The hash answers exactly that and nothing else. It is a BEHAVIOUR hash:
+ *
+ *   IN   every parameter the pursuer runs on, and the schema version, because
+ *        a schema change can redefine what a field means.
+ *   OUT  the label, the description, the id, and everything in `metadata` —
+ *        notes, provenance, lifecycle, creation time. Renaming a
+ *        configuration must not make it look like a different pursuer, and
+ *        two people who independently dial in the same numbers must land on
+ *        the same hash.
+ *
+ * The consequence is deliberate and worth stating plainly: two configurations
+ * with different ids and the same numbers ARE the same pursuer, and the hash
+ * says so.
+ *
+ * SHA-256 is implemented here rather than imported because this must run
+ * unchanged in the browser, in vitest and in a Node tool, synchronously, with
+ * no dependency and no async subtle-crypto ceremony. `configurationHash.test`
+ * pins every digest it produces against `node:crypto`, so "our own SHA-256"
+ * cannot quietly become "nearly SHA-256".
+ */
+
+import { BEHAVIOUR_LAYERS, type PursuerConfiguration } from './pursuerConfigurationSchema';
+
+/**
+ * A number written the one way this module ever writes it.
+ *
+ * ECMAScript fully specifies `Number::toString`, so the shortest round-trip
+ * form is identical across engines. The only special case is negative zero,
+ * which is behaviourally identical to zero and must not hash differently.
+ */
+function canonicalNumber(value: number): string {
+  if (Object.is(value, -0)) return '0';
+  return String(value);
+}
+
+function canonicalValue(value: unknown): string {
+  if (typeof value === 'number') return canonicalNumber(value);
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (typeof value === 'string') return JSON.stringify(value);
+  if (value === null) return 'null';
+  return JSON.stringify(value);
+}
+
+/**
+ * The canonical text a configuration hashes to.
+ *
+ * One `path=value` per line, layers in the order `BEHAVIOUR_LAYERS` declares
+ * and keys sorted inside each layer, so neither object literal order nor a
+ * JSON round-trip can change the digest. Readable on purpose: when two hashes
+ * disagree the first useful question is which line differs, and that should
+ * not require a debugger.
+ */
+export function canonicalizeConfiguration(configuration: PursuerConfiguration): string {
+  const lines: string[] = [`identity.schemaVersion=${canonicalValue(configuration.identity.schemaVersion)}`];
+  for (const layer of BEHAVIOUR_LAYERS) {
+    const values = configuration[layer] as Record<string, unknown>;
+    for (const key of Object.keys(values).sort()) {
+      lines.push(`${layer}.${key}=${canonicalValue(values[key])}`);
+    }
+  }
+  return lines.join('\n');
+}
+
+// ── SHA-256 ────────────────────────────────────────────────────────────────
+
+const K = new Uint32Array([
+  0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+  0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+  0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+  0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+  0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+  0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+  0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+  0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+]);
+
+function rotr(x: number, n: number): number {
+  return (x >>> n) | (x << (32 - n));
+}
+
+/** SHA-256 of a UTF-8 string, as lowercase hex. */
+export function sha256Hex(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  const bitLength = bytes.length * 8;
+
+  // message + 0x80 + zero padding + 64-bit big-endian length
+  const paddedLength = (((bytes.length + 9) + 63) & ~63);
+  const padded = new Uint8Array(paddedLength);
+  padded.set(bytes);
+  padded[bytes.length] = 0x80;
+  // Lengths here are far below 2^32 bits, so the high word is always zero.
+  const view = new DataView(padded.buffer);
+  view.setUint32(paddedLength - 4, bitLength >>> 0, false);
+  view.setUint32(paddedLength - 8, Math.floor(bitLength / 0x100000000), false);
+
+  const h = new Uint32Array([
+    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19,
+  ]);
+  const w = new Uint32Array(64);
+
+  for (let offset = 0; offset < paddedLength; offset += 64) {
+    for (let i = 0; i < 16; i += 1) w[i] = view.getUint32(offset + i * 4, false);
+    for (let i = 16; i < 64; i += 1) {
+      const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+      const s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
+    }
+
+    let [a, b, c, d, e, f, g, hh] = h;
+    for (let i = 0; i < 64; i += 1) {
+      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+      const ch = (e & f) ^ (~e & g);
+      const temp1 = (hh + S1 + ch + K[i] + w[i]) >>> 0;
+      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+      const maj = (a & b) ^ (a & c) ^ (b & c);
+      const temp2 = (S0 + maj) >>> 0;
+      hh = g; g = f; f = e;
+      e = (d + temp1) >>> 0;
+      d = c; c = b; b = a;
+      a = (temp1 + temp2) >>> 0;
+    }
+    h[0] = (h[0] + a) >>> 0; h[1] = (h[1] + b) >>> 0; h[2] = (h[2] + c) >>> 0; h[3] = (h[3] + d) >>> 0;
+    h[4] = (h[4] + e) >>> 0; h[5] = (h[5] + f) >>> 0; h[6] = (h[6] + g) >>> 0; h[7] = (h[7] + hh) >>> 0;
+  }
+
+  let hex = '';
+  for (let i = 0; i < 8; i += 1) hex += h[i].toString(16).padStart(8, '0');
+  return hex;
+}
+
+/** The full behaviour hash of a configuration. */
+export function configurationHash(configuration: PursuerConfiguration): string {
+  return sha256Hex(canonicalizeConfiguration(configuration));
+}
+
+/**
+ * The first twelve hex characters, for the places a person has to read or
+ * retype one — a diagnostic header, a chat message, a sticky note next to a
+ * test session. Long enough that an accidental collision across the handful of
+ * configurations a project will ever hold is not a practical concern; short
+ * enough to be quoted out loud.
+ */
+export function shortConfigurationHash(configuration: PursuerConfiguration): string {
+  return configurationHash(configuration).slice(0, 12);
+}

@@ -32,6 +32,7 @@ import {
   type RoutePoint,
 } from '../../runtime/circuitClimbLearnerRouting';
 import { GraphPursuerController, type LearnerPhysicalState } from '../runtime/graphPursuerController';
+import type { ResolvedPursuerConfiguration } from '../config/resolvePursuerConfiguration';
 import { productionGraphWorldAt, type GraphWorld } from './productionWorld';
 
 /** Production's own learner speed, in logical units per millisecond. */
@@ -52,6 +53,11 @@ export interface SurfaceRunOptions {
   stationaryMs?: number;
   /** Spawn override, for comparing spawn semantics. */
   spawn?: 'integration' | 'authority';
+  /**
+   * The configuration under test. Omitted means the 04B-R1 baseline, which is
+   * what every gate written before 04C expects.
+   */
+  configuration?: ResolvedPursuerConfiguration;
 }
 
 /** One frame of the strategic trace the 04B-R1 brief asks for. */
@@ -149,6 +155,7 @@ export function runProductionSurface(options: SurfaceRunOptions): SurfaceRunResu
     rowCount: rows.length,
     learnerStart: { x: learner.x, y: learner.y, row: 0 },
     spawn: options.spawn,
+    configuration: options.configuration,
   });
 
   const trace: SurfaceTraceRow[] = [];

@@ -28,7 +28,10 @@
  * ─────────────────────────────────────────────────────────────────────────
  */
 
-import { GraphPursuerV2, DEFAULT_GRAPH_PURSUER_CONFIG, type GraphEvidence } from '../graph/graphPursuerV2';
+import {
+  GraphPursuerV2, DEFAULT_GRAPH_PURSUER_CONFIG, LANE_BAND_FRACTION, TARGET_EPSILON,
+  type GraphEvidence,
+} from '../graph/graphPursuerV2';
 import { nearestNode } from '../graph/graphRouting';
 import { graphActorRadiusFor } from '../graph/graphActorRadius';
 import { GroundTruthTrail } from '../contracts/trailRecorder';
@@ -39,6 +42,14 @@ import type {
 } from '../brain/observation';
 import { graphWorldChanged, type GraphWorld } from './graphWorld';
 import type { PursuitGraph, TrunkId } from '../graph/pursuitGraph';
+import {
+  ARRIVAL_EPSILON, LOSS_CONFIRMATION_TICKS, ACQUIRE_CONFIRMATION_TICKS,
+  TRAIL_EXHAUSTION_CONFIRMATION_TICKS, LEAD_PREEMPTION_CONFIRMATION_TICKS,
+  MAX_REMEMBERED_FRAGMENTS,
+} from '../brain/graphBrainV1';
+import {
+  resolveBaselineConfiguration, type ResolvedPursuerConfiguration,
+} from '../config/resolvePursuerConfiguration';
 
 /**
  * Connector levels below row 0 the pursuer may start on. The accepted Lab
@@ -56,6 +67,48 @@ export function spawnTrunkFor(graph: PursuitGraph, learnerStartX: number): Trunk
     if (Math.abs(trunk.x - learnerStartX) > Math.abs(best.x - learnerStartX)) best = trunk;
   }
   return best.id;
+}
+
+/**
+ * THE FROZEN-LAYER GUARD.
+ *
+ * `commitment` and `chassis` are behaviour-affecting, carried in every
+ * configuration payload for reproducibility, and NOT threaded into the Brain
+ * or the chassis — those constants live where they were derived, in
+ * `brain/graphBrainV1.ts` and `graph/graphPursuerV2.ts`, and 04C does not
+ * reopen the accepted 03A-R2 decision seam to make them adjustable.
+ *
+ * The hazard that creates is silence: a configuration could name a different
+ * confirmation window and the run would ignore it, producing evidence
+ * attributed to parameters that were never applied. So the guard is loud
+ * instead. The one validator already refuses any deviation from the baseline
+ * in these layers; this is the second line, and it catches the case the
+ * validator cannot — a caller that legitimately passed `allowFrozenEdits` for
+ * a spawn A/B and then changed something this build does not implement.
+ *
+ * If this ever throws, the fix is to thread the parameter properly, not to
+ * relax the check.
+ */
+function assertFrozenLayersAreImplemented(resolved: ResolvedPursuerConfiguration): void {
+  const { commitment, chassis } = resolved.configuration;
+  const mismatches: string[] = [];
+  const check = (path: string, configured: number, compiled: number) => {
+    if (configured !== compiled) mismatches.push(`${path}: configuration says ${configured}, this build runs ${compiled}`);
+  };
+  check('commitment.lossConfirmationTicks', commitment.lossConfirmationTicks, LOSS_CONFIRMATION_TICKS);
+  check('commitment.acquireConfirmationTicks', commitment.acquireConfirmationTicks, ACQUIRE_CONFIRMATION_TICKS);
+  check('commitment.trailExhaustionConfirmationTicks', commitment.trailExhaustionConfirmationTicks, TRAIL_EXHAUSTION_CONFIRMATION_TICKS);
+  check('commitment.leadPreemptionConfirmationTicks', commitment.leadPreemptionConfirmationTicks, LEAD_PREEMPTION_CONFIRMATION_TICKS);
+  check('commitment.maxRememberedFragments', commitment.maxRememberedFragments, MAX_REMEMBERED_FRAGMENTS);
+  check('chassis.laneBandFraction', chassis.laneBandFraction, LANE_BAND_FRACTION);
+  check('chassis.targetEpsilon', chassis.targetEpsilon, TARGET_EPSILON);
+  check('chassis.arrivalEpsilon', chassis.arrivalEpsilon, ARRIVAL_EPSILON);
+  if (mismatches.length) {
+    throw new Error(
+      'This configuration changes values GRAPH_PURSUER_V2 does not yet read, so the run would not '
+      + 'be the pursuer the configuration describes:\n  ' + mismatches.join('\n  '),
+    );
+  }
 }
 
 /**
@@ -94,8 +147,26 @@ export interface GraphPursuerControllerOptions {
    * Whether the chassis may use the safe capture rail to close the last units.
    * Production adjudicates capture itself; this only governs how the actor
    * physically approaches.
+   *
+   * Superseded by `configuration.spawnCapture.captureRail` when a
+   * configuration is supplied; retained for the harness paths that construct a
+   * controller without one.
    */
   captureRail?: boolean;
+  /**
+   * THE configuration this run uses, already validated and frozen.
+   *
+   * Deliberately a `ResolvedPursuerConfiguration` and not a raw object: the
+   * type is only obtainable from `resolvePursuerConfiguration`, so there is no
+   * way to hand the pursuer parameters that have not been through the one
+   * validator. Omitted means the 04B-R1 authority baseline.
+   *
+   * Note what this type does NOT carry: any account of why this configuration
+   * was selected. The controller cannot branch on the reason because the
+   * reason is not reachable from here — see `ConfigurationSelection`, which
+   * the diagnostic export reads and this module never imports.
+   */
+  configuration?: ResolvedPursuerConfiguration;
 }
 
 /** One frame of controller output, for rendering, logging and capture tests. */
@@ -133,6 +204,8 @@ export class GraphPursuerController {
   private tMs = 0;
   private rowCount: number;
   private options: GraphPursuerControllerOptions;
+  /** Frozen for the whole run. Replaced only by building a new controller. */
+  private readonly resolvedConfiguration: ResolvedPursuerConfiguration;
 
   /** Diagnostic counters. Read by the debug export; no decision reads them. */
   private counters = {
@@ -162,10 +235,14 @@ export class GraphPursuerController {
     this.options = options;
     this.world = options.world;
     this.rowCount = options.rowCount;
+    this.resolvedConfiguration = options.configuration
+      ?? resolveBaselineConfiguration({ logicalWidth: options.world.logicalWidth });
+    assertFrozenLayersAreImplemented(this.resolvedConfiguration);
 
     this.pursuer = this.buildPursuer(options.world, options.rowCount, options.learnerStart);
     this.trail = new GroundTruthTrail(
       { x: options.learnerStart.x, y: options.learnerStart.y }, 0, options.world.rowGap,
+      this.resolvedConfiguration.configuration.perception.trailRowRetention,
     );
     this.brainState = createBrainState();
     this.runStartOrigin = Object.freeze({
@@ -178,15 +255,32 @@ export class GraphPursuerController {
 
   private buildPursuer(world: GraphWorld, rowCount: number, learnerStart: { x: number; y: number }) {
     const actorRadius = graphActorRadiusFor(world);
-    const groundLevels = this.options.groundLevels ?? GROUND_LEVELS;
+    const { locomotion, spawnCapture } = this.resolvedConfiguration.configuration;
+    // The configuration is the authority for everything it names. The two
+    // legacy option fields below still win where a harness set them
+    // explicitly, so the A/B reproduction paths keep working, but nothing in
+    // production sets either.
+    const groundLevels = this.options.groundLevels ?? spawnCapture.groundLevels;
     const config = {
       ...DEFAULT_GRAPH_PURSUER_CONFIG,
+      cadence: {
+        speed: locomotion.speed,
+        minBurstMs: locomotion.minBurstMs,
+        maxBurstMs: locomotion.maxBurstMs,
+        minPauseMs: locomotion.minPauseMs,
+        maxPauseMs: locomotion.maxPauseMs,
+        pauseChance: locomotion.pauseChance,
+        seed: locomotion.cadenceSeed,
+      },
+      laneSeed: locomotion.laneSeed,
       actorRadius,
       groundLevels,
-      captureRail: this.options.captureRail ?? true,
+      captureRail: this.options.captureRail ?? spawnCapture.captureRail,
     };
 
-    if ((this.options.spawn ?? 'authority') === 'integration') {
+    const spawnRule = this.options.spawn
+      ?? (spawnCapture.spawnRule === 'INTEGRATION_BELOW_LEARNER' ? 'integration' : 'authority');
+    if (spawnRule === 'integration') {
       // The rejected 04A placement, retained only for A/B in the harness.
       return new GraphPursuerV2(
         world, rowCount, { x: learnerStart.x, y: learnerStart.y + world.rowGap }, config,
@@ -214,6 +308,8 @@ export class GraphPursuerController {
   get graphExtensionCount() { return this.counters.graphExtensions; }
   get diagnostics() { return { ...this.counters }; }
   get state() { return this.brainState; }
+  /** The one configuration this run is using. Frozen; read by the export. */
+  get configuration(): ResolvedPursuerConfiguration { return this.resolvedConfiguration; }
 
   /**
    * RESTART. Everything the accepted contract says must not survive a run:
@@ -227,7 +323,10 @@ export class GraphPursuerController {
     if (rowCount !== undefined) this.rowCount = rowCount;
     this.options = { ...this.options, learnerStart };
     this.pursuer = this.buildPursuer(this.world, this.rowCount, learnerStart);
-    this.trail = new GroundTruthTrail({ x: learnerStart.x, y: learnerStart.y }, 0, this.world.rowGap);
+    this.trail = new GroundTruthTrail(
+      { x: learnerStart.x, y: learnerStart.y }, 0, this.world.rowGap,
+      this.resolvedConfiguration.configuration.perception.trailRowRetention,
+    );
     this.brainState = createBrainState();
     this.previousSensedSpark = null;
     this.lastCommandedNode = null;
@@ -296,6 +395,7 @@ export class GraphPursuerController {
       groundTruthTrail: this.trail.snapshot(this.tMs),
       previousSensedSpark: this.previousSensedSpark,
       runStartOrigin: this.runStartOrigin,
+      directSenseRadius: this.resolvedConfiguration.configuration.perception.directSenseRadius,
     });
 
     const { state, intent, evidence } = updateBrain(this.brainState, observation);

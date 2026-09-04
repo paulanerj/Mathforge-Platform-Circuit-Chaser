@@ -88,7 +88,7 @@ import type {
 import { nextSearchTarget } from './search';
 
 /** How close the pursuer must be to a target point to count as "reached", as a fallback alongside the chassis's own arrival signal. */
-const ARRIVAL_EPSILON = 4;
+export const ARRIVAL_EPSILON = 4;
 
 /**
  * Consecutive unsensed ticks tolerated before a direct-sensing loss is
@@ -168,7 +168,7 @@ export const TRAIL_EXHAUSTION_CONFIRMATION_TICKS = 6;
 export const LEAD_PREEMPTION_CONFIRMATION_TICKS = 6;
 
 /** Bounded Brain memory — old fragments age out rather than accumulating forever. */
-const MAX_REMEMBERED_FRAGMENTS = 24;
+export const MAX_REMEMBERED_FRAGMENTS = 24;
 
 export function createBrainState(): BrainState {
   return {

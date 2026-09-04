@@ -23,7 +23,16 @@ import type {
   BrainObservation, SensedSpark, TrailFragment, RunStartOrigin, LastSighting,
 } from './observation';
 
-/** Electrical-proximity direct-perception radius. LAB 03A's own value. */
+/**
+ * Electrical-proximity direct-perception radius. LAB 03A's own value, and the
+ * default whenever a caller does not name one.
+ *
+ * Since 04C it is also `perception.directSenseRadius` in the pursuer
+ * configuration contract, which is why `buildBrainObservation` now takes a
+ * radius rather than only reading this. The constant remains the authority
+ * baseline value and the default, so a caller that names nothing gets exactly
+ * the accepted behaviour.
+ */
 export const SPARK_SENSE_RADIUS = 260;
 
 /** Half the smallest gap between adjacent trunk centrelines. */
@@ -168,9 +177,10 @@ function senseSpark(
   nowMs: number,
   previousSensed: SensedSpark | null,
   maxContinuityGapMs: number,
+  senseRadius: number,
 ): SensedSpark | null {
   const distance = Math.hypot(hiddenLearnerPosition.x - pursuerPosition.x, hiddenLearnerPosition.y - pursuerPosition.y);
-  if (distance > SPARK_SENSE_RADIUS) return null;
+  if (distance > senseRadius) return null;
 
   const dtMs = previousSensed ? nowMs - previousSensed.sightingTMs : Infinity;
   const continuous = previousSensed !== null && dtMs > 0 && dtMs <= maxContinuityGapMs;
@@ -212,6 +222,11 @@ export interface BuildObservationInput {
   groundTruthTrail: PlayerTrail;
   previousSensedSpark: SensedSpark | null;
   runStartOrigin: RunStartOrigin;
+  /**
+   * Direct-perception radius for this run, from the resolved configuration.
+   * Omitted means `SPARK_SENSE_RADIUS` — the authority baseline value.
+   */
+  directSenseRadius?: number;
 }
 
 /**
@@ -228,6 +243,7 @@ export function buildBrainObservation(input: BuildObservationInput): BrainObserv
   const sensedSpark = senseSpark(
     input.pursuerPosition, input.hiddenLearnerPosition, input.nowMs,
     input.previousSensedSpark, maxContinuityGapMs,
+    input.directSenseRadius ?? SPARK_SENSE_RADIUS,
   );
   const sensedTrailFragments = senseTrail(input.groundTruthTrail, input.pursuerPosition, trailRadius, input.nowMs);
 
