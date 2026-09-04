@@ -161,7 +161,15 @@ describe('the graph grows with the board', () => {
 
 describe('trail evidence comes from real learner traversal', () => {
   it('records physical history the learner actually walked, including a return', () => {
-    const { world, controller } = controllerAt();
+    // Deliberately the 04A adjacent spawn: this test is about the TRAIL SOURCE,
+    // and starting the pursuer beside the learner is what makes trail sensing
+    // happen inside a short deterministic run. The authority spawn (the
+    // product default) starts on the far trunk two ground levels down, which
+    // is correct for the game and useless for exercising this seam quickly.
+    const world = productionGraphWorldAt(100);
+    const controller = new GraphPursuerController({
+      world, rowCount: 16, learnerStart: { x: 300, y: 0, row: 0 }, spawn: 'integration',
+    });
     const path: LearnerPhysicalState[] = [];
     // Climb two rows...
     for (let row = 0; row <= 2; row += 1) {

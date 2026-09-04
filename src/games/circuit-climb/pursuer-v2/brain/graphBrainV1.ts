@@ -503,15 +503,48 @@ export function updateBrain(prev: BrainState, obs: BrainObservation): BrainUpdat
       // predates LAB 03A-R2 but was invisible to the 03A/03A-R1 suite, which
       // teleported the pursuer to each target instead of letting the chassis
       // drive — exactly the closed-loop blind spot the R2 brief names.
+      // A NEW episode anchors at the MOST RECENT legitimate evidence — not at
+      // whichever KIND of evidence ranks highest.
+      //
+      // LAB 03A-R2 ordered this by kind: a direct sighting always beat a trail
+      // lead. In the Lab that was harmless, because runs were short and the
+      // learner never travelled far from where it had last been seen. On the
+      // real surface it is the whole of the "lost pursuer" failure the human
+      // reported: `lastSighting` NEVER expires, so one glimpse early in a run
+      // pins every later search episode to that spot for the rest of the game.
+      // `tests/pursuerV2LostPursuer` traces it exactly — a sighting at row 1
+      // held the anchor at B1 from 5.1s to 24.6s while the learner climbed to
+      // row 5, the frontier ringing an ever-wider circle around a place the
+      // learner had long left, distance growing 465 -> 1127.
+      //
+      // Recency uses only what the Brain already legitimately holds: the time
+      // it saw the Spark, and the time the freshest trail it has smelled was
+      // physically walked. Nothing hidden, nothing predicted — a person who
+      // saw someone once and later found fresher footprints would go to the
+      // footprints.
       let anchorPoint: { x: number; y: number };
       let anchorSource: TargetSource;
       const episodeAnchor = search ? obs.graph.nodes.get(search.anchorNodeId) : undefined;
-      if (episodeAnchor) { anchorPoint = { x: episodeAnchor.x, y: episodeAnchor.y }; anchorSource = 'SEARCH_FRONTIER'; }
-      else if (lastSighting) { anchorPoint = { x: lastSighting.x, y: lastSighting.y }; anchorSource = 'SEARCH_FRONTIER'; }
-      else if (best) { const p = best.points[best.points.length - 1]; anchorPoint = { x: p.x, y: p.y }; anchorSource = 'SEARCH_FRONTIER'; }
-      else { anchorPoint = { x: obs.runStartOrigin.x, y: obs.runStartOrigin.y }; anchorSource = 'RUN_START_CUE'; }
+      const sightingTMs = lastSighting ? lastSighting.sightingTMs : -Infinity;
+      const leadTMs = best ? best.tEndMs : -Infinity;
+      if (episodeAnchor) {
+        anchorPoint = { x: episodeAnchor.x, y: episodeAnchor.y }; anchorSource = 'SEARCH_FRONTIER';
+      } else if (lastSighting && sightingTMs >= leadTMs) {
+        anchorPoint = { x: lastSighting.x, y: lastSighting.y }; anchorSource = 'SEARCH_FRONTIER';
+      } else if (best) {
+        const p = best.points[best.points.length - 1];
+        anchorPoint = { x: p.x, y: p.y }; anchorSource = 'SEARCH_FRONTIER';
+      } else {
+        anchorPoint = { x: obs.runStartOrigin.x, y: obs.runStartOrigin.y }; anchorSource = 'RUN_START_CUE';
+      }
 
-      const step = nextSearchTarget(obs.graph, anchorPoint, search, obs.nowMs);
+      // The learner has never been below the row it started on, so the ring
+      // never descends past it. Falls back to unrestricted when the run-start
+      // cue carries no row.
+      const step = nextSearchTarget(
+        obs.graph, anchorPoint, search, obs.nowMs,
+        obs.runStartOrigin.row ?? undefined,
+      );
       search = step.nextCursor;
       commitment = {
         mode: 'GRAPH_SEARCH',

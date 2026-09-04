@@ -53,6 +53,22 @@ export function nextSearchTarget(
   anchorPoint: { x: number; y: number },
   cursor: SearchCursorState | null,
   nowMs: number,
+  /**
+   * Lowest graph level worth searching, if the caller knows one.
+   *
+   * PRODUCTION INTEGRATION 04B-R1. The board carries connector levels BELOW
+   * row 0 so the pursuer can start beneath the learner. The learner never
+   * can: it begins on its starting row and the only way off it is upward, or
+   * back down to a row it has already been on. Ring tiers that descend into
+   * the ground levels are therefore provably empty, and on the real surface
+   * they were costing roughly half the early search — measured in
+   * `tests/pursuerV2LostPursuer`, where a learner who climbed away and stood
+   * still went unfound for 30-60 seconds.
+   *
+   * This is not knowledge of where the learner IS. It is the run-start cue
+   * the Brain is already given, plus the fact that a floor is a floor.
+   */
+  minLevel?: number,
 ): SearchStep {
   const anchor = nearestNode(graph, anchorPoint);
   const admitted: TrunkId[] = graph.trunks.map((t) => t.id);
@@ -82,6 +98,8 @@ export function nextSearchTarget(
     const node = graph.nodes.get(`${trunkId}${level}`);
     index += 1;
     if (!node) continue;
+    // Below the floor the learner started on: skip without spending a target.
+    if (minLevel !== undefined && level < minLevel) continue;
     // Never immediately re-issue the node the search is already standing on
     // as its own "next" target — with a single admitted trunk this would
     // otherwise land back on frontier index 0 forever without progressing.

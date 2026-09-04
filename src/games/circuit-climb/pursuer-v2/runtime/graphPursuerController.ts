@@ -38,6 +38,25 @@ import type {
   BrainState, BrainEvidence, PursuitIntent, SensedSpark, RunStartOrigin, BrainMode,
 } from '../brain/observation';
 import { graphWorldChanged, type GraphWorld } from './graphWorld';
+import type { PursuitGraph, TrunkId } from '../graph/pursuitGraph';
+
+/**
+ * Connector levels below row 0 the pursuer may start on. The accepted Lab
+ * value, carried across unchanged.
+ */
+export const GROUND_LEVELS = 2;
+
+/**
+ * The admitted trunk FURTHEST from the learner's opening column — the accepted
+ * Lab spawn rule, applied to the live production graph.
+ */
+export function spawnTrunkFor(graph: PursuitGraph, learnerStartX: number): TrunkId {
+  let best = graph.trunks[0];
+  for (const trunk of graph.trunks) {
+    if (Math.abs(trunk.x - learnerStartX) > Math.abs(best.x - learnerStartX)) best = trunk;
+  }
+  return best.id;
+}
 
 /**
  * EVERYTHING the controller is allowed to know about the learner.
@@ -62,6 +81,15 @@ export interface GraphPursuerControllerOptions {
   learnerStart: { x: number; y: number; row: number };
   /** Connector levels below row 0, so the pursuer can start beneath the learner. */
   groundLevels?: number;
+  /**
+   * How the pursuer is placed at the start of a run.
+   *
+   * `authority` reproduces the accepted Lab spawn: the admitted trunk
+   * FURTHEST from the learner's opening column, at the lowest ground level.
+   * `integration` is the 04A placement — one row gap directly below the
+   * learner — kept only so the reproduction harness can A/B the two.
+   */
+  spawn?: 'authority' | 'integration';
   /**
    * Whether the chassis may use the safe capture rail to close the last units.
    * Production adjudicates capture itself; this only governs how the actor
@@ -150,19 +178,34 @@ export class GraphPursuerController {
 
   private buildPursuer(world: GraphWorld, rowCount: number, learnerStart: { x: number; y: number }) {
     const actorRadius = graphActorRadiusFor(world);
-    return new GraphPursuerV2(
-      world,
-      rowCount,
-      // Start beneath the learner's column, as production's legacy pursuer
-      // does — the graph resolves this to the nearest real node.
-      { x: learnerStart.x, y: learnerStart.y + world.rowGap },
-      {
-        ...DEFAULT_GRAPH_PURSUER_CONFIG,
-        actorRadius,
-        groundLevels: this.options.groundLevels ?? 2,
-        captureRail: this.options.captureRail ?? true,
-      },
-    );
+    const groundLevels = this.options.groundLevels ?? GROUND_LEVELS;
+    const config = {
+      ...DEFAULT_GRAPH_PURSUER_CONFIG,
+      actorRadius,
+      groundLevels,
+      captureRail: this.options.captureRail ?? true,
+    };
+
+    if ((this.options.spawn ?? 'authority') === 'integration') {
+      // The rejected 04A placement, retained only for A/B in the harness.
+      return new GraphPursuerV2(
+        world, rowCount, { x: learnerStart.x, y: learnerStart.y + world.rowGap }, config,
+      );
+    }
+
+    // AUTHORITY SPAWN. The accepted Lab candidate started on the admitted
+    // trunk FURTHEST from the learner's opening column, at the lowest ground
+    // level — horizontally distant and below. 04A instead started it one row
+    // gap directly beneath the learner, which is a materially different game:
+    // the human's first problem was over before it could be read.
+    //
+    // The mapping is exact rather than approximate. `spawnTrunkFor` reproduces
+    // the Lab's own "furthest admitted trunk from the opening column" rule
+    // against the LIVE production graph, so it follows the board rather than
+    // assuming the Lab's four-trunk geometry.
+    const probe = new GraphPursuerV2(world, rowCount, { x: learnerStart.x, y: learnerStart.y }, config);
+    const trunk = spawnTrunkFor(probe.graph, learnerStart.x);
+    return new GraphPursuerV2(world, rowCount, { trunk, level: -groundLevels }, config);
   }
 
   get position() { return this.pursuer.position; }
