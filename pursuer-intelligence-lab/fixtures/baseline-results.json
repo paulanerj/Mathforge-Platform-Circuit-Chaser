@@ -1,0 +1,2429 @@
+{
+ "generatedFrom": "npm run fixtures",
+ "brains": {
+  "A_GRAPH_V2_BASELINE": [
+   {
+    "id": "F01",
+    "label": "Stationary visible learner",
+    "question": "When the learner is standing still and can be seen, does the pursuer commit to it and close?",
+    "placedDiagnostically": true,
+    "checks": [
+     {
+      "label": "perceived it at all",
+      "passed": true,
+      "detail": "perception uptime 93%"
+     },
+     {
+      "label": "committed to direct pursuit",
+      "passed": true,
+      "detail": "99% of the visible-stationary window"
+     },
+     {
+      "label": "time to commit",
+      "passed": null,
+      "detail": "0.0s"
+     },
+     {
+      "label": "no true reversals while visible",
+      "passed": true,
+      "detail": "0 reversals that lost legal ground"
+     },
+     {
+      "label": "closed legal distance",
+      "passed": false,
+      "detail": "39%"
+     },
+     {
+      "label": "captured",
+      "passed": null,
+      "detail": "2.5s"
+     }
+    ],
+    "metrics": {
+     "brainId": "A_GRAPH_V2_BASELINE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 2508.3333333333344,
+     "captured": true,
+     "captureTimeMs": 2508.3333333333344,
+     "averageDistance": 148.28990998884976,
+     "minDistance": 58.660096696514394,
+     "maxDistance": 272.85355504372666,
+     "finalDistance": 58.660096696514394,
+     "threatBands": {
+      "within100": 833.3333333333336,
+      "within200": 1100.0000000000002,
+      "within400": 566.6666666666666,
+      "beyond400": 0
+     },
+     "directPerceptionUptime": 0.9333333333333333,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 1,
+     "expectedDetours": 1,
+     "strategicReplans": 2,
+     "routeReplans": 3,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 900.0000000000003,
+     "timePausedWhileVisibleMs": 666.6666666666667,
+     "timeIdleMs": 666.6666666666667,
+     "timeSearchingMs": 200.00000000000003,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 2333.3333333333335,
+      "directPursuitMs": 2299.999999999999,
+      "targetRevisions": 1,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": 0.39434703602702353,
+      "timeToCommitMs": 33.33333333333337
+     }
+    },
+    "captureVerdict": "AMBIGUOUS"
+   },
+   {
+    "id": "F02",
+    "label": "Near-Spark Marco Polo",
+    "question": "Right next to a still learner, does it attack — or turn away, circle, and arrive by accident?",
+    "placedDiagnostically": true,
+    "checks": [
+     {
+      "label": "perceived from 150u",
+      "passed": true,
+      "detail": "uptime 100%"
+     },
+     {
+      "label": "did not enter search",
+      "passed": true,
+      "detail": "0.0s spent searching"
+     },
+     {
+      "label": "did not turn away",
+      "passed": true,
+      "detail": "0 unhelpful reversals"
+     },
+     {
+      "label": "time moving away while visible",
+      "passed": null,
+      "detail": "0.4s"
+     },
+     {
+      "label": "capture verdict",
+      "passed": null,
+      "detail": "AMBIGUOUS"
+     },
+     {
+      "label": "capture-range entries before contact",
+      "passed": null,
+      "detail": "1"
+     }
+    ],
+    "metrics": {
+     "brainId": "A_GRAPH_V2_BASELINE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 516.6666666666662,
+     "captured": true,
+     "captureTimeMs": 516.6666666666662,
+     "averageDistance": 87.14218413277074,
+     "minDistance": 60.89517797866018,
+     "maxDistance": 99.67460949398188,
+     "finalDistance": 60.89517797866018,
+     "threatBands": {
+      "within100": 499.9999999999999,
+      "within200": 0,
+      "within400": 0,
+      "beyond400": 0
+     },
+     "directPerceptionUptime": 1,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 0,
+     "expectedDetours": 0,
+     "strategicReplans": 1,
+     "routeReplans": 1,
+     "modeChanges": 1,
+     "timeMovingAwayWhileVisibleMs": 399.99999999999994,
+     "timePausedWhileVisibleMs": 100,
+     "timeIdleMs": 100,
+     "timeSearchingMs": 0,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 500.00000000000006,
+      "directPursuitMs": 499.9999999999999,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": -0.4886004671628434,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "AMBIGUOUS"
+   },
+   {
+    "id": "F03",
+    "label": "Cross-board loss",
+    "question": "After the learner crosses the board and stops, is the pursuer closing or drifting?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "ended closer than its worst",
+      "passed": true,
+      "detail": "final 77u, worst 491u"
+     },
+     {
+      "label": "reacquired at least once",
+      "passed": true,
+      "detail": "2 reacquisitions, mean 1.7s"
+     },
+     {
+      "label": "search time",
+      "passed": null,
+      "detail": "2.8s"
+     }
+    ],
+    "metrics": {
+     "brainId": "A_GRAPH_V2_BASELINE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 6524.999999999942,
+     "captured": true,
+     "captureTimeMs": 6524.999999999942,
+     "averageDistance": 367.2314797313192,
+     "minDistance": 76.8396351810648,
+     "maxDistance": 490.7885149099774,
+     "finalDistance": 76.8396351810648,
+     "threatBands": {
+      "within100": 33.333333333333336,
+      "within200": 133.33333333333334,
+      "within400": 3833.3333333333394,
+      "beyond400": 2500
+     },
+     "directPerceptionUptime": 0.08717948717948718,
+     "reacquisitions": 2,
+     "meanTimeToReacquireMs": 1679.1666666666383,
+     "trueReversals": 1,
+     "expectedDetours": 1,
+     "strategicReplans": 6,
+     "routeReplans": 6,
+     "modeChanges": 4,
+     "timeMovingAwayWhileVisibleMs": 133.33333333333334,
+     "timePausedWhileVisibleMs": 266.6666666666667,
+     "timeIdleMs": 2033.3333333333314,
+     "timeSearchingMs": 2833.333333333335,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 0,
+      "directPursuitMs": 0,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": null,
+      "timeToCommitMs": null
+     }
+    },
+    "captureVerdict": "LIKELY_SEARCH_COLLISION"
+   },
+   {
+    "id": "F04",
+    "label": "Zigzag climb",
+    "question": "Against a learner crossing the board every row, does it keep contact at all?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "perception uptime",
+      "passed": null,
+      "detail": "42%"
+     },
+     {
+      "label": "average distance",
+      "passed": null,
+      "detail": "249u"
+     },
+     {
+      "label": "true reversals",
+      "passed": null,
+      "detail": "1"
+     }
+    ],
+    "metrics": {
+     "brainId": "A_GRAPH_V2_BASELINE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 5208.333333333323,
+     "captured": true,
+     "captureTimeMs": 5208.333333333323,
+     "averageDistance": 248.6474885004803,
+     "minDistance": 58.03602016468082,
+     "maxDistance": 456.99894939167024,
+     "finalDistance": 58.03602016468082,
+     "threatBands": {
+      "within100": 1200,
+      "within200": 566.6666666666666,
+      "within400": 2933.3333333333353,
+      "beyond400": 499.9999999999999
+     },
+     "directPerceptionUptime": 0.4166666666666667,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 1,
+     "expectedDetours": 0,
+     "strategicReplans": 4,
+     "routeReplans": 4,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 900.0000000000003,
+     "timePausedWhileVisibleMs": 499.9999999999999,
+     "timeIdleMs": 1499.9999999999993,
+     "timeSearchingMs": 3100.0000000000027,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 1533.3333333333335,
+      "directPursuitMs": 1533.3333333333326,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": 0.5138019483468291,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "LIKELY_SEARCH_COLLISION"
+   },
+   {
+    "id": "F05",
+    "label": "Slow human climb",
+    "question": "At the pace the accepted human session actually ran at, is the pursuer a threat?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "time within 200u",
+      "passed": null,
+      "detail": "2.2s"
+     },
+     {
+      "label": "captured",
+      "passed": null,
+      "detail": "6.1s"
+     },
+     {
+      "label": "capture verdict",
+      "passed": null,
+      "detail": "LIKELY_SEARCH_COLLISION"
+     }
+    ],
+    "metrics": {
+     "brainId": "A_GRAPH_V2_BASELINE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 6091.666666666624,
+     "captured": true,
+     "captureTimeMs": 6091.666666666624,
+     "averageDistance": 242.09350696286387,
+     "minDistance": 74.65610592672066,
+     "maxDistance": 456.99894939167024,
+     "finalDistance": 74.65610592672066,
+     "threatBands": {
+      "within100": 1399.9999999999995,
+      "within200": 833.3333333333336,
+      "within400": 3333.333333333337,
+      "beyond400": 499.9999999999999
+     },
+     "directPerceptionUptime": 0.4175824175824176,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 1,
+     "expectedDetours": 1,
+     "strategicReplans": 2,
+     "routeReplans": 3,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 866.666666666667,
+     "timePausedWhileVisibleMs": 866.666666666667,
+     "timeIdleMs": 2033.3333333333314,
+     "timeSearchingMs": 3566.6666666666715,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 2466.666666666667,
+      "directPursuitMs": 2433.333333333333,
+      "targetRevisions": 1,
+      "trueReversals": 1,
+      "graphDistanceClosedFraction": 0.4474502225056039,
+      "timeToCommitMs": 33.33333333333394
+     }
+    },
+    "captureVerdict": "LIKELY_SEARCH_COLLISION"
+   },
+   {
+    "id": "F06",
+    "label": "Fast human climb",
+    "question": "Against a learner who barely pauses, does the pursuer fall behind or keep the pressure on?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "final distance",
+      "passed": null,
+      "detail": "668u"
+     },
+     {
+      "label": "perception uptime",
+      "passed": null,
+      "detail": "0%"
+     },
+     {
+      "label": "time beyond 400u",
+      "passed": null,
+      "detail": "44.1s"
+     }
+    ],
+    "metrics": {
+     "brainId": "A_GRAPH_V2_BASELINE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 44900.00000000162,
+     "captured": false,
+     "captureTimeMs": null,
+     "averageDistance": 822.9609254535748,
+     "minDistance": 348.56670587925714,
+     "maxDistance": 1247.3528738408506,
+     "finalDistance": 667.9820306263756,
+     "threatBands": {
+      "within100": 0,
+      "within200": 0,
+      "within400": 833.3333333333336,
+      "beyond400": 44066.66666666701
+     },
+     "directPerceptionUptime": 0,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 5,
+     "expectedDetours": 4,
+     "strategicReplans": 21,
+     "routeReplans": 21,
+     "modeChanges": 1,
+     "timeMovingAwayWhileVisibleMs": 0,
+     "timePausedWhileVisibleMs": 0,
+     "timeIdleMs": 12133.333333333376,
+     "timeSearchingMs": 44900.00000000041,
+     "captureRangeEntriesBeforeCapture": 0,
+     "visibleStationary": {
+      "totalMs": 0,
+      "directPursuitMs": 0,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": null,
+      "timeToCommitMs": null
+     }
+    },
+    "captureVerdict": "NO_CAPTURE"
+   },
+   {
+    "id": "F07",
+    "label": "Long thinking pause",
+    "question": "While the learner spends twenty-five seconds on a problem, what is the pursuer doing?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "closed rather than drifted",
+      "passed": true,
+      "detail": "final 58u vs mean 243u"
+     },
+     {
+      "label": "idle time",
+      "passed": null,
+      "detail": "1.5s"
+     },
+     {
+      "label": "strategic replans",
+      "passed": null,
+      "detail": "3"
+     }
+    ],
+    "metrics": {
+     "brainId": "A_GRAPH_V2_BASELINE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 5166.666666666658,
+     "captured": true,
+     "captureTimeMs": 5166.666666666658,
+     "averageDistance": 243.32660507783567,
+     "minDistance": 57.85833676785819,
+     "maxDistance": 456.99894939167024,
+     "finalDistance": 57.85833676785819,
+     "threatBands": {
+      "within100": 1200,
+      "within200": 633.3333333333334,
+      "within400": 2833.333333333335,
+      "beyond400": 499.9999999999999
+     },
+     "directPerceptionUptime": 0.5161290322580645,
+     "reacquisitions": 1,
+     "meanTimeToReacquireMs": 300.00000000000546,
+     "trueReversals": 1,
+     "expectedDetours": 0,
+     "strategicReplans": 3,
+     "routeReplans": 3,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 966.6666666666671,
+     "timePausedWhileVisibleMs": 700.0000000000001,
+     "timeIdleMs": 1499.9999999999993,
+     "timeSearchingMs": 2233.333333333332,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 2500,
+      "directPursuitMs": 2500,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": 0.5390317332068809,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "AMBIGUOUS"
+   },
+   {
+    "id": "F08",
+    "label": "Lose then stand still",
+    "question": "The classic complaint: the learner breaks away, stops, and waits. Is it ever found?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "reacquired after losing",
+      "passed": false,
+      "detail": "0 reacquisitions"
+     },
+     {
+      "label": "mean time to reacquire",
+      "passed": null,
+      "detail": "—"
+     },
+     {
+      "label": "closest approach",
+      "passed": null,
+      "detail": "60u"
+     }
+    ],
+    "metrics": {
+     "brainId": "A_GRAPH_V2_BASELINE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 15591.666666667086,
+     "captured": true,
+     "captureTimeMs": 15591.666666667086,
+     "averageDistance": 415.5233861217645,
+     "minDistance": 60.122806360615435,
+     "maxDistance": 608.9402194589686,
+     "finalDistance": 60.122806360615435,
+     "threatBands": {
+      "within100": 266.6666666666667,
+      "within200": 700.0000000000001,
+      "within400": 5366.666666666662,
+      "beyond400": 9233.333333333323
+     },
+     "directPerceptionUptime": 0.08137044967880086,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 2,
+     "expectedDetours": 2,
+     "strategicReplans": 14,
+     "routeReplans": 14,
+     "modeChanges": 11,
+     "timeMovingAwayWhileVisibleMs": 633.3333333333334,
+     "timePausedWhileVisibleMs": 100,
+     "timeIdleMs": 4533.333333333337,
+     "timeSearchingMs": 11233.33333333336,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 1266.6666666666667,
+      "directPursuitMs": 1233.3333333333333,
+      "targetRevisions": 1,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": 0.3176903996977174,
+      "timeToCommitMs": 33.33333333333576
+     }
+    },
+    "captureVerdict": "LIKELY_SEARCH_COLLISION"
+   },
+   {
+    "id": "F09",
+    "label": "Reacquire near the player",
+    "question": "Placed just outside perception of a still learner, how long until it notices?",
+    "placedDiagnostically": true,
+    "checks": [
+     {
+      "label": "acquired at all",
+      "passed": true,
+      "detail": "uptime 93%"
+     },
+     {
+      "label": "time to first commit",
+      "passed": null,
+      "detail": "0.0s"
+     },
+     {
+      "label": "search time before contact",
+      "passed": null,
+      "detail": "0.2s"
+     }
+    ],
+    "metrics": {
+     "brainId": "A_GRAPH_V2_BASELINE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 2508.3333333333344,
+     "captured": true,
+     "captureTimeMs": 2508.3333333333344,
+     "averageDistance": 148.28990998884976,
+     "minDistance": 58.660096696514394,
+     "maxDistance": 272.85355504372666,
+     "finalDistance": 58.660096696514394,
+     "threatBands": {
+      "within100": 833.3333333333336,
+      "within200": 1100.0000000000002,
+      "within400": 566.6666666666666,
+      "beyond400": 0
+     },
+     "directPerceptionUptime": 0.9333333333333333,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 1,
+     "expectedDetours": 1,
+     "strategicReplans": 2,
+     "routeReplans": 3,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 900.0000000000003,
+     "timePausedWhileVisibleMs": 666.6666666666667,
+     "timeIdleMs": 666.6666666666667,
+     "timeSearchingMs": 200.00000000000003,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 2333.3333333333335,
+      "directPursuitMs": 2299.999999999999,
+      "targetRevisions": 1,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": 0.39434703602702353,
+      "timeToCommitMs": 33.33333333333337
+     }
+    },
+    "captureVerdict": "AMBIGUOUS"
+   },
+   {
+    "id": "F10",
+    "label": "Wrong-direction detector",
+    "question": "How often does it turn back in a way that loses legal ground, rather than routing around?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "true reversals",
+      "passed": null,
+      "detail": "1"
+     },
+     {
+      "label": "expected route detours",
+      "passed": null,
+      "detail": "1"
+     },
+     {
+      "label": "reversals per detour",
+      "passed": null,
+      "detail": "1.00"
+     },
+     {
+      "label": "time moving away while visible",
+      "passed": null,
+      "detail": "1.0s"
+     }
+    ],
+    "metrics": {
+     "brainId": "A_GRAPH_V2_BASELINE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 6158.3333333332885,
+     "captured": true,
+     "captureTimeMs": 6158.3333333332885,
+     "averageDistance": 240.14753057629406,
+     "minDistance": 61.284216730683575,
+     "maxDistance": 456.99894939167024,
+     "finalDistance": 61.284216730683575,
+     "threatBands": {
+      "within100": 1466.666666666666,
+      "within200": 833.3333333333336,
+      "within400": 3333.333333333337,
+      "beyond400": 499.9999999999999
+     },
+     "directPerceptionUptime": 0.42391304347826086,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 1,
+     "expectedDetours": 1,
+     "strategicReplans": 2,
+     "routeReplans": 3,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 1000.0000000000005,
+     "timePausedWhileVisibleMs": 866.666666666667,
+     "timeIdleMs": 2033.3333333333314,
+     "timeSearchingMs": 3566.6666666666715,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 2600,
+      "directPursuitMs": 2566.666666666667,
+      "targetRevisions": 1,
+      "trueReversals": 1,
+      "graphDistanceClosedFraction": 0.3889200557114178,
+      "timeToCommitMs": 33.33333333333394
+     }
+    },
+    "captureVerdict": "AMBIGUOUS"
+   },
+   {
+    "id": "F11",
+    "label": "High-refresh comparison",
+    "question": "Does this candidate decide the same things at 60Hz, 120Hz and 144Hz?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "reference leg (fixed 120Hz sim)",
+      "passed": null,
+      "detail": "156 samples, 2 mode changes"
+     }
+    ],
+    "metrics": {
+     "brainId": "A_GRAPH_V2_BASELINE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 5208.333333333323,
+     "captured": true,
+     "captureTimeMs": 5208.333333333323,
+     "averageDistance": 248.6474885004803,
+     "minDistance": 58.03602016468082,
+     "maxDistance": 456.99894939167024,
+     "finalDistance": 58.03602016468082,
+     "threatBands": {
+      "within100": 1200,
+      "within200": 566.6666666666666,
+      "within400": 2933.3333333333353,
+      "beyond400": 499.9999999999999
+     },
+     "directPerceptionUptime": 0.4166666666666667,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 1,
+     "expectedDetours": 0,
+     "strategicReplans": 4,
+     "routeReplans": 4,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 900.0000000000003,
+     "timePausedWhileVisibleMs": 499.9999999999999,
+     "timeIdleMs": 1499.9999999999993,
+     "timeSearchingMs": 3100.0000000000027,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 1533.3333333333335,
+      "directPursuitMs": 1533.3333333333326,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": 0.5138019483468291,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "LIKELY_SEARCH_COLLISION"
+   },
+   {
+    "id": "F12",
+    "label": "Capture deliberateness",
+    "question": "When it does catch the learner, did it hunt — or did it bump into them?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "verdict",
+      "passed": null,
+      "detail": "LIKELY_SEARCH_COLLISION"
+     },
+     {
+      "label": "perception in the last 5s",
+      "passed": null,
+      "detail": "51%"
+     },
+     {
+      "label": "direct pursuit in the last 5s",
+      "passed": null,
+      "detail": "50%"
+     },
+     {
+      "label": "closing in the last 5s",
+      "passed": null,
+      "detail": "53%"
+     },
+     {
+      "label": "summary",
+      "passed": null,
+      "detail": "Spent 50% of the last 5s searching and perceived the Spark only 51% of it. This capture looks like the sweep happening to cross the learner rather than a hunt."
+     }
+    ],
+    "metrics": {
+     "brainId": "A_GRAPH_V2_BASELINE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 6091.666666666624,
+     "captured": true,
+     "captureTimeMs": 6091.666666666624,
+     "averageDistance": 242.09350696286387,
+     "minDistance": 74.65610592672066,
+     "maxDistance": 456.99894939167024,
+     "finalDistance": 74.65610592672066,
+     "threatBands": {
+      "within100": 1399.9999999999995,
+      "within200": 833.3333333333336,
+      "within400": 3333.333333333337,
+      "beyond400": 499.9999999999999
+     },
+     "directPerceptionUptime": 0.4175824175824176,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 1,
+     "expectedDetours": 1,
+     "strategicReplans": 2,
+     "routeReplans": 3,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 866.666666666667,
+     "timePausedWhileVisibleMs": 866.666666666667,
+     "timeIdleMs": 2033.3333333333314,
+     "timeSearchingMs": 3566.6666666666715,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 2466.666666666667,
+      "directPursuitMs": 2433.333333333333,
+      "targetRevisions": 1,
+      "trueReversals": 1,
+      "graphDistanceClosedFraction": 0.4474502225056039,
+      "timeToCommitMs": 33.33333333333394
+     }
+    },
+    "captureVerdict": "LIKELY_SEARCH_COLLISION"
+   }
+  ],
+  "B_GRAPH_V2_TUNABLE": [
+   {
+    "id": "F01",
+    "label": "Stationary visible learner",
+    "question": "When the learner is standing still and can be seen, does the pursuer commit to it and close?",
+    "placedDiagnostically": true,
+    "checks": [
+     {
+      "label": "perceived it at all",
+      "passed": true,
+      "detail": "perception uptime 93%"
+     },
+     {
+      "label": "committed to direct pursuit",
+      "passed": true,
+      "detail": "99% of the visible-stationary window"
+     },
+     {
+      "label": "time to commit",
+      "passed": null,
+      "detail": "0.0s"
+     },
+     {
+      "label": "no true reversals while visible",
+      "passed": true,
+      "detail": "0 reversals that lost legal ground"
+     },
+     {
+      "label": "closed legal distance",
+      "passed": false,
+      "detail": "39%"
+     },
+     {
+      "label": "captured",
+      "passed": null,
+      "detail": "2.5s"
+     }
+    ],
+    "metrics": {
+     "brainId": "B_GRAPH_V2_TUNABLE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 2508.3333333333344,
+     "captured": true,
+     "captureTimeMs": 2508.3333333333344,
+     "averageDistance": 148.28990998884976,
+     "minDistance": 58.660096696514394,
+     "maxDistance": 272.85355504372666,
+     "finalDistance": 58.660096696514394,
+     "threatBands": {
+      "within100": 833.3333333333336,
+      "within200": 1100.0000000000002,
+      "within400": 566.6666666666666,
+      "beyond400": 0
+     },
+     "directPerceptionUptime": 0.9333333333333333,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 1,
+     "expectedDetours": 1,
+     "strategicReplans": 2,
+     "routeReplans": 3,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 900.0000000000003,
+     "timePausedWhileVisibleMs": 666.6666666666667,
+     "timeIdleMs": 666.6666666666667,
+     "timeSearchingMs": 200.00000000000003,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 2333.3333333333335,
+      "directPursuitMs": 2299.999999999999,
+      "targetRevisions": 1,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": 0.39434703602702353,
+      "timeToCommitMs": 33.33333333333337
+     }
+    },
+    "captureVerdict": "AMBIGUOUS"
+   },
+   {
+    "id": "F02",
+    "label": "Near-Spark Marco Polo",
+    "question": "Right next to a still learner, does it attack — or turn away, circle, and arrive by accident?",
+    "placedDiagnostically": true,
+    "checks": [
+     {
+      "label": "perceived from 150u",
+      "passed": true,
+      "detail": "uptime 100%"
+     },
+     {
+      "label": "did not enter search",
+      "passed": true,
+      "detail": "0.0s spent searching"
+     },
+     {
+      "label": "did not turn away",
+      "passed": true,
+      "detail": "0 unhelpful reversals"
+     },
+     {
+      "label": "time moving away while visible",
+      "passed": null,
+      "detail": "0.4s"
+     },
+     {
+      "label": "capture verdict",
+      "passed": null,
+      "detail": "AMBIGUOUS"
+     },
+     {
+      "label": "capture-range entries before contact",
+      "passed": null,
+      "detail": "1"
+     }
+    ],
+    "metrics": {
+     "brainId": "B_GRAPH_V2_TUNABLE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 516.6666666666662,
+     "captured": true,
+     "captureTimeMs": 516.6666666666662,
+     "averageDistance": 87.14218413277074,
+     "minDistance": 60.89517797866018,
+     "maxDistance": 99.67460949398188,
+     "finalDistance": 60.89517797866018,
+     "threatBands": {
+      "within100": 499.9999999999999,
+      "within200": 0,
+      "within400": 0,
+      "beyond400": 0
+     },
+     "directPerceptionUptime": 1,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 0,
+     "expectedDetours": 0,
+     "strategicReplans": 1,
+     "routeReplans": 1,
+     "modeChanges": 1,
+     "timeMovingAwayWhileVisibleMs": 399.99999999999994,
+     "timePausedWhileVisibleMs": 100,
+     "timeIdleMs": 100,
+     "timeSearchingMs": 0,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 500.00000000000006,
+      "directPursuitMs": 499.9999999999999,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": -0.4886004671628434,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "AMBIGUOUS"
+   },
+   {
+    "id": "F03",
+    "label": "Cross-board loss",
+    "question": "After the learner crosses the board and stops, is the pursuer closing or drifting?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "ended closer than its worst",
+      "passed": true,
+      "detail": "final 77u, worst 491u"
+     },
+     {
+      "label": "reacquired at least once",
+      "passed": true,
+      "detail": "2 reacquisitions, mean 1.7s"
+     },
+     {
+      "label": "search time",
+      "passed": null,
+      "detail": "2.8s"
+     }
+    ],
+    "metrics": {
+     "brainId": "B_GRAPH_V2_TUNABLE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 6524.999999999942,
+     "captured": true,
+     "captureTimeMs": 6524.999999999942,
+     "averageDistance": 367.2314797313192,
+     "minDistance": 76.8396351810648,
+     "maxDistance": 490.7885149099774,
+     "finalDistance": 76.8396351810648,
+     "threatBands": {
+      "within100": 33.333333333333336,
+      "within200": 133.33333333333334,
+      "within400": 3833.3333333333394,
+      "beyond400": 2500
+     },
+     "directPerceptionUptime": 0.08717948717948718,
+     "reacquisitions": 2,
+     "meanTimeToReacquireMs": 1679.1666666666383,
+     "trueReversals": 1,
+     "expectedDetours": 1,
+     "strategicReplans": 6,
+     "routeReplans": 6,
+     "modeChanges": 4,
+     "timeMovingAwayWhileVisibleMs": 133.33333333333334,
+     "timePausedWhileVisibleMs": 266.6666666666667,
+     "timeIdleMs": 2033.3333333333314,
+     "timeSearchingMs": 2833.333333333335,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 0,
+      "directPursuitMs": 0,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": null,
+      "timeToCommitMs": null
+     }
+    },
+    "captureVerdict": "LIKELY_SEARCH_COLLISION"
+   },
+   {
+    "id": "F04",
+    "label": "Zigzag climb",
+    "question": "Against a learner crossing the board every row, does it keep contact at all?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "perception uptime",
+      "passed": null,
+      "detail": "42%"
+     },
+     {
+      "label": "average distance",
+      "passed": null,
+      "detail": "249u"
+     },
+     {
+      "label": "true reversals",
+      "passed": null,
+      "detail": "1"
+     }
+    ],
+    "metrics": {
+     "brainId": "B_GRAPH_V2_TUNABLE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 5208.333333333323,
+     "captured": true,
+     "captureTimeMs": 5208.333333333323,
+     "averageDistance": 248.6474885004803,
+     "minDistance": 58.03602016468082,
+     "maxDistance": 456.99894939167024,
+     "finalDistance": 58.03602016468082,
+     "threatBands": {
+      "within100": 1200,
+      "within200": 566.6666666666666,
+      "within400": 2933.3333333333353,
+      "beyond400": 499.9999999999999
+     },
+     "directPerceptionUptime": 0.4166666666666667,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 1,
+     "expectedDetours": 0,
+     "strategicReplans": 4,
+     "routeReplans": 4,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 900.0000000000003,
+     "timePausedWhileVisibleMs": 499.9999999999999,
+     "timeIdleMs": 1499.9999999999993,
+     "timeSearchingMs": 3100.0000000000027,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 1533.3333333333335,
+      "directPursuitMs": 1533.3333333333326,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": 0.5138019483468291,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "LIKELY_SEARCH_COLLISION"
+   },
+   {
+    "id": "F05",
+    "label": "Slow human climb",
+    "question": "At the pace the accepted human session actually ran at, is the pursuer a threat?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "time within 200u",
+      "passed": null,
+      "detail": "2.2s"
+     },
+     {
+      "label": "captured",
+      "passed": null,
+      "detail": "6.1s"
+     },
+     {
+      "label": "capture verdict",
+      "passed": null,
+      "detail": "LIKELY_SEARCH_COLLISION"
+     }
+    ],
+    "metrics": {
+     "brainId": "B_GRAPH_V2_TUNABLE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 6091.666666666624,
+     "captured": true,
+     "captureTimeMs": 6091.666666666624,
+     "averageDistance": 242.09350696286387,
+     "minDistance": 74.65610592672066,
+     "maxDistance": 456.99894939167024,
+     "finalDistance": 74.65610592672066,
+     "threatBands": {
+      "within100": 1399.9999999999995,
+      "within200": 833.3333333333336,
+      "within400": 3333.333333333337,
+      "beyond400": 499.9999999999999
+     },
+     "directPerceptionUptime": 0.4175824175824176,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 1,
+     "expectedDetours": 1,
+     "strategicReplans": 2,
+     "routeReplans": 3,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 866.666666666667,
+     "timePausedWhileVisibleMs": 866.666666666667,
+     "timeIdleMs": 2033.3333333333314,
+     "timeSearchingMs": 3566.6666666666715,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 2466.666666666667,
+      "directPursuitMs": 2433.333333333333,
+      "targetRevisions": 1,
+      "trueReversals": 1,
+      "graphDistanceClosedFraction": 0.4474502225056039,
+      "timeToCommitMs": 33.33333333333394
+     }
+    },
+    "captureVerdict": "LIKELY_SEARCH_COLLISION"
+   },
+   {
+    "id": "F06",
+    "label": "Fast human climb",
+    "question": "Against a learner who barely pauses, does the pursuer fall behind or keep the pressure on?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "final distance",
+      "passed": null,
+      "detail": "668u"
+     },
+     {
+      "label": "perception uptime",
+      "passed": null,
+      "detail": "0%"
+     },
+     {
+      "label": "time beyond 400u",
+      "passed": null,
+      "detail": "44.1s"
+     }
+    ],
+    "metrics": {
+     "brainId": "B_GRAPH_V2_TUNABLE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 44900.00000000162,
+     "captured": false,
+     "captureTimeMs": null,
+     "averageDistance": 822.9609254535748,
+     "minDistance": 348.56670587925714,
+     "maxDistance": 1247.3528738408506,
+     "finalDistance": 667.9820306263756,
+     "threatBands": {
+      "within100": 0,
+      "within200": 0,
+      "within400": 833.3333333333336,
+      "beyond400": 44066.66666666701
+     },
+     "directPerceptionUptime": 0,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 5,
+     "expectedDetours": 4,
+     "strategicReplans": 21,
+     "routeReplans": 21,
+     "modeChanges": 1,
+     "timeMovingAwayWhileVisibleMs": 0,
+     "timePausedWhileVisibleMs": 0,
+     "timeIdleMs": 12133.333333333376,
+     "timeSearchingMs": 44900.00000000041,
+     "captureRangeEntriesBeforeCapture": 0,
+     "visibleStationary": {
+      "totalMs": 0,
+      "directPursuitMs": 0,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": null,
+      "timeToCommitMs": null
+     }
+    },
+    "captureVerdict": "NO_CAPTURE"
+   },
+   {
+    "id": "F07",
+    "label": "Long thinking pause",
+    "question": "While the learner spends twenty-five seconds on a problem, what is the pursuer doing?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "closed rather than drifted",
+      "passed": true,
+      "detail": "final 58u vs mean 243u"
+     },
+     {
+      "label": "idle time",
+      "passed": null,
+      "detail": "1.5s"
+     },
+     {
+      "label": "strategic replans",
+      "passed": null,
+      "detail": "3"
+     }
+    ],
+    "metrics": {
+     "brainId": "B_GRAPH_V2_TUNABLE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 5166.666666666658,
+     "captured": true,
+     "captureTimeMs": 5166.666666666658,
+     "averageDistance": 243.32660507783567,
+     "minDistance": 57.85833676785819,
+     "maxDistance": 456.99894939167024,
+     "finalDistance": 57.85833676785819,
+     "threatBands": {
+      "within100": 1200,
+      "within200": 633.3333333333334,
+      "within400": 2833.333333333335,
+      "beyond400": 499.9999999999999
+     },
+     "directPerceptionUptime": 0.5161290322580645,
+     "reacquisitions": 1,
+     "meanTimeToReacquireMs": 300.00000000000546,
+     "trueReversals": 1,
+     "expectedDetours": 0,
+     "strategicReplans": 3,
+     "routeReplans": 3,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 966.6666666666671,
+     "timePausedWhileVisibleMs": 700.0000000000001,
+     "timeIdleMs": 1499.9999999999993,
+     "timeSearchingMs": 2233.333333333332,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 2500,
+      "directPursuitMs": 2500,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": 0.5390317332068809,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "AMBIGUOUS"
+   },
+   {
+    "id": "F08",
+    "label": "Lose then stand still",
+    "question": "The classic complaint: the learner breaks away, stops, and waits. Is it ever found?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "reacquired after losing",
+      "passed": false,
+      "detail": "0 reacquisitions"
+     },
+     {
+      "label": "mean time to reacquire",
+      "passed": null,
+      "detail": "—"
+     },
+     {
+      "label": "closest approach",
+      "passed": null,
+      "detail": "60u"
+     }
+    ],
+    "metrics": {
+     "brainId": "B_GRAPH_V2_TUNABLE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 15591.666666667086,
+     "captured": true,
+     "captureTimeMs": 15591.666666667086,
+     "averageDistance": 415.5233861217645,
+     "minDistance": 60.122806360615435,
+     "maxDistance": 608.9402194589686,
+     "finalDistance": 60.122806360615435,
+     "threatBands": {
+      "within100": 266.6666666666667,
+      "within200": 700.0000000000001,
+      "within400": 5366.666666666662,
+      "beyond400": 9233.333333333323
+     },
+     "directPerceptionUptime": 0.08137044967880086,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 2,
+     "expectedDetours": 2,
+     "strategicReplans": 14,
+     "routeReplans": 14,
+     "modeChanges": 11,
+     "timeMovingAwayWhileVisibleMs": 633.3333333333334,
+     "timePausedWhileVisibleMs": 100,
+     "timeIdleMs": 4533.333333333337,
+     "timeSearchingMs": 11233.33333333336,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 1266.6666666666667,
+      "directPursuitMs": 1233.3333333333333,
+      "targetRevisions": 1,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": 0.3176903996977174,
+      "timeToCommitMs": 33.33333333333576
+     }
+    },
+    "captureVerdict": "LIKELY_SEARCH_COLLISION"
+   },
+   {
+    "id": "F09",
+    "label": "Reacquire near the player",
+    "question": "Placed just outside perception of a still learner, how long until it notices?",
+    "placedDiagnostically": true,
+    "checks": [
+     {
+      "label": "acquired at all",
+      "passed": true,
+      "detail": "uptime 93%"
+     },
+     {
+      "label": "time to first commit",
+      "passed": null,
+      "detail": "0.0s"
+     },
+     {
+      "label": "search time before contact",
+      "passed": null,
+      "detail": "0.2s"
+     }
+    ],
+    "metrics": {
+     "brainId": "B_GRAPH_V2_TUNABLE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 2508.3333333333344,
+     "captured": true,
+     "captureTimeMs": 2508.3333333333344,
+     "averageDistance": 148.28990998884976,
+     "minDistance": 58.660096696514394,
+     "maxDistance": 272.85355504372666,
+     "finalDistance": 58.660096696514394,
+     "threatBands": {
+      "within100": 833.3333333333336,
+      "within200": 1100.0000000000002,
+      "within400": 566.6666666666666,
+      "beyond400": 0
+     },
+     "directPerceptionUptime": 0.9333333333333333,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 1,
+     "expectedDetours": 1,
+     "strategicReplans": 2,
+     "routeReplans": 3,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 900.0000000000003,
+     "timePausedWhileVisibleMs": 666.6666666666667,
+     "timeIdleMs": 666.6666666666667,
+     "timeSearchingMs": 200.00000000000003,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 2333.3333333333335,
+      "directPursuitMs": 2299.999999999999,
+      "targetRevisions": 1,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": 0.39434703602702353,
+      "timeToCommitMs": 33.33333333333337
+     }
+    },
+    "captureVerdict": "AMBIGUOUS"
+   },
+   {
+    "id": "F10",
+    "label": "Wrong-direction detector",
+    "question": "How often does it turn back in a way that loses legal ground, rather than routing around?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "true reversals",
+      "passed": null,
+      "detail": "1"
+     },
+     {
+      "label": "expected route detours",
+      "passed": null,
+      "detail": "1"
+     },
+     {
+      "label": "reversals per detour",
+      "passed": null,
+      "detail": "1.00"
+     },
+     {
+      "label": "time moving away while visible",
+      "passed": null,
+      "detail": "1.0s"
+     }
+    ],
+    "metrics": {
+     "brainId": "B_GRAPH_V2_TUNABLE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 6158.3333333332885,
+     "captured": true,
+     "captureTimeMs": 6158.3333333332885,
+     "averageDistance": 240.14753057629406,
+     "minDistance": 61.284216730683575,
+     "maxDistance": 456.99894939167024,
+     "finalDistance": 61.284216730683575,
+     "threatBands": {
+      "within100": 1466.666666666666,
+      "within200": 833.3333333333336,
+      "within400": 3333.333333333337,
+      "beyond400": 499.9999999999999
+     },
+     "directPerceptionUptime": 0.42391304347826086,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 1,
+     "expectedDetours": 1,
+     "strategicReplans": 2,
+     "routeReplans": 3,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 1000.0000000000005,
+     "timePausedWhileVisibleMs": 866.666666666667,
+     "timeIdleMs": 2033.3333333333314,
+     "timeSearchingMs": 3566.6666666666715,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 2600,
+      "directPursuitMs": 2566.666666666667,
+      "targetRevisions": 1,
+      "trueReversals": 1,
+      "graphDistanceClosedFraction": 0.3889200557114178,
+      "timeToCommitMs": 33.33333333333394
+     }
+    },
+    "captureVerdict": "AMBIGUOUS"
+   },
+   {
+    "id": "F11",
+    "label": "High-refresh comparison",
+    "question": "Does this candidate decide the same things at 60Hz, 120Hz and 144Hz?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "reference leg (fixed 120Hz sim)",
+      "passed": null,
+      "detail": "156 samples, 2 mode changes"
+     }
+    ],
+    "metrics": {
+     "brainId": "B_GRAPH_V2_TUNABLE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 5208.333333333323,
+     "captured": true,
+     "captureTimeMs": 5208.333333333323,
+     "averageDistance": 248.6474885004803,
+     "minDistance": 58.03602016468082,
+     "maxDistance": 456.99894939167024,
+     "finalDistance": 58.03602016468082,
+     "threatBands": {
+      "within100": 1200,
+      "within200": 566.6666666666666,
+      "within400": 2933.3333333333353,
+      "beyond400": 499.9999999999999
+     },
+     "directPerceptionUptime": 0.4166666666666667,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 1,
+     "expectedDetours": 0,
+     "strategicReplans": 4,
+     "routeReplans": 4,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 900.0000000000003,
+     "timePausedWhileVisibleMs": 499.9999999999999,
+     "timeIdleMs": 1499.9999999999993,
+     "timeSearchingMs": 3100.0000000000027,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 1533.3333333333335,
+      "directPursuitMs": 1533.3333333333326,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": 0.5138019483468291,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "LIKELY_SEARCH_COLLISION"
+   },
+   {
+    "id": "F12",
+    "label": "Capture deliberateness",
+    "question": "When it does catch the learner, did it hunt — or did it bump into them?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "verdict",
+      "passed": null,
+      "detail": "LIKELY_SEARCH_COLLISION"
+     },
+     {
+      "label": "perception in the last 5s",
+      "passed": null,
+      "detail": "51%"
+     },
+     {
+      "label": "direct pursuit in the last 5s",
+      "passed": null,
+      "detail": "50%"
+     },
+     {
+      "label": "closing in the last 5s",
+      "passed": null,
+      "detail": "53%"
+     },
+     {
+      "label": "summary",
+      "passed": null,
+      "detail": "Spent 50% of the last 5s searching and perceived the Spark only 51% of it. This capture looks like the sweep happening to cross the learner rather than a hunt."
+     }
+    ],
+    "metrics": {
+     "brainId": "B_GRAPH_V2_TUNABLE",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 6091.666666666624,
+     "captured": true,
+     "captureTimeMs": 6091.666666666624,
+     "averageDistance": 242.09350696286387,
+     "minDistance": 74.65610592672066,
+     "maxDistance": 456.99894939167024,
+     "finalDistance": 74.65610592672066,
+     "threatBands": {
+      "within100": 1399.9999999999995,
+      "within200": 833.3333333333336,
+      "within400": 3333.333333333337,
+      "beyond400": 499.9999999999999
+     },
+     "directPerceptionUptime": 0.4175824175824176,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 1,
+     "expectedDetours": 1,
+     "strategicReplans": 2,
+     "routeReplans": 3,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 866.666666666667,
+     "timePausedWhileVisibleMs": 866.666666666667,
+     "timeIdleMs": 2033.3333333333314,
+     "timeSearchingMs": 3566.6666666666715,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 2466.666666666667,
+      "directPursuitMs": 2433.333333333333,
+      "targetRevisions": 1,
+      "trueReversals": 1,
+      "graphDistanceClosedFraction": 0.4474502225056039,
+      "timeToCommitMs": 33.33333333333394
+     }
+    },
+    "captureVerdict": "LIKELY_SEARCH_COLLISION"
+   }
+  ],
+  "C_DIRECT_HUNTER": [
+   {
+    "id": "F01",
+    "label": "Stationary visible learner",
+    "question": "When the learner is standing still and can be seen, does the pursuer commit to it and close?",
+    "placedDiagnostically": true,
+    "checks": [
+     {
+      "label": "perceived it at all",
+      "passed": true,
+      "detail": "perception uptime 84%"
+     },
+     {
+      "label": "committed to direct pursuit",
+      "passed": true,
+      "detail": "100% of the visible-stationary window"
+     },
+     {
+      "label": "time to commit",
+      "passed": null,
+      "detail": "0.0s"
+     },
+     {
+      "label": "no true reversals while visible",
+      "passed": false,
+      "detail": "1 reversals that lost legal ground"
+     },
+     {
+      "label": "closed legal distance",
+      "passed": false,
+      "detail": "39%"
+     },
+     {
+      "label": "captured",
+      "passed": null,
+      "detail": "3.1s"
+     }
+    ],
+    "metrics": {
+     "brainId": "C_DIRECT_HUNTER",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 3075.0000000000114,
+     "captured": true,
+     "captureTimeMs": 3075.0000000000114,
+     "averageDistance": 158.81087488692944,
+     "minDistance": 58.26539647968309,
+     "maxDistance": 274.4866094741302,
+     "finalDistance": 58.26539647968309,
+     "threatBands": {
+      "within100": 1133.3333333333335,
+      "within200": 1133.3333333333335,
+      "within400": 800.0000000000002,
+      "beyond400": 0
+     },
+     "directPerceptionUptime": 0.8369565217391305,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 7,
+     "expectedDetours": 13,
+     "strategicReplans": 29,
+     "routeReplans": 30,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 966.6666666666671,
+     "timePausedWhileVisibleMs": 900.0000000000003,
+     "timeIdleMs": 1000.0000000000005,
+     "timeSearchingMs": 499.9999999999999,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 2566.666666666667,
+      "directPursuitMs": 2566.666666666667,
+      "targetRevisions": 0,
+      "trueReversals": 1,
+      "graphDistanceClosedFraction": 0.39072497788284266,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "AMBIGUOUS"
+   },
+   {
+    "id": "F02",
+    "label": "Near-Spark Marco Polo",
+    "question": "Right next to a still learner, does it attack — or turn away, circle, and arrive by accident?",
+    "placedDiagnostically": true,
+    "checks": [
+     {
+      "label": "perceived from 150u",
+      "passed": true,
+      "detail": "uptime 100%"
+     },
+     {
+      "label": "did not enter search",
+      "passed": true,
+      "detail": "0.0s spent searching"
+     },
+     {
+      "label": "did not turn away",
+      "passed": true,
+      "detail": "0 unhelpful reversals"
+     },
+     {
+      "label": "time moving away while visible",
+      "passed": null,
+      "detail": "0.4s"
+     },
+     {
+      "label": "capture verdict",
+      "passed": null,
+      "detail": "AMBIGUOUS"
+     },
+     {
+      "label": "capture-range entries before contact",
+      "passed": null,
+      "detail": "1"
+     }
+    ],
+    "metrics": {
+     "brainId": "C_DIRECT_HUNTER",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 516.6666666666662,
+     "captured": true,
+     "captureTimeMs": 516.6666666666662,
+     "averageDistance": 87.14218413277074,
+     "minDistance": 60.89517797866018,
+     "maxDistance": 99.67460949398188,
+     "finalDistance": 60.89517797866018,
+     "threatBands": {
+      "within100": 499.9999999999999,
+      "within200": 0,
+      "within400": 0,
+      "beyond400": 0
+     },
+     "directPerceptionUptime": 1,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 0,
+     "expectedDetours": 0,
+     "strategicReplans": 1,
+     "routeReplans": 1,
+     "modeChanges": 1,
+     "timeMovingAwayWhileVisibleMs": 399.99999999999994,
+     "timePausedWhileVisibleMs": 100,
+     "timeIdleMs": 100,
+     "timeSearchingMs": 0,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 500.00000000000006,
+      "directPursuitMs": 499.9999999999999,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": -0.4886004671628434,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "AMBIGUOUS"
+   },
+   {
+    "id": "F03",
+    "label": "Cross-board loss",
+    "question": "After the learner crosses the board and stops, is the pursuer closing or drifting?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "ended closer than its worst",
+      "passed": true,
+      "detail": "final 56u, worst 511u"
+     },
+     {
+      "label": "reacquired at least once",
+      "passed": true,
+      "detail": "1 reacquisitions, mean 3.3s"
+     },
+     {
+      "label": "search time",
+      "passed": null,
+      "detail": "2.7s"
+     }
+    ],
+    "metrics": {
+     "brainId": "C_DIRECT_HUNTER",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 6499.999999999943,
+     "captured": true,
+     "captureTimeMs": 6499.999999999943,
+     "averageDistance": 351.77994216411355,
+     "minDistance": 55.58666981704182,
+     "maxDistance": 510.69063404688967,
+     "finalDistance": 55.58666981704182,
+     "threatBands": {
+      "within100": 100,
+      "within200": 166.66666666666669,
+      "within400": 4333.3333333333385,
+      "beyond400": 1899.9999999999984
+     },
+     "directPerceptionUptime": 0.09230769230769231,
+     "reacquisitions": 1,
+     "meanTimeToReacquireMs": 3258.3333333332835,
+     "trueReversals": 5,
+     "expectedDetours": 12,
+     "strategicReplans": 32,
+     "routeReplans": 32,
+     "modeChanges": 4,
+     "timeMovingAwayWhileVisibleMs": 166.66666666666669,
+     "timePausedWhileVisibleMs": 166.66666666666669,
+     "timeIdleMs": 2033.3333333333314,
+     "timeSearchingMs": 2666.6666666666674,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 0,
+      "directPursuitMs": 0,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": null,
+      "timeToCommitMs": null
+     }
+    },
+    "captureVerdict": "LIKELY_SEARCH_COLLISION"
+   },
+   {
+    "id": "F04",
+    "label": "Zigzag climb",
+    "question": "Against a learner crossing the board every row, does it keep contact at all?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "perception uptime",
+      "passed": null,
+      "detail": "43%"
+     },
+     {
+      "label": "average distance",
+      "passed": null,
+      "detail": "257u"
+     },
+     {
+      "label": "true reversals",
+      "passed": null,
+      "detail": "6"
+     }
+    ],
+    "metrics": {
+     "brainId": "C_DIRECT_HUNTER",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 5616.6666666666415,
+     "captured": true,
+     "captureTimeMs": 5616.6666666666415,
+     "averageDistance": 257.2989227670799,
+     "minDistance": 59.822742810644485,
+     "maxDistance": 462.03486958339363,
+     "finalDistance": 59.822742810644485,
+     "threatBands": {
+      "within100": 1233.3333333333333,
+      "within200": 700.0000000000001,
+      "within400": 2900.000000000002,
+      "beyond400": 766.6666666666669
+     },
+     "directPerceptionUptime": 0.42857142857142855,
+     "reacquisitions": 1,
+     "meanTimeToReacquireMs": 75.00000000000136,
+     "trueReversals": 6,
+     "expectedDetours": 12,
+     "strategicReplans": 31,
+     "routeReplans": 31,
+     "modeChanges": 4,
+     "timeMovingAwayWhileVisibleMs": 1066.666666666667,
+     "timePausedWhileVisibleMs": 633.3333333333334,
+     "timeIdleMs": 1666.6666666666656,
+     "timeSearchingMs": 3133.333333333336,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 1933.3333333333335,
+      "directPursuitMs": 1933.3333333333317,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": 0.45655356955218585,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "LIKELY_SEARCH_COLLISION"
+   },
+   {
+    "id": "F05",
+    "label": "Slow human climb",
+    "question": "At the pace the accepted human session actually ran at, is the pursuer a threat?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "time within 200u",
+      "passed": null,
+      "detail": "4.8s"
+     },
+     {
+      "label": "captured",
+      "passed": null,
+      "detail": "9.3s"
+     },
+     {
+      "label": "capture verdict",
+      "passed": null,
+      "detail": "DELIBERATE_PURSUIT_CAPTURE"
+     }
+    ],
+    "metrics": {
+     "brainId": "C_DIRECT_HUNTER",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 9324.999999999964,
+     "captured": true,
+     "captureTimeMs": 9324.999999999964,
+     "averageDistance": 212.36879947709943,
+     "minDistance": 61.82283154304706,
+     "maxDistance": 462.03486958339363,
+     "finalDistance": 61.82283154304706,
+     "threatBands": {
+      "within100": 2299.999999999999,
+      "within200": 2533.3333333333335,
+      "within400": 3700.0000000000055,
+      "beyond400": 766.6666666666669
+     },
+     "directPerceptionUptime": 0.5913978494623656,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 9,
+     "expectedDetours": 13,
+     "strategicReplans": 30,
+     "routeReplans": 32,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 2066.6666666666647,
+     "timePausedWhileVisibleMs": 1499.9999999999993,
+     "timeIdleMs": 2666.6666666666674,
+     "timeSearchingMs": 3800.000000000006,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 4833.333333333334,
+      "directPursuitMs": 4833.333333333334,
+      "targetRevisions": 1,
+      "trueReversals": 1,
+      "graphDistanceClosedFraction": 0.3961157680793051,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "DELIBERATE_PURSUIT_CAPTURE"
+   },
+   {
+    "id": "F06",
+    "label": "Fast human climb",
+    "question": "Against a learner who barely pauses, does the pursuer fall behind or keep the pressure on?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "final distance",
+      "passed": null,
+      "detail": "1402u"
+     },
+     {
+      "label": "perception uptime",
+      "passed": null,
+      "detail": "0%"
+     },
+     {
+      "label": "time beyond 400u",
+      "passed": null,
+      "detail": "44.8s"
+     }
+    ],
+    "metrics": {
+     "brainId": "C_DIRECT_HUNTER",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 44900.00000000162,
+     "captured": false,
+     "captureTimeMs": null,
+     "averageDistance": 1247.9648777348282,
+     "minDistance": 388.95906634068547,
+     "maxDistance": 1414.4410949598118,
+     "finalDistance": 1401.7229576489074,
+     "threatBands": {
+      "within100": 0,
+      "within200": 0,
+      "within400": 100,
+      "beyond400": 44800.0000000004
+     },
+     "directPerceptionUptime": 0,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 5,
+     "expectedDetours": 13,
+     "strategicReplans": 29,
+     "routeReplans": 30,
+     "modeChanges": 1,
+     "timeMovingAwayWhileVisibleMs": 0,
+     "timePausedWhileVisibleMs": 0,
+     "timeIdleMs": 40933.33333333345,
+     "timeSearchingMs": 44900.00000000041,
+     "captureRangeEntriesBeforeCapture": 0,
+     "visibleStationary": {
+      "totalMs": 0,
+      "directPursuitMs": 0,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": null,
+      "timeToCommitMs": null
+     }
+    },
+    "captureVerdict": "NO_CAPTURE"
+   },
+   {
+    "id": "F07",
+    "label": "Long thinking pause",
+    "question": "While the learner spends twenty-five seconds on a problem, what is the pursuer doing?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "closed rather than drifted",
+      "passed": true,
+      "detail": "final 58u vs mean 258u"
+     },
+     {
+      "label": "idle time",
+      "passed": null,
+      "detail": "1.7s"
+     },
+     {
+      "label": "strategic replans",
+      "passed": null,
+      "detail": "30"
+     }
+    ],
+    "metrics": {
+     "brainId": "C_DIRECT_HUNTER",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 5599.999999999975,
+     "captured": true,
+     "captureTimeMs": 5599.999999999975,
+     "averageDistance": 258.4300907560873,
+     "minDistance": 57.55004791423004,
+     "maxDistance": 462.03486958339363,
+     "finalDistance": 57.55004791423004,
+     "threatBands": {
+      "within100": 1233.3333333333333,
+      "within200": 800.0000000000002,
+      "within400": 2800.0000000000014,
+      "beyond400": 766.6666666666669
+     },
+     "directPerceptionUptime": 0.4523809523809524,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 6,
+     "expectedDetours": 12,
+     "strategicReplans": 30,
+     "routeReplans": 30,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 900.0000000000003,
+     "timePausedWhileVisibleMs": 666.6666666666667,
+     "timeIdleMs": 1666.6666666666656,
+     "timeSearchingMs": 3066.6666666666692,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 2533.3333333333335,
+      "directPursuitMs": 2533.3333333333335,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": 0.5440695066738845,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "AMBIGUOUS"
+   },
+   {
+    "id": "F08",
+    "label": "Lose then stand still",
+    "question": "The classic complaint: the learner breaks away, stops, and waits. Is it ever found?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "reacquired after losing",
+      "passed": false,
+      "detail": "0 reacquisitions"
+     },
+     {
+      "label": "mean time to reacquire",
+      "passed": null,
+      "detail": "—"
+     },
+     {
+      "label": "closest approach",
+      "passed": null,
+      "detail": "57u"
+     }
+    ],
+    "metrics": {
+     "brainId": "C_DIRECT_HUNTER",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 9900.000000000005,
+     "captured": true,
+     "captureTimeMs": 9900.000000000005,
+     "averageDistance": 379.24541642653713,
+     "minDistance": 57.204831932721234,
+     "maxDistance": 641.3767827156055,
+     "finalDistance": 57.204831932721234,
+     "threatBands": {
+      "within100": 533.3333333333333,
+      "within200": 666.6666666666667,
+      "within400": 4000.000000000007,
+      "beyond400": 4700.000000000002
+     },
+     "directPerceptionUptime": 0.15151515151515152,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 5,
+     "expectedDetours": 12,
+     "strategicReplans": 33,
+     "routeReplans": 33,
+     "modeChanges": 3,
+     "timeMovingAwayWhileVisibleMs": 566.6666666666666,
+     "timePausedWhileVisibleMs": 399.99999999999994,
+     "timeIdleMs": 2933.3333333333353,
+     "timeSearchingMs": 4033.3333333333403,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 1500,
+      "directPursuitMs": 1499.9999999999993,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": 0.3388605867261952,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "AMBIGUOUS"
+   },
+   {
+    "id": "F09",
+    "label": "Reacquire near the player",
+    "question": "Placed just outside perception of a still learner, how long until it notices?",
+    "placedDiagnostically": true,
+    "checks": [
+     {
+      "label": "acquired at all",
+      "passed": true,
+      "detail": "uptime 84%"
+     },
+     {
+      "label": "time to first commit",
+      "passed": null,
+      "detail": "0.0s"
+     },
+     {
+      "label": "search time before contact",
+      "passed": null,
+      "detail": "0.5s"
+     }
+    ],
+    "metrics": {
+     "brainId": "C_DIRECT_HUNTER",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 3075.0000000000114,
+     "captured": true,
+     "captureTimeMs": 3075.0000000000114,
+     "averageDistance": 158.81087488692944,
+     "minDistance": 58.26539647968309,
+     "maxDistance": 274.4866094741302,
+     "finalDistance": 58.26539647968309,
+     "threatBands": {
+      "within100": 1133.3333333333335,
+      "within200": 1133.3333333333335,
+      "within400": 800.0000000000002,
+      "beyond400": 0
+     },
+     "directPerceptionUptime": 0.8369565217391305,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 7,
+     "expectedDetours": 13,
+     "strategicReplans": 29,
+     "routeReplans": 30,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 966.6666666666671,
+     "timePausedWhileVisibleMs": 900.0000000000003,
+     "timeIdleMs": 1000.0000000000005,
+     "timeSearchingMs": 499.9999999999999,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 2566.666666666667,
+      "directPursuitMs": 2566.666666666667,
+      "targetRevisions": 0,
+      "trueReversals": 1,
+      "graphDistanceClosedFraction": 0.39072497788284266,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "AMBIGUOUS"
+   },
+   {
+    "id": "F10",
+    "label": "Wrong-direction detector",
+    "question": "How often does it turn back in a way that loses legal ground, rather than routing around?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "true reversals",
+      "passed": null,
+      "detail": "6"
+     },
+     {
+      "label": "expected route detours",
+      "passed": null,
+      "detail": "13"
+     },
+     {
+      "label": "reversals per detour",
+      "passed": null,
+      "detail": "0.46"
+     },
+     {
+      "label": "time moving away while visible",
+      "passed": null,
+      "detail": "1.0s"
+     }
+    ],
+    "metrics": {
+     "brainId": "C_DIRECT_HUNTER",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 6433.3333333332785,
+     "captured": true,
+     "captureTimeMs": 6433.3333333332785,
+     "averageDistance": 255.08291102749743,
+     "minDistance": 57.078892771321115,
+     "maxDistance": 462.03486958339363,
+     "finalDistance": 57.078892771321115,
+     "threatBands": {
+      "within100": 933.3333333333337,
+      "within200": 1233.3333333333333,
+      "within400": 3500.0000000000045,
+      "beyond400": 766.6666666666669
+     },
+     "directPerceptionUptime": 0.40932642487046633,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 6,
+     "expectedDetours": 13,
+     "strategicReplans": 29,
+     "routeReplans": 30,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 1000.0000000000005,
+     "timePausedWhileVisibleMs": 866.666666666667,
+     "timeIdleMs": 2033.3333333333314,
+     "timeSearchingMs": 3800.000000000006,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 2633.3333333333335,
+      "directPursuitMs": 2633.333333333334,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": 0.38207194873231215,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "AMBIGUOUS"
+   },
+   {
+    "id": "F11",
+    "label": "High-refresh comparison",
+    "question": "Does this candidate decide the same things at 60Hz, 120Hz and 144Hz?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "reference leg (fixed 120Hz sim)",
+      "passed": null,
+      "detail": "168 samples, 4 mode changes"
+     }
+    ],
+    "metrics": {
+     "brainId": "C_DIRECT_HUNTER",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 5616.6666666666415,
+     "captured": true,
+     "captureTimeMs": 5616.6666666666415,
+     "averageDistance": 257.2989227670799,
+     "minDistance": 59.822742810644485,
+     "maxDistance": 462.03486958339363,
+     "finalDistance": 59.822742810644485,
+     "threatBands": {
+      "within100": 1233.3333333333333,
+      "within200": 700.0000000000001,
+      "within400": 2900.000000000002,
+      "beyond400": 766.6666666666669
+     },
+     "directPerceptionUptime": 0.42857142857142855,
+     "reacquisitions": 1,
+     "meanTimeToReacquireMs": 75.00000000000136,
+     "trueReversals": 6,
+     "expectedDetours": 12,
+     "strategicReplans": 31,
+     "routeReplans": 31,
+     "modeChanges": 4,
+     "timeMovingAwayWhileVisibleMs": 1066.666666666667,
+     "timePausedWhileVisibleMs": 633.3333333333334,
+     "timeIdleMs": 1666.6666666666656,
+     "timeSearchingMs": 3133.333333333336,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 1933.3333333333335,
+      "directPursuitMs": 1933.3333333333317,
+      "targetRevisions": 0,
+      "trueReversals": 0,
+      "graphDistanceClosedFraction": 0.45655356955218585,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "LIKELY_SEARCH_COLLISION"
+   },
+   {
+    "id": "F12",
+    "label": "Capture deliberateness",
+    "question": "When it does catch the learner, did it hunt — or did it bump into them?",
+    "placedDiagnostically": false,
+    "checks": [
+     {
+      "label": "verdict",
+      "passed": null,
+      "detail": "DELIBERATE_PURSUIT_CAPTURE"
+     },
+     {
+      "label": "perception in the last 5s",
+      "passed": null,
+      "detail": "100%"
+     },
+     {
+      "label": "direct pursuit in the last 5s",
+      "passed": null,
+      "detail": "100%"
+     },
+     {
+      "label": "closing in the last 5s",
+      "passed": null,
+      "detail": "53%"
+     },
+     {
+      "label": "summary",
+      "passed": null,
+      "detail": "Perceived the Spark for 100% of the last 5s, held direct pursuit for 100% of it, and closed legal distance on 53% of the intervals it was moving. It hunted."
+     }
+    ],
+    "metrics": {
+     "brainId": "C_DIRECT_HUNTER",
+     "perceptionModelId": "P0_PRODUCTION",
+     "oracleUsed": false,
+     "durationMs": 9324.999999999964,
+     "captured": true,
+     "captureTimeMs": 9324.999999999964,
+     "averageDistance": 212.36879947709943,
+     "minDistance": 61.82283154304706,
+     "maxDistance": 462.03486958339363,
+     "finalDistance": 61.82283154304706,
+     "threatBands": {
+      "within100": 2299.999999999999,
+      "within200": 2533.3333333333335,
+      "within400": 3700.0000000000055,
+      "beyond400": 766.6666666666669
+     },
+     "directPerceptionUptime": 0.5913978494623656,
+     "reacquisitions": 0,
+     "meanTimeToReacquireMs": null,
+     "trueReversals": 9,
+     "expectedDetours": 13,
+     "strategicReplans": 30,
+     "routeReplans": 32,
+     "modeChanges": 2,
+     "timeMovingAwayWhileVisibleMs": 2066.6666666666647,
+     "timePausedWhileVisibleMs": 1499.9999999999993,
+     "timeIdleMs": 2666.6666666666674,
+     "timeSearchingMs": 3800.000000000006,
+     "captureRangeEntriesBeforeCapture": 1,
+     "visibleStationary": {
+      "totalMs": 4833.333333333334,
+      "directPursuitMs": 4833.333333333334,
+      "targetRevisions": 1,
+      "trueReversals": 1,
+      "graphDistanceClosedFraction": 0.3961157680793051,
+      "timeToCommitMs": 0
+     }
+    },
+    "captureVerdict": "DELIBERATE_PURSUIT_CAPTURE"
+   }
+  ]
+ },
+ "refresh": {
+  "FIXED": [
+   {
+    "hz": 60,
+    "modeChanges": 2,
+    "trueReversals": 1,
+    "finalDistance": 58.03602016468082,
+    "fingerprintSha": 273
+   },
+   {
+    "hz": 120,
+    "modeChanges": 2,
+    "trueReversals": 1,
+    "finalDistance": 58.03602016468082,
+    "fingerprintSha": 273
+   },
+   {
+    "hz": 144,
+    "modeChanges": 2,
+    "trueReversals": 1,
+    "finalDistance": 58.03602016468082,
+    "fingerprintSha": 273
+   }
+  ],
+  "RENDER_COUPLED": [
+   {
+    "hz": 60,
+    "modeChanges": 2,
+    "trueReversals": 1,
+    "finalDistance": 61.1986721470026
+   },
+   {
+    "hz": 120,
+    "modeChanges": 2,
+    "trueReversals": 1,
+    "finalDistance": 58.03602016468082
+   },
+   {
+    "hz": 144,
+    "modeChanges": 2,
+    "trueReversals": 1,
+    "finalDistance": 57.77248568637424
+   }
+  ]
+ }
+}

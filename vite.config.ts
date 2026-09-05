@@ -38,7 +38,12 @@ export default defineConfig(({mode}) => {
       hmr: process.env.DISABLE_HMR !== 'true',
     },
     test: {
-      environment: 'jsdom'
+      environment: 'jsdom',
+      // The pursuer intelligence lab (CC-RD-PURSUER-01) is a separate,
+      // portable R&D package with its own package.json, tsconfig and test
+      // run. Production must not depend on it, so production's build and
+      // test surface does not reach into it.
+      exclude: ['**/node_modules/**', '**/dist/**', 'pursuer-intelligence-lab/**'],
     }
   };
 });

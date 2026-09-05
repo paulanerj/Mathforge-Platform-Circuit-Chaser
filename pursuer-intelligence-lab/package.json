@@ -1,0 +1,34 @@
+{
+  "name": "circuit-climb-pursuer-intelligence-lab",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Portable R&D sandbox for Circuit Climb pursuer intelligence. Extracted from production; production does not depend on it.",
+  "scripts": {
+    "dev": "vite --port=3200 --host=0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --port=3200",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "fixtures": "tsx tools/runFixtures.mts",
+    "compare": "tsx tools/compareBrains.mts",
+    "package": "node tools/package.mjs",
+    "build:single": "node tools/buildSingleFile.mjs",
+    "verify:browser": "node tools/browserVerify.mjs",
+    "artifacts": "tsx tools/generateArtifacts.mts"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.4",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0",
+    "vitest": "^4.1.8"
+  }
+}

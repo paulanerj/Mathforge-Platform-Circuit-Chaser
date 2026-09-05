@@ -7,3 +7,4 @@ coverage/
 .env*
 !.env.example
 dist-artifact/
+circuit-climb-pursuer-intelligence-lab-01.zip
