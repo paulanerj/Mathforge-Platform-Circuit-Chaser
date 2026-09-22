@@ -1,4 +1,9 @@
 import { CircuitClimbMathAdapter } from '../services/CircuitClimbMathAdapter';
+import {
+  buildCircuitClimbAttemptEvaluatedEvent,
+  publishCircuitClimbAttemptEvaluatedEvent,
+  type CircuitClimbAttemptEvaluatedCallback,
+} from './circuitClimbSemanticEvents';
 import { useState, useEffect, useRef } from 'react';
 import { CIRCUIT_CLIMB_GEOMETRY, computeColumnCentres, computeActorSafeCorridors, computeInversePointerTransform, computePlatformCollisionRects, computeRouteCrossingOffset, chooseRouteAgainstThreat, pathClearance, pathIsClear } from '../geometry/circuitClimbGeometry';
 import { createPursuer, updatePursuer, PursuerState, type CurrentGameGeometry } from '../pursuer/circuitClimbPursuer';
@@ -80,6 +85,14 @@ export function useCircuitClimbPrototypeRuntime() {
   const [sparkAvoidance, setSparkAvoidanceState] = useState(0.75);
   const [sparkShielded, setSparkShieldedState] = useState(false);
   const settingsWasPausedRef = useRef(false);
+  const attemptOrdinalRef = useRef(0);
+  const attemptListenersRef = useRef<Set<CircuitClimbAttemptEvaluatedCallback>>(new Set());
+
+  const onAttemptEvaluated = (callback: CircuitClimbAttemptEvaluatedCallback) => {
+    if (typeof callback !== 'function') return () => {};
+    attemptListenersRef.current.add(callback);
+    return () => attemptListenersRef.current.delete(callback);
+  };
 
   // Control reference to trigger game engine actions from React components
   const loopControlRef = useRef<{
@@ -1006,6 +1019,25 @@ export function useCircuitClimbPrototypeRuntime() {
           time: 0,
           correct: platform.correct,
         };
+      }
+
+      const attemptRow = getRow(platform.row);
+      const snapshot = attemptRow?.problemSnapshot;
+      if (snapshot) {
+        const attemptEvent = buildCircuitClimbAttemptEvaluatedEvent({
+          attemptOrdinal: ++attemptOrdinalRef.current,
+          snapshot,
+          selectedPlatformValue: platform.value,
+          selectedChoiceIndex: attemptRow.platforms.indexOf(platform),
+          isCorrect: platform.correct === true,
+        });
+        publishCircuitClimbAttemptEvaluatedEvent(attemptListenersRef.current, attemptEvent);
+      } else {
+        console.error('CIRCUIT_CLIMB_ATTEMPT_EVIDENCE_MISSING_SNAPSHOT', {
+          row: platform.row,
+          column: platform.column,
+          selectedPlatformValue: platform.value,
+        });
       }
 
       if (platform.correct) {
@@ -2348,6 +2380,7 @@ export function useCircuitClimbPrototypeRuntime() {
     toggleMode,
     toggleSound,
     selectByIndex,
+    onAttemptEvaluated,
     openViewSettings,
     closeViewSettings,
     setViewScale,
