@@ -1,0 +1,62 @@
+name: Circuit Climb host bridge R1
+on:
+  push:
+    branches:
+      - integration/circuit-climb-host-bridge-r1
+permissions:
+  contents: read
+
+jobs:
+  host-bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Assert semantic-seam parent and bounded bridge diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=f186fe211bc6427bf59f0216254e78071f9c4046
+          git merge-base --is-ancestor "$base" HEAD
+          allowed='^(.github/workflows/circuit-climb-host-bridge-r1.yml|CIRCUIT_CLIMB_HOST_BRIDGE_R1.md|src/games/circuit-climb/runtime/CircuitClimbHostBridge.tsx|src/games/circuit-climb/tests/circuitClimbHostBridge.test.ts)$'
+          bad="$(git diff --name-only "$base"...HEAD | grep -Ev "$allowed" || true)"
+          if [ -n "$bad" ]; then
+            echo "Unexpected files changed from accepted semantic seam:"
+            echo "$bad"
+            exit 1
+          fi
+
+      - name: Verify protected product and semantic identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          authority=c8838c30947c2a561bfc8322a6159e4f28fef61a
+          semantic=f186fe211bc6427bf59f0216254e78071f9c4046
+          for path in             src/games/circuit-climb/CircuitClimbSurface.tsx             src/games/circuit-climb/geometry/circuitClimbGeometry.ts             src/games/circuit-climb/runtime/circuitClimbLearnerRouting.ts             src/games/circuit-climb/services/CircuitClimbMathAdapter.ts             src/games/circuit-climb/pursuer/circuitClimbPursuer.ts             src/games/circuit-climb/styles/circuit-climb.css
+          do
+            test "$(git rev-parse "$authority:$path")" = "$(git rev-parse "HEAD:$path")"
+          done
+          for path in             src/games/circuit-climb/runtime/circuitClimbSemanticEvents.ts             src/games/circuit-climb/runtime/useCircuitClimbPrototypeRuntime.ts
+          do
+            test "$(git rev-parse "$semantic:$path")" = "$(git rev-parse "HEAD:$path")"
+          done
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npm run test:circuit-climb:browser
+
+      - name: Verify bridge exclusions
+        shell: bash
+        run: |
+          set -euo pipefail
+          bridge=src/games/circuit-climb/runtime/CircuitClimbHostBridge.tsx
+          grep -q 'runtime.onAttemptEvaluated' "$bridge"
+          ! grep -E 'getPursuer|buildPursuerLog|correctChoiceIndex|correctPlatformValue|masteryVerdict|hostCompletion' "$bridge"
