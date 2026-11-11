@@ -59,7 +59,7 @@ The later Graph V2 / PURSUER-04C work also shows the importance of explicit sens
 | D01 | Original's destination-over-path choice | Preserve exactly | ACCEPTED IN SOT-02 |
 | D02 | Exact one correct among 3 | Preserve and solver-test | ACCEPTED IN SOT-02 |
 | D03 | Wrong platform shorts/returns | Preserve; specify timing and event order | ACCEPTED IN SOT-02 |
-| D04 | Shield during automatic transit | Keep ON initially; measure fairness impact before changing | OPEN SHIPPING DEFAULT |
+| D04 | Shield during automatic transit | SOT-02 handoff says ON but code clean-starts OFF; propose ON in CC2 pending contract | **SOURCE/DOC CONFLICT — OPEN** |
 | D05 | Pursuer architecture | Shared geometry; perception-limited route-capable agent | PROPOSED CC2 |
 | D06 | Pursuer failure standards | Separate legitimate loss-of-sight from unrecovered deadlock | OPEN, CC2-01 |
 | D07 | Practice/Climb/Challenge profiles | Three simple modes, curriculum independent | PROPOSED CC2 |
@@ -70,7 +70,7 @@ The later Graph V2 / PURSUER-04C work also shows the importance of explicit sens
 | D12 | Visual language | Clean MathForge geometry, clear numbers, responsive HUD | PROPOSED CC2 |
 | D13 | SDK approach | Host-neutral core plus thin adapter, no premature Gen2 coupling | PROPOSED CC2 |
 | D14 | Run end and scoring | Capture ends run; score and correctness evidence are separate | PARTLY ACCEPTED / NEEDS SPEC |
-| D15 | Mathematical candidate reveal and value update timing | Audit existing implementation; freeze explicit ordering | OPEN |
+| D15 | Mathematical candidate reveal and value update timing | SOT-02 pre-generates independently random incoming values for each row; on correct landing display switches to next row's random value, not necessarily old value + selected operand | **SOURCE-VERIFIED; PRODUCT RULE OPEN** |
 | D16 | Bot spawn, sensing and pursuit fairness | Reconstruct human play fixtures, measure, decide per mode | OPEN |
 | D17 | World generation/culling | Keep topology navigable through ascent; bounds and history measured | OPEN IMPLEMENTATION DETAIL |
 | D18 | Accessibility, audio, reduced motion | Release requirements, controls in Settings | PROPOSED CC2 |
@@ -94,3 +94,7 @@ The later Graph V2 / PURSUER-04C work also shows the importance of explicit sens
 - Successor code, when authorized, uses an isolated surface path and retains standalone app preview.
 - All pull requests should state changes versus prior accepted behavior, tests added, tests rerun, device and human evidence, and rollback point.
 - If the new platform/ability/enemy mechanic compromises a math or reachability lock, cut the mechanic rather than the lock.
+
+## CC2-00 audit addendum — 2026-11-11
+
+[Source reconstruction and feature inventory](./CC2_00_SOURCE_RECONSTRUCTION_AND_FEATURE_INVENTORY.md) is the controlling evidence register for this phase. The source audit found the shield-default discrepancy, independent pre-generated player numbers, limited source-connected tests for number transitions, and a later pursuer R&D branch explicitly retaining an absorbing lateral reacquisition failure. These are not new accepted product rules. Source/document conflicts must be resolved in CC2-01. An automated CI baseline audit was started; CC2-00 is **not yet fully passed**.
