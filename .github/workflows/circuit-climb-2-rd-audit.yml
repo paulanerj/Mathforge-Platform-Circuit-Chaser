@@ -1,0 +1,78 @@
+name: Circuit Climb 2 experimental pursuer audit
+on:
+  push:
+    branches:
+      - circuit-climb-2-production
+    paths:
+      - .github/workflows/circuit-climb-2-rd-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pursuer-07b1:
+    name: R&D pursuer 07B1 — source, tests and browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dba9e59ddd1ad9976aa9364d2c0713f2a56aa6bc
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Confirm exact experimental SHA
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "dba9e59ddd1ad9976aa9364d2c0713f2a56aa6bc"
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npm run test:circuit-climb:browser
+
+  graph-v2-04c:
+    name: Graph V2 04C — engineering test suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d7a8115ac03672c10ec1f060c8cf9d57b2422bc3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Confirm exact Graph V2 SHA
+        shell: bash
+        run: test "$(git rev-parse HEAD)" = "d7a8115ac03672c10ec1f060c8cf9d57b2422bc3"
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  pursuer-lab:
+    name: Pursuer intelligence lab — portable independent runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: pursuer-intelligence-lab
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 06beebb2ec309fe24527b9b45bebb6e69a8caeed
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: pursuer-intelligence-lab/package-lock.json
+      - name: Confirm exact lab SHA
+        run: test "$(git rev-parse HEAD)" = "06beebb2ec309fe24527b9b45bebb6e69a8caeed"
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run fixtures
+      - run: npm run build
+      - run: npm run verify:browser
