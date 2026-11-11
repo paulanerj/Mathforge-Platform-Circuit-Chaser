@@ -98,3 +98,15 @@ The later Graph V2 / PURSUER-04C work also shows the importance of explicit sens
 ## CC2-00 audit addendum — 2026-11-11
 
 [Source reconstruction and feature inventory](./CC2_00_SOURCE_RECONSTRUCTION_AND_FEATURE_INVENTORY.md) is the controlling evidence register for this phase. The source audit found the shield-default discrepancy, independent pre-generated player numbers, limited source-connected tests for number transitions, and a later pursuer R&D branch explicitly retaining an absorbing lateral reacquisition failure. These are not new accepted product rules. Source/document conflicts must be resolved in CC2-01. An automated CI baseline audit was started; CC2-00 is **not yet fully passed**.
+
+## CC2-01 design-authority addendum — 2026-11-11
+
+**This document is the preserved v0.1 proposal register.** The authoritative *successor design* is now [CC2-01 decision register v1.0](./CC2_01_DECISION_LOG_AND_FREEZE_V1_0.md) and the seven companion CC2-01 specifications indexed in [README](./README.md). Historical accepted SOT-02 gameplay is still read-only and governed by its own SHA/document.
+
+The CC2-01 design explicitly resolves two old source/document ambiguities as **new successor rules**, without rewriting what the old game actually did:
+- **D04:** CC2 shields automatic outbound and return travel by default (SOT-02's clean-install source was OFF despite its handoff saying ON). A post-landing grace is a provisional calibration parameter.
+- **D15:** within four-row power cells, correct landing carries the actual result; only at an explicit cell checkpoint does the number visibly rebase (SOT-02 pre-generated independent random incoming values on each row).
+
+The original executable baseline has now been freshly retested: 206/206 tests and 61/61 browser checks succeeded. R&D 07B1 and Graph V2 engineering tests passed, but the independent pursuer lab still reports two unmet gameplay expectations. [See evidence](./CC2_00_EXECUTABLE_EVIDENCE.md). Never treat a passing engineering suite as human chase acceptance.
+
+**Status:** CC2-01 design documentation COMPLETE; full CC2-00 observed gameplay acceptance and all replacement implementation/release gates remain separate.

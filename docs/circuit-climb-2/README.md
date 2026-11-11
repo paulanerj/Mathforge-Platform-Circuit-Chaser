@@ -1,69 +1,75 @@
-# Circuit Climb 2.0 — Production successor workstream
+# Circuit Climb 2.0 — Production successor project
 
-**Date established:** 2026-11-11  
-**Status:** Design / forensic qualification (CC2-00); no successor implementation approved yet  
-**PM authority:** Circuit Climb 2.0 conversation in ChatGPT  
-**Repository:** `paulanerj/Mathforge-Platform-Circuit-Chaser`  
-**Work branch:** `circuit-climb-2-production`  
-**Fork point:** `0a6f138f229119bc6b6c15ee1f658046c7075f50` (SOT-02 transfer freeze)  
-**Accepted gameplay authority:** `c8838c30947c2a561bfc8322a6159e4f28fef61a`  
-**Accepted QA authority:** `eac8d8337a30d22cd41f09b6d78f0e73474cb390`
+**PM workstream created:** 2026-11-11  
+**Current phase:** `CC2-01 — COMPLETE DESIGN BASELINE`; **implementation not yet authorized for production promotion**.  
+**Work branch:** `circuit-climb-2-production` in `paulanerj/Mathforge-Platform-Circuit-Chaser`.  
+**Read-only accepted game:** product SHA `c8838c30947c2a561bfc8322a6159e4f28fef61a`, QA SHA `eac8d8337a30d22cd41f09b6d78f0e73474cb390`, transfer/fork SHA `0a6f138f229119bc6b6c15ee1f658046c7075f50`.  
+**Do not merge into main, mutate accepted SOT-02, or treat later R&D pursuers as approved product code.**
 
-## Mandate
+## 1. What this game is
 
-Build a complete, commercially polished MathForge platform-climbing arithmetic game, not merely a replacement bot. Preserve accepted learning mechanics and proven playable behavior. Design and qualify the future game before replacing the original. Include a fair, persistent pursuer, special platforms, optional abilities, additional enemies/hazards, progression, accessibility, strong responsive presentation, and host-neutral MathForge integration boundaries.
+A three-lane, vertical arithmetic escape game. The learner selects one of three numbered platforms to complete the equation and a blue Spark travels automatically along orthogonal blue circuitry (or optional Hop presentation). A correct landing powers the tower; a wrong destination shorts, then returns; a red Pursuer applies fair pressure. Learner mathematics and Pursuer intelligence must operate through deterministic, testable state machines.
 
-This branch is a **successor design and development workspace**. It does not replace the accepted SOT-02, the original product, or the experimental Graph V2 pursuer simply by existing. No automatic merges into `main`, `circuit-climb-successor-sot-02`, or R&D branches.
+**CC2 changes from SOT-02:** explicitly chained number values in four-row power cells with a visible checkpoint reset; capture shielding during automatic outbound and return routes; a finite-perception purposeful Pursuer; Capacitor/Relay special rows; an earned Circuit Pulse; expanded accessible MathForge presentation; and a standalone core with neutral SDK event boundaries.
 
-## Governing documents
+## 2. CC2-01 governing design package (read in this order)
 
-1. [Product blueprint](./CC2_PRODUCT_BLUEPRINT_V0_1.md) — gameplay, features, progression, art direction, SDK contract.
-2. [Pursuer/engineering contract](./CC2_PURSUER_AND_ENGINEERING_CONTRACT_V0_1.md) — engine boundaries, AI evidence, replay, QA gates.
-3. [Parity and decisions register](./CC2_PARITY_AND_DECISIONS_V0_1.md) — source custody, preserved invariants, outstanding questions, candidate decisions.
+| Document | Purpose |
+|---|---|
+| **[01 — Master product spec](./CC2_01_MASTER_PRODUCT_SPEC_V1_0.md)** | Product vision, canonical turn, modes, progression, UX, sound, results and launch scope |
+| **[02 — Math and transaction contract](./CC2_01_MATH_AND_TRANSACTION_CONTRACT_V1_0.md)** | Exact four-row arithmetic, attempts/rows, collision precedence, run state and fixed-tick processing |
+| **[03 — Pursuer and enemy design](./CC2_01_PURSUER_AND_ENEMY_DESIGN_V1_0.md)** | Perception firewall, belief/search, navigation, capture fairness, proof fixtures, future enemy roster |
+| **[04 — Platform, ability and progression catalog](./CC2_01_PLATFORM_ABILITIES_AND_PROGRESSION_V1_0.md)** | Capacitor, Relay, Pulse, power-cell stage schedule, deferred hazards and economy boundaries |
+| **[05 — Architecture, SDK and config](./CC2_01_ARCHITECTURE_SDK_CONFIG_V1_0.md)** | Pure headless core, proposed module layout, versioned schemas, replay, standalone/host bridge, performance |
+| **[06 — QA and delivery qualification](./CC2_01_QA_ACCEPTANCE_AND_DELIVERY_V1_0.md)** | Mechanical, curriculum, pursuits, browser, device and human evidence gates |
+| **[07 — Decision register and design freeze](./CC2_01_DECISION_LOG_AND_FREEZE_V1_0.md)** | Locked design semantics, new SOT divergences, tuning risks, promotion/stop authority |
+| **[08 — CC2-02A coder handoff](./CC2_01_CODER_HANDOFF_02A.md)** | Isolated first implementation tranche with exact permitted paths and tests |
 
-All three are **v0.1 PM proposals**, not an assertion that new features exist in executable code. Preserve explicit distinctions between **ACCEPTED IN SOT-02**, **PROPOSED FOR CC2**, and **OPEN/NEEDS EVIDENCE**. Gameplay rules are not silently revised by an engineering implementation.
+**Do not use** the older v0.1 proposal as a competing product authority. It remains preserved for historical planning:
+- [Product blueprint v0.1](./CC2_PRODUCT_BLUEPRINT_V0_1.md)
+- [Pursuer/engineering proposal v0.1](./CC2_PURSUER_AND_ENGINEERING_CONTRACT_V0_1.md)
+- [Parity and decisions v0.1](./CC2_PARITY_AND_DECISIONS_V0_1.md)
 
-## Foundational accepted product behavior to preserve
+## 3. Source and executable evidence
 
-- Vertical climb; the player is a blue Spark carrying a current number.
-- A row presents **three numbered destination platforms**, exactly one mathematically correct.
-- Selecting a destination, rather than steering a route, is the core input. The game computes a blue orthogonal route.
-- All three choices are physically reachable; wrong answers remain selectable and short out with a visible physical consequence and return.
-- Correctly taken platforms power on green; the pursuer is red and captures on contact, ending that run.
-- The pursuer cannot veto any mathematically offered destination.
-- Pause freezes the simulation; restart is a clean run.
-- Current SOT-02 transit shield protects a Spark mid-route; future shipping policy must be decided explicitly.
-- One shared geometry/corridor authority for player and pursuer. No point collision or hidden routing fallbacks.
-- Mathematical input/evaluation, physical route, arrival, and score/learner evidence must be distinguished.
+- **[CC2-00 source reconstruction](./CC2_00_SOURCE_RECONSTRUCTION_AND_FEATURE_INVENTORY.md)** — inspected source and historical/R&D provenance.
+- **[CC2-00 executable evidence](./CC2_00_EXECUTABLE_EVIDENCE.md)** — actual fresh baseline and experimental CI logs.
+- **Frozen SOT-02 original:** 206/206 tests, 21 capability locks, 61/61 Chromium browser checks: **PASS**, including verified protected gameplay blob identities. [CI run](https://github.com/paulanerj/Mathforge-Platform-Circuit-Chaser/actions/runs/43115779305).
+- **Pursuer 07B1:** 351/351 tests and 61/61 browser checks: **ENGINEERING PASS**; important lateral reacquisition defect **still known**.
+- **Graph V2 04C:** 487/487 engineering tests: **PASS**; real chase quality unapproved.
+- **Pursuer lab:** unit/build can pass while fixtures report **two failed behavioral expectations**; separate browser verifier has unresolved harness issue. It is **NOT QUALIFIED** as a gameplay solution.
 
-## Baseline evidence (historical, not freshly re-run)
+## 4. Gate status
 
-SOT-02 documented 206/206 unit tests, 21 capability locks, 61/61 browser checks and responsive smoke at 320/390/430/590/768 px. This branch has **not** yet rerun them. SOT-02 has six recorded open limitations, including provisional alive-pursuer tuning, closure/diagnostics policy, and runtime arrival/render seams.
-
-The separate GRAPH_PURSUER_V2 R&D series (notably PURSUER-04C, commit `d7a8115ac03672c10ec1f060c8cf9d57b2422bc3`) provides evidence and engineering ideas, **not** adopted gameplay authority.
-
-## Development gates
-
-| Gate | Outcome | Entry/exit principle |
+| Gate | Current status | Next proof |
 |---|---|---|
-| CC2-00 | Source audit and product inventory | Exact source custody, active baseline, feature matrix, reproducible failing scenarios |
-| CC2-01 | Signed product/technical specification | No unresolved foundational gameplay or collision semantics |
-| CC2-02 | Standalone pursuer+world proof | Real geometry, perception firewall, live and replay tests prove acceptable behavior |
-| CC2-03 | Vertical playable production candidate | Full math loop, UI, special systems, deterministic state transitions |
-| CC2-04 | Feature completion and MathForge adapter | Evidence, progression, accessibility, settings, content governance |
-| CC2-05 | Release qualification | Device/browser matrix, learner sessions, performance, regression, SDK contract and PM acceptance |
+| CC2-00 | Source reconstruction and original CI **PASS**; full observed-product acceptance **HELD** | Instrumented real play demonstrating shield and number transition, human chase recording |
+| **CC2-01** | **DESIGN PACKAGE COMPLETED — PM baseline, not shipped** | Owner review of product feel/launch scope as needed; no foundational rules left unspecified |
+| CC2-02A | **READY AS CODER BRIEF; NOT IMPLEMENTED** | Separate new pure world/math/learner core and headless proof |
+| CC2-02B | NOT STARTED | Fair purposeful Pursuer in real graph/perception lab with 07A/F08 fixed |
+| CC2-03 | NOT STARTED | Integrated independently playable surface |
+| CC2-04 | NOT STARTED | UX, accessibility, sound, SDK adapter and devices |
+| CC2-05 | NOT STARTED | Product release evidence and owner approval |
 
-A gate cannot be passed by test count alone; browser and human gameplay evidence are required. No new feature may make the three-choice math contract unsolvable, unfair, or physically unreachable.
+The design can be finished without falsely closing outstanding source-trace and pursuit acceptance gates. New engineering must be isolated in `src/games/circuit-climb-2/` and controlled through the coder handoff. **Never overwrite** `src/games/circuit-climb/`.
 
-## PM control
+## 5. Core design invariants
 
-- Keep the core run independently playable without an SDK host.
-- One change request per coder tranche, with named files, forbidden edits, rollback point, test evidence and demo instructions.
-- Maintain deterministic seeds, preset export/import, reset-to-defaults, failure traces and reproducible run IDs.
-- Put tuning and forensic tools under Settings > Developer, not the learner HUD.
-- Keep the MathForge style direction: clean restrained geometry, translucent materials, meaningful illumination; mobile and tablet first.
-- Commit design, implementation, tests and evidence to this branch. Promote to an accepted release only after explicit PM/owner qualification.
+1. Exactly three choices and one mathematically correct; all three physically reachable.
+2. Destination selection, no player path steering or Pursuer veto over routes.
+3. Wrong choice travels, shorts and returns; the correct option remains.
+4. Correct landing, not initial selection, powers/advances the world.
+5. Four-row arithmetic carries the actual resulting value, followed by an explicit checkpoint rebase.
+6. Automatic Spark transit shielded; grounded capture requires physical overlap and declared grace/timing.
+7. AI sees only legitimate sensed evidence; never future routes, answers or oracle truth.
+8. Special effects do not reveal an answer or silently modify correctness.
+9. Source owns attempt/result events; score and mastery are separate concepts.
+10. Deterministic fixed-tick runtime; seed/config/replay and source hashes qualify every candidate.
+11. A renderable board must actually accept every live choice on real devices.
+12. No new branch or passing test count automatically confers production acceptance.
 
-## Immediate next action
+## 6. Immediate work queue
 
-Complete CC2-00 by comparing the production SOT, the later pursuer experiments and intended future features against actual source and recorded gameplay. In parallel, use these v0.1 proposals to identify every open foundational decision before implementation starts.
+**First,** run/finish CC2-00B instrumented browser/human source observations without changing the old product. **Second,** implement the explicitly bounded CC2-02A headless core on a new child branch using the already-written coder brief; build only math, geometry and learner transaction seams. **Third,** bring the independently tested Pursuer into the core in CC2-02B after demonstrated reacquisition and purposeful search.
+
+PM controls phase scope, rollback, QA, code provenance, and any revision to fundamental gameplay rules.
