@@ -73,6 +73,30 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
-      - run: npm run fixtures
+      - name: Record all fixture expectations even if the CLI exits zero
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run fixtures | tee "$RUNNER_TEMP/cc2-lab-fixtures.txt"
       - run: npm run build
+      - name: Make the lab's existing browser verifier runnable without modifying historical source
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock playwright-core@1.62.1
+          sudo mkdir -p /opt/pw-browsers
+          chrome="$(command -v google-chrome || command -v chromium || true)"
+          if [ -z "$chrome" ]; then
+            echo "Chromium/Chrome missing on runner"
+            exit 1
+          fi
+          sudo ln -sfn "$chrome" /opt/pw-browsers/chromium
       - run: npm run verify:browser
+      - name: Fail on unmet measured gameplay expectations (the fixture CLI itself does not)
+        shell: bash
+        run: |
+          if grep -Eq '[1-9][0-9]* expectation\\(s\\) not met' "$RUNNER_TEMP/cc2-lab-fixtures.txt"; then
+            echo 'Lab source is runnable but its own behavioral expectations are NOT met.'
+            grep -E '[1-9][0-9]* expectation\\(s\\) not met' "$RUNNER_TEMP/cc2-lab-fixtures.txt"
+            exit 1
+          fi
