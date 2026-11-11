@@ -83,7 +83,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm install --no-save --no-package-lock playwright-core@1.62.1
+          npm install --legacy-peer-deps --no-save --no-package-lock playwright-core@1.62.1
           sudo mkdir -p /opt/pw-browsers
           chrome="$(command -v google-chrome || command -v chromium || true)"
           if [ -z "$chrome" ]; then
