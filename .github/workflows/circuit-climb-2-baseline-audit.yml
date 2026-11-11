@@ -1,0 +1,62 @@
+name: Circuit Climb 2 SOT-02 baseline audit
+on:
+  push:
+    branches:
+      - circuit-climb-2-production
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baseline-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout successor branch with SOT-02 history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify ancestry and protected gameplay blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          frozen=0a6f138f229119bc6b6c15ee1f658046c7075f50
+          product=c8838c30947c2a561bfc8322a6159e4f28fef61a
+          git merge-base --is-ancestor "$frozen" HEAD
+          for path in \
+            src/games/circuit-climb/CircuitClimbSurface.tsx \
+            src/games/circuit-climb/geometry/circuitClimbGeometry.ts \
+            src/games/circuit-climb/runtime/circuitClimbLearnerRouting.ts \
+            src/games/circuit-climb/runtime/useCircuitClimbPrototypeRuntime.ts \
+            src/games/circuit-climb/services/CircuitClimbMathAdapter.ts \
+            src/games/circuit-climb/pursuer/circuitClimbPursuer.ts \
+            src/games/circuit-climb/styles/circuit-climb.css
+          do
+            actual="$(git rev-parse "HEAD:$path")"
+            expected="$(git rev-parse "$product:$path")"
+            echo "$path $actual"
+            test "$actual" = "$expected"
+          done
+
+      - name: Install frozen dependencies
+        run: npm ci
+
+      - name: Static typecheck
+        run: npm run lint
+
+      - name: Full inherited unit suite
+        run: npm test
+
+      - name: Production bundle
+        run: npm run build
+
+      - name: Supported real-browser regression
+        run: npm run test:circuit-climb:browser
