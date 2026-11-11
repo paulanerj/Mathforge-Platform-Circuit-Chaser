@@ -95,8 +95,8 @@ jobs:
       - name: Fail on unmet measured gameplay expectations (the fixture CLI itself does not)
         shell: bash
         run: |
-          if grep -Eq '[1-9][0-9]* expectation\\(s\\) not met' "$RUNNER_TEMP/cc2-lab-fixtures.txt"; then
+          if grep -Eq '[1-9][0-9]* expectation.s. not met' "$RUNNER_TEMP/cc2-lab-fixtures.txt"; then
             echo 'Lab source is runnable but its own behavioral expectations are NOT met.'
-            grep -E '[1-9][0-9]* expectation\\(s\\) not met' "$RUNNER_TEMP/cc2-lab-fixtures.txt"
+            grep -E '[1-9][0-9]* expectation.s. not met' "$RUNNER_TEMP/cc2-lab-fixtures.txt"
             exit 1
           fi
