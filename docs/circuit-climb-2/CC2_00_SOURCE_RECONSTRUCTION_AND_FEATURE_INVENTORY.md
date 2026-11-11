@@ -114,7 +114,9 @@ These rules should become formal CC2 invariants instead of copied hidden constan
 
 **Historical SOT-02 acceptance**, recorded in SOT-02 doc and transfer commit: 20 test files / 206 tests passing; 21 capability locks; 61 browser checks; 9 fast checks at each 320, 390, 430, 590, 768 width. The 120%-world route-regression and white-canvas regressions are mutation-tested. These counts are **historical**, not a fresh audit verdict.
 
-**Fresh gate initiated:** GitHub Actions [CC2 SOT-02 baseline audit](https://github.com/paulanerj/Mathforge-Platform-Circuit-Chaser/actions/runs/43115779305), commit `e2ecee53c4a9a23885b0fffa592fad1f902c3442`. It checks strict SOT-02 ancestry, exact protected gameplay blob identities, `npm ci`, `npm run lint`, `npm test`, `npm run build`, and `npm run test:circuit-climb:browser`. At report creation **run in progress; no PASS asserted**. Later runs after documentation commits must be tracked independently.
+**Fresh SOT-02 gate PASSED:** GitHub Actions [CC2 SOT-02 baseline audit](https://github.com/paulanerj/Mathforge-Platform-Circuit-Chaser/actions/runs/43115779305), commit `e2ecee53c4a9a23885b0fffa592fad1f902c3442`, and [subsequent document-state run](https://github.com/paulanerj/Mathforge-Platform-Circuit-Chaser/actions/runs/43117078801) are successful. Source ancestry and all seven protected gameplay blob identities verified. `npm ci`, TypeScript lint, **20/20 files and 206/206 tests**, the **21 capability locks**, production build, and actual Chromium browser smoke **61/61** all passed. Browser covered widths 320/390/430/590/768 at 100% and 80/100/120% framing at 430. This establishes fresh executable *baseline parity*, not final future-product quality.
+
+**Fresh pursuer R&D:** [07B1 CI run](https://github.com/paulanerj/Mathforge-Platform-Circuit-Chaser/actions/runs/43117078717) passed **26 files / 351 tests, lint, production build and browser smoke 61/61**. The 07B1 lateral reacquisition defect remains explicitly documented and thus is not contradicted by that pass. The same run verified Graph V2 04C: **33 files / 487 tests, lint and build**. The independent lab's unit test step and fixture CLI command returned success, but the *fixture output reports two unmet gameplay expectations* (F01 stationary visible close-distance and F08 lose-then-stand-still reacquisition); the run is not qualified. Its browser verifier could not start because historical lab does not declare `playwright-core`. A CI-only workaround is being qualified. See [CC2-00 executable evidence](./CC2_00_EXECUTABLE_EVIDENCE.md) for run-level details.
 
 **Not yet verified in this CC2 audit:** actual device play, human observation of baseline and R&D, recorded chase replays, local build/dependency tests, or learner-number progression under a real button sequence. The current connector can read repository contents and CI metadata, but the working container has no network route to GitHub and cannot clone the code directly.
 
@@ -144,12 +146,12 @@ These rules should become formal CC2 invariants instead of copied hidden constan
 | Enumerate actual modules, gameplay and feature inventory | **PASS** via direct code review |
 | Compare relevant pursuer R&D and integration branches | **PASS** via branch/commit/doc source audit |
 | Identify documented and additional systemic gaps | **PASS**; see F01–F09 |
-| Fresh CI lint/unit/build/browser on exact preserved behavior | **IN PROGRESS** at this report's original commit |
+| Fresh CI lint/unit/build/browser on exact preserved behavior | **PASS**: 206/206 unit tests, 21 locks, 61/61 browser checks, typecheck/build/source hashes |
 | Reproduce pursuit defects and number transition in live browser | **OPEN** |
 | Resolve conflicting default shield and arithmetic continuity | **OPEN PRODUCT DECISIONS** |
 | Define testable core state/event model for CC2-01 | **READY TO BEGIN**; not yet a frozen contract |
 
-**PM result:** CC2-00 documentary/source-reconstruction tranche complete. **Do not declare CC2-00 fully passed or authorize engine replacement** until the fresh CI and specific real-gameplay fixtures are examined and the two foundational rule ambiguities are resolved. Work may proceed on CC2-01 *design*, but not on CC2-02 implementation.
+**PM result:** CC2-00 documentary/source-reconstruction tranche complete. **Do not declare CC2-00 fully passed or authorize engine replacement** until the specific real-gameplay fixtures are examined and the two foundational rule ambiguities are resolved. Work may proceed on CC2-01 *design*, but not on CC2-02 implementation.
 
 ## I. Next coder-ready request: CC2-00B executable validation
 
