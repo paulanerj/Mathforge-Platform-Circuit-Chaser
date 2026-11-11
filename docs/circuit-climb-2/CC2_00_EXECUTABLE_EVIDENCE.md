@@ -36,7 +36,7 @@
 - Other diagnostic indicators: F05/F12 capture classified `LIKELY_SEARCH_COLLISION`; fast learner F06 had 0% perception and ended 668 units distant. These are observations, not necessarily independent failed expectations.
 - Fixed-timebase simulation made decisions identical at 60/120/144Hz; the render-coupled reference did not. This supports adopting fixed simulation steps in CC2.
 - First CI lab-browser attempt failed `ERR_MODULE_NOT_FOUND: playwright-core`; historical lab's own package.json lacks the devDependency imported by `tools/browserVerify.mjs`.
-- A later CI-only `npm install` workaround initially failed because npm's documented optional-peer `edgesOut` resolver defect; an updated workflow tries `--legacy-peer-deps`. The historical lab source and package-lock are **untouched**. Until a browser verification completes, report it as **not browser-qualified**.
+- The first CI-only `npm install` workaround failed because npm's documented optional-peer `edgesOut` resolver defect. With `--legacy-peer-deps`, dependency installation succeeded and the historical browser script started, **but then timed out after 60 seconds waiting to detect its own Vite dev-server URL** (`Error: dev server did not start`); see [workflow 43117478864](https://github.com/paulanerj/Mathforge-Platform-Circuit-Chaser/actions/runs/43117478864). This is a **lab harness/browser-verification failure** separate from the two real gameplay fixture failures. The historical lab source and package-lock remain **untouched**. Lab browser verification remains **NOT QUALIFIED**.
 - A future CI gate must treat nonzero expectation count as FAILURE even when CLI exits success. Do **not** suppress F01 or F08 to obtain green status.
 
 ## 5. Outstanding, not hidden by any green check
