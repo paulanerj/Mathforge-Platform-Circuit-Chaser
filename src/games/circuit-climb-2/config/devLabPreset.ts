@@ -15,6 +15,11 @@ import {
   type PursuerPresetV1,
 } from '../pursuer/pursuerPreset';
 
+import {curiousPursuerPersonality,defaultPursuerPersonality,
+  validatePursuerPersonality,type PursuerPersonalityV1} from '../pursuer/personality';
+import {defaultFeedbackPreset,validateFeedbackPreset,
+  type FeedbackPresetV1} from '../presentation/feedback';
+
 export interface CameraViewPresetV1 {
   zoom: number;
   follow: number;
@@ -26,6 +31,9 @@ export interface DevLabPresetV1 {
   learner: LearnerMotionPresetV1;
   pursuer: PursuerPresetV1;
   camera: CameraViewPresetV1;
+  /** Optional so historical CC2-05A presets still load exactly. */
+  personality?: PursuerPersonalityV1;
+  feedback?: FeedbackPresetV1;
 }
 
 export function validateCameraView(value:unknown): CameraViewPresetV1 {
@@ -47,6 +55,28 @@ export function defaultDevLabPreset():DevLabPresetV1 {
     learner:defaultLearnerMotionPreset(),
     pursuer:defaultPursuerPreset(),
     camera:{zoom:0.72,follow:0.13},
+    personality:defaultPursuerPersonality(),
+    feedback:defaultFeedbackPreset(),
+  };
+}
+
+/**
+ * Beginner-middle owner candidate: 20% faster Pursuer than the owner's
+ * previous test (1.2 search/1.9 chase => 1.44/2.28). Both are still
+ * comfortably below the old 2.6/3.7 relentless high-difficulty settings.
+ * The Spark keeps its previously tested 26 world-units/tick.
+ */
+export function intermediateDevLabPreset():DevLabPresetV1{
+  const base=defaultDevLabPreset();
+  return {
+    ...base,
+    run:{...base.run,curriculum:'makeTarget20',landingGraceTicks:45},
+    learner:{...base.learner,circuitSpeedPerTick:26,hopTicks:14,returnTicks:12},
+    pursuer:{...base.pursuer,nearSenseRadius:180,clearSightRadius:270,
+      trailSenseRadius:90,trailLifetimeTicks:360,staleContactTicks:18,
+      speedSearch:1.44,speedPursuit:2.28,spawnRowsBelow:3},
+    personality:curiousPursuerPersonality(),
+    camera:{zoom:0.70,follow:0.13},
   };
 }
 
@@ -54,7 +84,9 @@ export function validateDevLabPreset(input:unknown):DevLabPresetV1 {
   if (!input || typeof input!=='object' || Array.isArray(input))
     throw Error('CC2_DEV_PRESET_NOT_OBJECT');
   const v=input as Record<string,unknown>;
-  if (Object.keys(v).sort().join('|')!=='camera|learner|pursuer|run|schemaVersion' ||
+  const allowed=['camera','feedback','learner','personality','pursuer','run','schemaVersion'];
+  if (Object.keys(v).some(key=>!allowed.includes(key))||
+      !['camera','learner','pursuer','run','schemaVersion'].every(key=>key in v)||
       v.schemaVersion!=='cc2-dev-lab/v1') throw Error('CC2_DEV_PRESET_VERSION_OR_KEYS');
   return {
     schemaVersion:'cc2-dev-lab/v1',
@@ -62,6 +94,8 @@ export function validateDevLabPreset(input:unknown):DevLabPresetV1 {
     learner:validateLearnerMotionPreset(v.learner),
     pursuer:validatePursuerPreset(v.pursuer),
     camera:validateCameraView(v.camera),
+    personality:validatePursuerPersonality(v.personality??defaultPursuerPersonality()),
+    feedback:validateFeedbackPreset(v.feedback??defaultFeedbackPreset()),
   };
 }
 
