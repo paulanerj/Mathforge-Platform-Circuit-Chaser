@@ -102,7 +102,7 @@ describe('CC2-02A: explicitly retained SOT-02 geometry capability locks', () => 
     addProblemRow(world, b);
     const ids = world.rows.flatMap(row => row.platforms.map(platform => platform.id));
     expect(new Set(ids).size).toBe(ids.length);
-    for (const id of ids) expect(id).toMatch(/^row-\\d+-column-\\d+$/);
+    for (const id of ids) expect(id).toMatch(/^row-\d+-column-\d+$/);
   });
 
   it('crossing altitude clears inflated collision rectangles at every 1% framing step', () => {
