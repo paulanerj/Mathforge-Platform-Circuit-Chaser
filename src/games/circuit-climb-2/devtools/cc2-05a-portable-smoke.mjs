@@ -41,7 +41,7 @@ try {
       viewport.width+'px: one correct complement to target 10');
     assert(requests.length===0,viewport.width+'px: no external requests');
     assert(errors.length===0,viewport.width+'px: zero script exceptions');
-    assert(await page.locator('#cameraZoom').inputValue()==='0.70',viewport.width+'px: camera tuning control available');
+    assert(Number(await page.locator('#cameraZoom').inputValue())===0.70,viewport.width+'px: camera tuning control available');
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),
       viewport.width+'px: no overflow');
     if(viewport.width===390){
