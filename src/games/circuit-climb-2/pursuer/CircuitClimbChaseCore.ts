@@ -137,8 +137,12 @@ export class CircuitClimbChaseCore {
   }
   snapshot():ChaseSnapshotV1{
     const state=this.core.snapshot();
-    return {learner:state,pursuer:this.pursuer.snapshot(),
-      features:this.features.snapshot(state.tick,this.config.mode,state.phase,state.paused)};
+    const bot=this.pursuer.snapshot();
+    const separation=Math.hypot(state.spark.x-bot.body.x,
+      state.spark.y-bot.body.y);
+    return {learner:state,pursuer:bot,
+      features:this.features.snapshot(state.tick,this.config.mode,
+        state.phase,state.paused,separation)};
   }
   /** Compatibility for the CC2 learner board's existing source API. */
   learnerSnapshot():EngineStateV1{return this.core.snapshot();}
@@ -146,7 +150,10 @@ export class CircuitClimbChaseCore {
   featureEventLog():FeatureEventV1[]{return this.features.eventLog();}
   featureSnapshot():FeatureSnapshotV1{
     const state=this.core.snapshot();
-    return this.features.snapshot(state.tick,this.config.mode,state.phase,state.paused);
+    const bot=this.pursuer.snapshot().body;
+    const separation=Math.hypot(state.spark.x-bot.x,state.spark.y-bot.y);
+    return this.features.snapshot(state.tick,this.config.mode,
+      state.phase,state.paused,separation);
   }
   diagnostics():PursuerDiagnostic[]{return this.pursuer.diagnostics();}
   devGraph(){return this.pursuer.devGraph();}

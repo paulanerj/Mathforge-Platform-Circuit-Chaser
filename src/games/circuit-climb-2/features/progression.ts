@@ -80,6 +80,8 @@ export interface FeatureSnapshotV1 {
   stage:number;
   nextModifier:ModifierV1;
   pulseAvailable:boolean;
+  pulseRadius:number;
+  targetInRange:boolean;
   events:FeatureEventV1[];
 }
 const clone=<T>(x:T):T=>structuredClone(x);
@@ -174,7 +176,8 @@ export class FeatureProgression {
     return this.pulseTargetAffected && this.pulseUntilTick>tick
       ?this.config.pulseSpeedMultiplier:1;
   }
-  snapshot(tick:number,mode:string,phase:string,paused:boolean):FeatureSnapshotV1{
+  snapshot(tick:number,mode:string,phase:string,paused:boolean,
+    actualTargetDistance:number|null=null):FeatureSnapshotV1{
     return {
       charge:this.charge,capacity:this.config.chargeCapacity,
       pulseUntilTick:this.pulseUntilTick,
@@ -182,6 +185,11 @@ export class FeatureProgression {
       completedRows:this.completedRows,
       stage:Math.floor(this.completedRows/12)+1,
       nextModifier:modifierForRow(this.completedRows+1,this.config),
+      pulseRadius:this.config.pulseRadius,
+      // This is displayed to the learner and NEVER enters the Brain.
+      // Null signifies that a no-bot consumer cannot truthfully report range.
+      targetInRange:actualTargetDistance!==null &&
+        actualTargetDistance<=this.config.pulseRadius,
       pulseAvailable:!this.ended&&!paused&&mode!=='practice'&&
         phase==='ready'&&this.pulseUntilTick<=tick&&
         this.charge===this.config.chargeCapacity,

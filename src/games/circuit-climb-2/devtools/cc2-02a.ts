@@ -542,7 +542,10 @@ function draw(): void {
     if(feature){
       if(energy) energy.textContent='PULSE '+feature.charge+'/'+feature.capacity+
         (feature.pulseUntilTick>state.tick
-          ? ' · ACTIVE '+Math.ceil((feature.pulseUntilTick-state.tick)/60)+'s':'');
+          ? ' · ACTIVE '+Math.ceil((feature.pulseUntilTick-state.tick)/60)+'s'
+          : feature.charge===feature.capacity
+            ? feature.targetInRange?' · BOT IN RANGE':' · BOT OUT OF RANGE'
+            : '');
       if(rowKind)rowKind.textContent='STAGE '+feature.stage+
         ' · '+feature.nextModifier+' ROW';
       if(cellProgress){
@@ -558,10 +561,14 @@ function draw(): void {
       if(pulseButton){
         pulseButton.textContent=feature.pulseUntilTick>state.tick
           ? 'Pulse active · '+Math.ceil((feature.pulseUntilTick-state.tick)/60)+'s'
-          : 'Pulse '+feature.charge+'/'+feature.capacity;
+          : feature.charge===feature.capacity
+            ? feature.targetInRange?'Pulse · IN RANGE':'Pulse · OUT OF RANGE'
+            : 'Pulse '+feature.charge+'/'+feature.capacity;
         pulseButton.disabled=!feature.pulseAvailable;
         pulseButton.setAttribute('aria-label',feature.pulseAvailable
-          ? 'Activate charged Circuit Pulse to slow nearby pursuer'
+          ? feature.targetInRange
+            ? 'Activate charged Circuit Pulse; the pursuer is in range'
+            : 'Pursuer out of range. Activating Circuit Pulse now will spend charge without slowing it.'
           : 'Circuit Pulse unavailable; charge '+feature.charge+' of '+feature.capacity);
       }
     }
