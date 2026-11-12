@@ -10,7 +10,7 @@ export interface RunConfigV1 {
   mode: 'practice' | 'climb' | 'challenge';
   curriculum: 'add20';
   movement: 'circuit' | 'hop';
-  framingPercent: 80 | 90 | 100 | 110 | 120;
+  framingPercent: number; // all integer percentages from 80 through 120
   routeTurns: 6 | 8 | 10 | 12;
   transitShield: boolean;
   landingGraceTicks: number;
@@ -41,7 +41,11 @@ export function validateRunConfig(value: unknown): RunConfigV1 {
   if (!['practice', 'climb', 'challenge'].includes(String(input.mode))) throw new Error('CONFIG_INVALID_MODE');
   if (input.curriculum !== 'add20') throw new Error('CONFIG_UNSUPPORTED_CURRICULUM');
   if (!['circuit', 'hop'].includes(String(input.movement))) throw new Error('CONFIG_INVALID_MOVEMENT');
-  if (![80, 90, 100, 110, 120].includes(input.framingPercent as number)) throw new Error('CONFIG_UNSAFE_FRAMING');
+  if (!Number.isInteger(input.framingPercent) ||
+      (input.framingPercent as number) < 80 ||
+      (input.framingPercent as number) > 120) {
+    throw new Error('CONFIG_UNSAFE_FRAMING');
+  }
   if (![6, 8, 10, 12].includes(input.routeTurns as number)) throw new Error('CONFIG_INVALID_TURNS');
   if (typeof input.transitShield !== 'boolean') throw new Error('CONFIG_INVALID_TRANSIT_SHIELD');
   if (!Number.isInteger(input.landingGraceTicks) ||

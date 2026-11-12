@@ -58,6 +58,8 @@ describe('CC2-02A: versioned configuration authority', () => {
     expect(configHash(restored)).toBe(configHash(config));
     expect(config.transitShield).toBe(true);
     expect(config.landingGraceTicks).toBe(15);
+    expect(validateRunConfig({ ...config, framingPercent: 87 }).framingPercent).toBe(87);
+    expect(validateRunConfig({ ...config, framingPercent: 119 }).framingPercent).toBe(119);
   });
 
   it('rejects unknown fields and impossible config values', () => {
@@ -65,6 +67,7 @@ describe('CC2-02A: versioned configuration authority', () => {
     expect(() => validateRunConfig({ ...base, unexpected: 'yes' })).toThrow('CONFIG_UNKNOWN_OR_MISSING_FIELDS');
     expect(() => validateRunConfig({ ...base, schemaVersion: 'v9' })).toThrow('CONFIG_UNSUPPORTED_VERSION');
     expect(() => validateRunConfig({ ...base, framingPercent: 200 })).toThrow('CONFIG_UNSAFE_FRAMING');
+    expect(() => validateRunConfig({ ...base, framingPercent: 88.5 })).toThrow('CONFIG_UNSAFE_FRAMING');
     expect(() => validateRunConfig({ ...base, landingGraceTicks: -1 })).toThrow('CONFIG_INVALID_LANDING_GRACE');
     expect(() => validateRunConfig({ ...base, curriculum: 'multiply' })).toThrow('CONFIG_UNSUPPORTED_CURRICULUM');
   });

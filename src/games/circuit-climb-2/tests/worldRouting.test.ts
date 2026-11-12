@@ -22,7 +22,7 @@ describe('CC2-02A: preserved geometry routed through an isolated typed world', (
   });
 
   it('offers a legal nondegenerate, collision-checked route for every next platform', () => {
-    for (const percent of [80, 90, 100, 110, 120] as const) {
+    for (let percent = 80; percent <= 120; percent += 1) {
       const config = { ...defaultRunConfig(), framingPercent: percent };
       const world = createWorld(config);
       const rng = new SeededRandom('world-' + percent);
