@@ -8,9 +8,9 @@
 
 ## 1. Q1 verdict
 
-**Automated interaction/visual regression: PASS** on [GitHub Actions 43132543988](https://github.com/paulanerj/Mathforge-Platform-Circuit-Chaser/actions/runs/43132543988), source SHA `61e3cdb50d1e1f9356a6bc8e94eb9ac5663a9e19`.
+**Automated interaction/visual regression: PASS at final executable SHA** on [GitHub Actions 43132901194](https://github.com/paulanerj/Mathforge-Platform-Circuit-Chaser/actions/runs/43132901194), source SHA `0d782e5bfa46cecdab4e54af1e3be82ff38bee06`. **64/64 Q1 visual assertions, 41/41 CC2-02A browser assertions, and 229/229 total Vitest cases passed.** Original SOT-02 browser regression also PASS.
 
-A final presentation-only follow-up at `0d782e5bfa46cecdab4e54af1e3be82ff38bee06` replaces the recharge notice's translucent fill with solid fill to remove ghost text behind it; [latest branch CI](https://github.com/paulanerj/Mathforge-Platform-Circuit-Chaser/actions/runs/43132901194) should confirm that exact SHA before marking the final head fully green.
+The presentation-only final correction makes the recharge notice opaque to eliminate status text bleeding through. That exact executable SHA passed all CI steps; the later documentation-only commit does not change gameplay or UI.
 
 **PM visual inspection:** actual CI screenshots inspected for 320x568 ready, 390x844 ready/wrong outbound/wrong short/wrong return/correct landing/rebase, and 1200 desktop. The corrected first-row artwork no longer falsely portrays two wrong starting choices. The recharge number boundary is visually explicit without covering the next three available choices.
 
@@ -38,16 +38,16 @@ The executable CI captures **11 actual browser screenshots**, uploaded as `cc2-q
 - 390px wrong outbound, wrong shorted, wrong returned.
 - 390px correct landing/new math and power-cell rebase.
 
-**Artifact:** [Q1 screenshots on Actions run 43132543988](https://github.com/paulanerj/Mathforge-Platform-Circuit-Chaser/actions/runs/43132543988). The final follow-up run's artifact supersedes it once available.
+**Artifact:** [Final screenshots on Actions run 43132901194](https://github.com/paulanerj/Mathforge-Platform-Circuit-Chaser/actions/runs/43132901194), `cc2-q1-visual-evidence` (11 rendered PNGs, including 6 viewport sizes and 5 interaction checkpoints).
 
 The base screenshot now displays only the legitimate center starting platform, not false red fail blocks. The screenshots show platform numerals and Spark number legible against the dark circuitry; the incorrect arithmetic and checkpoint transitions have high-contrast separate visual grammars.
 
 ## 4. Test and acceptance controls
 
-- Actual Q1-specific browser script: `src/games/circuit-climb-2/devtools/cc2-02a-q1-visual-smoke.mjs`.
+- Actual Q1-specific browser script: `src/games/circuit-climb-2/devtools/cc2-02a-q1-visual-smoke.mjs`: **64/64 assertions PASS**.
 - Source-integrity guard validates all original SOT-02 files and exact Q1 ancestry.
-- TypeScript project check and complete original/new Vitest suite.
-- Build smoke plus actual new 02A browser play tests.
+- TypeScript project check and complete original/new Vitest suite: **229/229 PASS**.
+- Build smoke plus actual new 02A browser play tests: **41/41 PASS**.
 - Actual Chromium Q1 screen sizes: **320×568, 360×640, 390×844, 428×926, 768×1024 and 1200×800**.
 - Every viewport checks no horizontal overflow, first-viewport Pause visibility, three visible DOM choices, >=44px height, >=52px width, no clipped selection, no banner overlap and no repeated canvas resizes.
 - Actual wrong-choice outbound and return verified, including immutable problem identity/number and disabled wrong option.
@@ -85,4 +85,4 @@ Source diff against CC2-02A parent contains **only**:
 
 No core, world, curriculum, scoring, pursue-bot, SDK or original source modifications.
 
-**PM disposition:** engineering and visual *candidate* qualified in Chromium; keep unmerged in draft review. Proceed to **CC2-02B pursuer laboratory** only as a separate workstream, while owner can review these artifacts. No need to block designing the isolated pursuer laboratory on a cosmetic final-art pass, but do not declare 2.0 finished until real chase and owner acceptances exist.
+**PM disposition: Q1 AUTOMATED + SCREENSHOT REVIEW PASS / OWNER DEVICE REVIEW OPEN.** This visual/interaction candidate is qualified in Chromium but remains unmerged in draft review. Proceed to **CC2-02B pursuer laboratory** only as a separate workstream, while owner can review these artifacts. No need to block designing the isolated pursuer laboratory on a cosmetic final-art pass, but do not declare 2.0 finished until real chase and owner acceptances exist.
