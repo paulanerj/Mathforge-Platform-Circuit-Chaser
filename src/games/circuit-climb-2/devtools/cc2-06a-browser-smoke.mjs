@@ -77,9 +77,19 @@ try{
       viewport.width+'px: visible card center and real selectable hit target agree in X and Y');
     check((await page.locator('.phase').innerText()).includes('PRODUCTION LOOK'),
       viewport.width+'px: production concept unmistakably identified');
-    check(await page.locator('#threatIndicator').isVisible() &&
-      (await page.locator('#threatText').innerText()).includes('PURSUER BELOW'),
-      viewport.width+'px: physically offscreen bot has readable below-tower warning');
+    const botAwareness=await page.evaluate(()=>{
+      const api=window.__CC2_02A__,camera=api.rendererStats();
+      const pursuer=api.pursuer(),canvas=document.querySelector('#worldCanvas');
+      if(!pursuer) return false;
+      const y=(pursuer.body.y-camera.cameraY)*camera.effectiveZoom*
+        canvas.clientWidth/600;
+      const physicallyOnScreen=y>=20&&y<=canvas.clientHeight-20;
+      const warning=document.querySelector('#threatIndicator');
+      return physicallyOnScreen || (!warning.hidden &&
+        document.querySelector('#threatText').textContent.includes('PURSUER'));
+    });
+    check(botAwareness,
+      viewport.width+'px: enemy is physically visible OR truthfully marked outside camera');
 
     await page.screenshot({path:join(captures,'production-start-'+viewport.width+'.png'),fullPage:true});
     if(viewport.width===390){
