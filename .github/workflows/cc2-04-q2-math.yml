@@ -19,6 +19,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Prove protected original SOT-02 source unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=0a6f138f229119bc6b6c15ee1f658046c7075f50
+          git merge-base --is-ancestor 1087ceb7863fe20489894d3e48202f4911ac56ef HEAD
+          while IFS= read -r path; do
+            test "$(git rev-parse "HEAD:$path")" = "$(git rev-parse "$base:$path")"
+          done < <(git ls-tree -r --name-only "$base" src/games/circuit-climb/)
+          echo "PASS SOT-02 source custody"
       - run: npm ci
       - name: TypeScript typecheck
         run: npm run lint
@@ -34,3 +44,13 @@ jobs:
         run: node src/games/circuit-climb-2/devtools/cc2-04-q2-browser-smoke.mjs
       - name: Protected original Circuit Climb browser smoke
         run: npm run test:circuit-climb:browser
+      - name: Bundle exact Q2 gameplay as single offline HTML
+        run: node src/games/circuit-climb-2/devtools/buildPortableQ2.mjs
+      - name: Prove offline file-protocol mathematical play with internet blocked
+        run: node src/games/circuit-climb-2/devtools/cc2-04-q2-portable-smoke.mjs
+      - name: Deliver verified Q2 HTML for owner review
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-04-Q2-Offline-Playable-HTML
+          path: cc2-standalone/CC2-04-Q2-Playable.html
+          retention-days: 30
