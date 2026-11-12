@@ -56,5 +56,7 @@ jobs:
         run: npm test
       - name: Production build remains intact
         run: npm run build
+      - name: New CC2-02A standalone browser smoke
+        run: node src/games/circuit-climb-2/devtools/cc2-02a-browser-smoke.mjs
       - name: Retained original playable browser smoke
         run: npm run test:circuit-climb:browser
