@@ -28,7 +28,7 @@ const html=template.replace(target,
   '<script>\n/* CC2-04 offline game bundle */\n'+safe+'\n</script>');
 // Inspect the actual HTML script opener rather than scanning minified JS:
 // a bundled string literal may legitimately contain the old source path.
-if (/<script\\b[^>]*\\bsrc\\s*=/.test(html))
+if (/<script\b[^>]*\bsrc\s*=/.test(html))
   throw Error('CC2_PORTABLE_EXTERNAL_SCRIPT_TAG');
 if (!html.includes('/* CC2-04 offline game bundle */'))
   throw Error('CC2_PORTABLE_INLINE_SCRIPT_MISSING');
