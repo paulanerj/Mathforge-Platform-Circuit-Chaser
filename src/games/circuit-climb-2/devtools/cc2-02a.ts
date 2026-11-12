@@ -19,10 +19,12 @@ import {defaultLearnerMotionPreset,type LearnerMotionPresetV1} from '../config/l
 import {
   defaultDevLabPreset,intermediateDevLabPreset,
   validateCameraView,validateDevLabPreset,
-  exportDevLabPreset,importDevLabPreset,projectCameraPoint,
+  exportDevLabPreset,importDevLabPreset,
   type DevLabPresetV1,type CameraViewPresetV1,
 } from '../config/devLabPreset';
 import { getRow, findPlatform } from '../world/world';
+import {computeProductionCamera,projectProductionPoint,
+  type ProductionCameraFrame} from '../presentation/productionCamera';
 import {defaultPursuerPersonality,validatePursuerPersonality,
   type PursuerPersonalityV1,type PursuerEmotionV1} from '../pursuer/personality';
 import {
@@ -79,6 +81,8 @@ const exportPreset=document.querySelector<HTMLButtonElement>('#exportPreset');
 const importPreset=document.querySelector<HTMLButtonElement>('#importPreset');
 const viewReadout=document.querySelector<HTMLElement>('#viewReadout');
 const cueNotice=document.querySelector<HTMLElement>('#cueNotice');
+const threatIndicator=document.querySelector<HTMLElement>('#threatIndicator');
+const threatText=document.querySelector<HTMLElement>('#threatText');
 const soundToggle=document.querySelector<HTMLButtonElement>('#soundToggle');
 const testSound=document.querySelector<HTMLButtonElement>('#testSound');
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -162,6 +166,8 @@ let previousBotEmotion:PursuerEmotionV1|null=null;
 let cameraY = 0;
 let previewRowsRendered=0;
 let effectiveCameraZoom=0.70;
+let horizontalCameraScale=1;
+let productionFrame:ProductionCameraFrame|null=null;
 let cameraRowGap=205;
 let viewportCoverage={above:0,below:0};
 let logicalHeight = 800;
@@ -549,26 +555,20 @@ function updateChoices(): void {
   for (const button of buttons) {
     const platform = findPlatform(state.world, button.dataset.platformId!);
     if (!platform) continue;
-    const scale=canvas.clientWidth/state.world.geometry.logicalWidth*effectiveCameraZoom;
-    // Physical destinations and canvas still use EXACTLY one projection.
-    // On narrow screens the three lanes can project only 36px apart.
-    // Magnify/spread ACTIVE BUTTONS (not physics/platform position) when
-    // necessary; otherwise >=52px hit targets would overlap and mis-tap.
-    // Their ordinal ordering remains the actual source-owned option ordering.
-    const width=Math.max(52,platform.width*scale);
-    const height=Math.max(44,platform.height*scale);
-    const centre=projectCameraPoint(platform.x,
-      platform.y+platform.height/2,cameraY,canvas.clientWidth,
-      state.world.geometry.logicalWidth,effectiveCameraZoom);
+    // Source platform and clickable card use ONE mathematical coordinate:
+    // there is no "spread the buttons but leave the tower compressed" hack.
+    if(!productionFrame)continue;
+    const cssScale=canvas.clientWidth/state.world.geometry.logicalWidth;
+    const xScale=productionFrame.xScale*cssScale;
+    const yScale=productionFrame.yScale*cssScale;
+    const width=Math.max(64,Math.min(132,platform.width*xScale*0.91));
+    const height=Math.max(49,Math.min(78,platform.height*yScale*1.8));
+    const centre=projectProductionPoint(platform.x,
+      platform.y+platform.height/2,productionFrame,
+      state.world.geometry.logicalWidth,canvas.clientWidth);
     const y=centre.y-height/2;
-    const laneSpacing=(state.world.geometry.columns[1]-
-      state.world.geometry.columns[0])*scale;
-    const needsSpread=laneSpacing<width+9;
-    const screenX=needsSpread
-      ? canvas.clientWidth*(0.20+platform.column*0.30)
-      : centre.x;
-    button.style.left=`${screenX}px`;
-    button.dataset.magnified=needsSpread?'true':'false';
+    button.style.left=`${centre.x}px`;
+    button.dataset.magnified='false';
     button.style.top=`${y}px`;
     button.style.width = `${width}px`;
     button.style.height = `${height}px`;
@@ -605,25 +605,24 @@ function draw(): void {
   const g = state.world.geometry;
   const features = featuresEnabled ? engine.features() : null;
   fitCanvas();
-  // Camera is a presentation-only viewport. To reveal at least three
-  // FULL platform rows above and three below the player we calculate a
-  // resolution-specific maximum zoom. Physics, pursuer and math are not scaled.
-  // Include vertical card heights + canvas padding so 3-row reach is not
-  // marginally clipped on narrow phones.
+  // CAMERA 06A: horizontal and vertical views are independent.
+  // 2 levels above + 2 below, without squeezing the tower into 3 thin lanes.
+  // This is render-only: core geometry, pursuer routes and math are unchanged.
   cameraRowGap=g.rowGap;
-  const totalWorldSpan=6*g.rowGap+g.platformHeight+140;
-  const fitZoom=logicalHeight/totalWorldSpan;
-  const zoom=Math.max(0.15,Math.min(cameraView.zoom,fitZoom));
+  productionFrame=computeProductionCamera({
+    logicalWidth:600,logicalHeight,rowGap:g.rowGap,
+    platformHeight:g.platformHeight,columns:g.columns,
+    sparkY:state.spark.y,previousCameraY:cameraY,
+    maxZoom:cameraView.zoom,follow:cameraView.follow,
+  });
+  const zoom=productionFrame.yScale;
+  horizontalCameraScale=productionFrame.xScale;
   effectiveCameraZoom=zoom;
-  const targetCamera=state.spark.y-logicalHeight/(2*zoom);
-  // Follow smoothing is retained only inside the free margin and cannot
-  // push one of the six guaranteed rows outside the visible viewport.
-  const spare=Math.max(0,(logicalHeight/zoom-totalWorldSpan)/2);
-  cameraY+=(targetCamera-cameraY)*cameraView.follow;
-  cameraY=Math.max(targetCamera-spare,Math.min(targetCamera+spare,cameraY));
+  cameraY=productionFrame.cameraY;
   const h=logicalHeight/zoom;
-  viewportCoverage={above:(state.spark.y-cameraY)/g.rowGap,
-    below:(cameraY+h-state.spark.y)/g.rowGap};
+  viewportCoverage={
+    above:productionFrame.aboveRows,below:productionFrame.belowRows,
+  };
 
   // Paint the entire physical viewport BEFORE applying world-only zoom.
   // Neither hitboxes nor physics coordinate space are modified.
@@ -635,47 +634,88 @@ function draw(): void {
   context.fillRect(0, 0, 600, logicalHeight);
   context.save();
   context.translate(300,0);
-  context.scale(zoom,zoom);
+  context.scale(horizontalCameraScale,zoom);
   context.translate(-300,0);
 
-  // Three vertical architectural lanes establish strong visual continuity.
-  for (const x of g.columns) {
-    context.fillStyle = 'rgba(59,117,151,.06)';
-    context.fillRect(x - 68, 0, 136, h);
-    context.strokeStyle = 'rgba(106,177,203,.13)';
-    context.lineWidth = 2;
-    context.beginPath();
-    context.moveTo(x, 0);
-    context.lineTo(x, h);
+  // The same real lane locations anchor the production architecture
+  // AND the three selectable buttons. No disconnected visual columns.
+  // An etched central core, three translucent shafts and fine filaments
+  // supply the MathForge Monument Valley-like dimensional language.
+  const shaftWidth=Math.min(
+    g.platformWidth*1.13,(g.columns[1]-g.columns[0])*.88);
+  const leftShaft=g.columns[0]-shaftWidth*.76;
+  const rightShaft=g.columns[2]+shaftWidth*.76;
+  const towerGlow=context.createLinearGradient(leftShaft,0,rightShaft,0);
+  towerGlow.addColorStop(0,'rgba(31,80,91,0)');
+  towerGlow.addColorStop(.5,'rgba(23,92,103,.21)');
+  towerGlow.addColorStop(1,'rgba(31,80,91,0)');
+  context.fillStyle=towerGlow;
+  context.fillRect(leftShaft,0,rightShaft-leftShaft,h);
+  for(let lane=0;lane<g.columns.length;lane++){
+    const x=g.columns[lane];
+    const shade=context.createLinearGradient(
+      x-shaftWidth/2,0,x+shaftWidth/2,0);
+    shade.addColorStop(0,'rgba(48,105,119,.06)');
+    shade.addColorStop(.22,'rgba(45,110,123,.12)');
+    shade.addColorStop(.78,'rgba(14,54,74,.11)');
+    shade.addColorStop(1,'rgba(53,119,126,.06)');
+    context.fillStyle=shade;
+    context.fillRect(x-shaftWidth/2,0,shaftWidth,h);
+    for(const side of [-1,1]){
+      context.beginPath();
+      context.strokeStyle=side<0
+        ? 'rgba(141,207,211,.19)':'rgba(121,180,190,.10)';
+      context.lineWidth=side<0?1.6:1.2;
+      context.moveTo(x+side*shaftWidth*.49,0);
+      context.lineTo(x+side*shaftWidth*.49,h);
+      context.stroke();
+    }
+    // A precise filament, not a bright attention-grabbing neon line.
+    context.save();
+    context.strokeStyle='rgba(116,214,206,.22)';
+    context.lineWidth=1.25;
+    context.beginPath();context.moveTo(x,0);context.lineTo(x,h);
     context.stroke();
+    context.restore();
   }
+  // Screen-size-safe text helper: letters and numbers stay upright and
+  // perfectly legible under the intentionally anisotropic tower camera.
+  const cssToLogical=600/Math.max(1,canvas.clientWidth);
+  const drawWorldLabel=(label:string,x:number,y:number,
+    screenSize:number,color:string,weight='700'):void=>{
+    context.save();
+    context.translate(x,y);
+    context.scale(1/horizontalCameraScale,1/zoom);
+    context.fillStyle=color;
+    context.textAlign='center';context.textBaseline='middle';
+    context.font=weight+' '+(screenSize*cssToLogical)+'px system-ui';
+    context.fillText(label,0,0);
+    context.restore();
+  };
 
-  // This lab preview deliberately does not generate future equations or
-  // publish future platform IDs. The silhouettes are noninteractive
-  // architectural scaffolding only; current math stays hidden until READY.
+  // The tower has only TWO visible tier positions above and below.
+  // Unpublished mathematical choices are never rendered as fake buttons.
+  // Instead, ungenerated tiers are a SINGLE structural stone/metal rail.
   previewRowsRendered=0;
   const sparkIndex=state.spark.row;
-  // Render future and past *structural* scaffolding with NO numbers,
-  // no problem IDs, no correct answers, and no interactive hit targets.
-  // Keep the closest 3 rows in each direction visible even at row zero.
-  const previewIndices=[];
-  for(let index=sparkIndex-3;index<=sparkIndex+4;index++){
+  for(let index=sparkIndex-2;index<=sparkIndex+2;index++){
     if(index===sparkIndex || state.world.rows.some(row=>row.index===index))continue;
-    previewIndices.push(index);
-  }
-  for(const futureIndex of previewIndices){
-    const y=worldY(-futureIndex*g.rowGap);
-    if(y>h+g.platformHeight||y<-g.platformHeight)continue;
+    const y=worldY(-index*g.rowGap);
+    if(y>h+g.platformHeight || y<-g.platformHeight)continue;
     previewRowsRendered++;
     context.save();
-    context.setLineDash([6,7]);
-    // Previews must be visible at 60–70% camera zoom, yet clearly
-    // secondary to the numbered, selectable platforms.
-    context.strokeStyle='rgba(125,177,202,.42)';
-    context.fillStyle='rgba(48,88,116,.19)';
-    context.lineWidth=1.7;
+    const left=g.columns[0]-g.platformWidth*.74;
+    const right=g.columns[2]+g.platformWidth*.74;
+    const lineY=y+g.platformHeight*.54;
+    context.strokeStyle='rgba(129,190,198,.26)';
+    context.lineWidth=2.4;
+    context.beginPath();context.moveTo(left,lineY);context.lineTo(right,lineY);
+    context.stroke();
+    context.fillStyle='rgba(63,114,126,.19)';
+    context.strokeStyle='rgba(131,185,188,.21)';
     for(const x of g.columns){
-      roundedRect(x-g.platformWidth/2,y,g.platformWidth,g.platformHeight,10);
+      roundedRect(x-g.platformWidth*.40,y+g.platformHeight*.36,
+        g.platformWidth*.80,g.platformHeight*.32,7);
       context.fill();context.stroke();
     }
     context.restore();
@@ -701,10 +741,7 @@ function draw(): void {
       context.stroke();
       context.restore();
       if (p.powered && row.index > 0) {
-        context.fillStyle = '#b2ffe7';
-        context.textAlign = 'center';
-        context.font = 'bold 15px system-ui';
-        context.fillText('✓', p.x, y + p.height * .58);
+        drawWorldLabel('✓',p.x,y+p.height*.58,18,'#c4ffe8');
       }
     }
   }
@@ -853,12 +890,17 @@ function draw(): void {
       context.restore();
     }
   }
-  // Keep readable actors and number glyphs even when seven rows must fit
-  // on a short 320px screen. This is purely VISUAL enlargement, never the
-  // collision radius supplied to the learner core or Pursuer chassis.
-  const pixelToWorld=600/(Math.max(1,canvas.clientWidth)*effectiveCameraZoom);
-  const sparkVisualRadius=Math.max(g.playerRadius,13*pixelToWorld);
-  const botVisualRadius=bot?Math.max(bot.radius,11*pixelToWorld):0;
+  // Source positions remain untouched. Circle aspect ratio is restored
+  // by inverting each presentation scale independently; the old renderer
+  // accidentally turned the orbs into vertically compressed ellipses.
+  const sparkRadiusPx=canvas.clientWidth<500?22:26;
+  const botRadiusPx=canvas.clientWidth<500?17:21;
+  const sparkVisualRadiusX=sparkRadiusPx*cssToLogical/horizontalCameraScale;
+  const sparkVisualRadiusY=sparkRadiusPx*cssToLogical/zoom;
+  const botVisualRadiusX=botRadiusPx*cssToLogical/horizontalCameraScale;
+  const botVisualRadiusY=botRadiusPx*cssToLogical/zoom;
+  const sparkVisualRadius=sparkVisualRadiusY;
+  const botVisualRadius=botVisualRadiusY;
   if(bot){
     // All bot coordinates and its sensing flag come from the real sim state.
     context.save();
@@ -873,17 +915,18 @@ function draw(): void {
     context.strokeStyle=bot.sensed?'#ffd0da':'#ff8bab';
     context.lineWidth=2.5;
     context.beginPath();
-    context.arc(bot.body.x,worldY(bot.body.y),botVisualRadius,0,2*Math.PI);
+    context.ellipse(bot.body.x,worldY(bot.body.y),
+      botVisualRadiusX,botVisualRadiusY,0,0,2*Math.PI);
     context.fill();context.stroke();
     context.fillStyle='#fff0f6';
-    context.font='bold '+Math.max(12,13*pixelToWorld)+'px system-ui';
     context.textAlign='center';
     context.textBaseline='middle';
     const face=bot.emotion==='NOTICE'?'!'
       :bot.emotion==='FRUSTRATED'?'×'
       :bot.emotion==='HESITATING'?'…'
       :bot.emotion==='CURIOUS'?'?':'◆';
-    context.fillText(face,bot.body.x,worldY(bot.body.y));
+    drawWorldLabel(face,bot.body.x,worldY(bot.body.y),
+      canvas.clientWidth<500?17:20,'#fff2f7','800');
     if(!reducedMotion && currentFeedback.vfxEnabled &&
        currentFeedback.vfxIntensity>0){
       // A subtle source-owned emotional oscillation: no movement or physics.
@@ -893,8 +936,9 @@ function draw(): void {
       context.strokeStyle=moodColor;
       context.globalAlpha=Math.max(.05,alpha);
       context.lineWidth=2;
-      context.arc(bot.body.x,worldY(bot.body.y),
-        botVisualRadius+8+4*pulse,0,Math.PI*2);
+      context.ellipse(bot.body.x,worldY(bot.body.y),
+        botVisualRadiusX+4+2*pulse,botVisualRadiusY+8+4*pulse,
+        0,0,Math.PI*2);
       context.stroke();
     }
     context.restore();
@@ -907,27 +951,23 @@ function draw(): void {
   context.strokeStyle = '#a4edff';
   context.lineWidth = 3;
   context.beginPath();
-  context.arc(state.spark.x, worldY(state.spark.y), sparkVisualRadius, 0, Math.PI * 2);
+  context.ellipse(state.spark.x,worldY(state.spark.y),
+    sparkVisualRadiusX,sparkVisualRadiusY,0,0,Math.PI*2);
   context.fill();
   context.stroke();
   context.restore();
-  context.fillStyle = '#ffffff';
-  context.font = 'bold '+Math.max(19,14*pixelToWorld)+'px system-ui';
-  context.textBaseline = 'middle';
-  context.textAlign = 'center';
-  context.fillText(String(state.spark.value), state.spark.x, worldY(state.spark.y));
+  drawWorldLabel(String(state.spark.value),state.spark.x,
+    worldY(state.spark.y),canvas.clientWidth<500?20:23,
+    '#f4ffff','800');
   if (state.travel?.kind === 'outbound') {
     const option = findPlatform(state.world, state.travel.platformId);
     if (option?.value !== null && option?.value !== undefined) {
       // The selected addend accompanies the blue Spark and reinforces why
       // the new result will only be carried after a correct landing.
-      const x = state.spark.x + sparkVisualRadius + 13;
-      const y = worldY(state.spark.y) - sparkVisualRadius - 4;
-      context.font = 'bold '+Math.max(17,12*pixelToWorld)+'px system-ui';
-      context.textBaseline = 'middle';
-      context.textAlign = 'center';
-      context.fillStyle = '#e6fcff';
-      context.fillText((state.currentProblem.operation === 'skip-count-by-2' ? '→' : '+') + option.value, x, y);
+      const x=state.spark.x+sparkVisualRadiusX+14;
+      const y=worldY(state.spark.y)-sparkVisualRadiusY-4;
+      drawWorldLabel((state.currentProblem.operation==='skip-count-by-2'?'→':'+')
+        +option.value,x,y,canvas.clientWidth<500?15:19,'#e8fff6');
     }
   }
   // Every important event can play an ORIGINAL cue and generate a matching,
@@ -949,7 +989,9 @@ function draw(): void {
         context.shadowColor=cue.color;
         context.shadowBlur=reducedMotion?0:16;
         context.beginPath();
-        context.arc(point.x,worldY(point.y),r+11+extra,0,Math.PI*2);
+        const rX=cue.target==='pursuer'?botVisualRadiusX:sparkVisualRadiusX;
+        context.ellipse(point.x,worldY(point.y),
+          rX+9+extra/3,r+11+extra,0,0,Math.PI*2);
         context.stroke();
         context.restore();
       }
@@ -964,7 +1006,7 @@ function draw(): void {
     ? `Count by 2: ${state.currentProblem.incomingValue} → ?`
     : `${state.currentProblem.incomingValue} + ? = ${state.currentProblem.targetValue}`;
   if(viewReadout){
-    viewReadout.textContent='3 rows ABOVE + 3 BELOW Spark · camera auto-fit '+
+    viewReadout.textContent='SIGHTLINE · 2 ROWS ABOVE / 2 BELOW · vertical fit '+
       Math.round(effectiveCameraZoom*100)+'% · user maximum '+
       Math.round(cameraView.zoom*100)+'%';
   }
@@ -974,6 +1016,28 @@ function draw(): void {
         ? `MAKE TARGET · ${state.currentProblem.targetValue}`
         : 'RUNNING ADDITION · TO 20');
   const botHud=engine.bot();
+  // Directional threat information uses only the ACTUAL world position
+  // already published to the renderer. It neither moves the bot nor
+  // fabricates it on the tower when the bot is more than two levels away.
+  if(threatIndicator){
+    threatIndicator.hidden=true;
+    if(botHud && productionFrame){
+      const px=projectProductionPoint(
+        botHud.body.x,botHud.body.y,productionFrame,600,canvas.clientWidth);
+      const below=px.y>canvas.clientHeight-22;
+      const above=px.y<22;
+      if(below||above){
+        const distance=Math.max(1,Math.round(
+          Math.abs(botHud.body.y-state.spark.y)/g.rowGap));
+        const direction=below?'BELOW':'ABOVE';
+        if(threatText)threatText.textContent=
+          'PURSUER '+direction+' · '+distance+
+          (distance===1?' TIER':' TIERS');
+        threatIndicator.dataset.direction=below?'below':'above';
+        threatIndicator.hidden=false;
+      }
+    }
+  }
   if(botHud && botHud.emotion!==previousBotEmotion){
     const personalityCue:Partial<Record<PursuerEmotionV1,FeedbackCueId>>={
       NOTICE:'notice',HESITATING:'hesitate',
@@ -1039,8 +1103,11 @@ function draw(): void {
       }
     }
   }
-  height.innerHTML = `ROW ${state.completedRows}<br>${state.attempts} attempts · ${state.score} pts`
-    + (botHud ? `<br><span style="color:#ff9db6">BOT ${botHud.belief.mode}</span>` : '');
+  height.innerHTML = canvas.clientWidth<430
+    ? `ROW ${state.completedRows} · ${state.score} pts`+
+      (botHud?`<br><span style="color:#ff9db6">BOT ${botHud.belief.mode}</span>`:'')
+    : `ROW ${state.completedRows}<br>${state.attempts} attempts · ${state.score} pts`+
+      (botHud?`<br><span style="color:#ff9db6">BOT ${botHud.belief.mode}</span>`:'');
   pause.textContent = state.paused ? 'Resume' : 'Pause';
   updateChoices();
   if (previousEventCount !== engine.eventLog().length) updateMessage();
@@ -1246,6 +1313,7 @@ document.addEventListener('visibilitychange', () => {
   rendererStats: () => ({canvasResizes,zoom:cameraView.zoom,
     effectiveZoom:effectiveCameraZoom,follow:cameraView.follow,
     previewRowsRendered,cameraY,viewportCoverage,cameraRowGap,
+    horizontalCameraScale,
     framingPercent:engine.snapshot().world.geometry.rowGap}),
   pursuer: () => engine.bot(),
   features: () => engine.features(),

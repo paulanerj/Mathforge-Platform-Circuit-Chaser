@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Circuit Climb 2.0 — Verified Run Summary and Achievements</title>
+  <title>MathForge — Circuit Climb | Production Visual Concept</title>
   <style>
     :root { color-scheme:dark; font: 14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; --ink:#e9f6fd; --muted:#a0b7c9; --edge:rgba(132,197,232,.25); background:#08131f; }
     * { box-sizing:border-box; }
@@ -109,31 +109,236 @@
     pre { background:#0c1c29; border:1px solid var(--edge); padding:10px; border-radius:8px; white-space:pre-wrap; word-break:break-word; max-height:130px; overflow:auto; color:#b1dce7; }
     @media(max-width:390px){ .shell{padding:8px 8px calc(12px + env(safe-area-inset-bottom))} .heading{margin-bottom:5px} .choice{border-radius:8px} .hud{padding:8px} .board{height:clamp(230px,calc(100dvh - 328px),535px)} .status{font-size:11px} }
     @media(prefers-reduced-motion:reduce){ .choice{transition:none} }
+
+    /* ───────────────────────────────────────────────────────────────
+       MathForge Production Visual Concept 01 · CC2-06A
+       One unified, restrained digital architectural style.
+       This is production-direction artwork, not an accepted release.
+       ─────────────────────────────────────────────────────────────── */
+    :root {
+      color-scheme:dark;
+      --ink:#f0f8fc; --muted:#94abba;
+      --edge:rgba(161,208,214,.20);
+      background:#06131c;
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+    }
+    body{
+      color:var(--ink);
+      min-width:280px;
+      min-height:100dvh;
+      background:
+        radial-gradient(ellipse 80% 55% at 50% -15%,rgba(37,100,122,.24),transparent 75%),
+        radial-gradient(ellipse 85% 60% at 50% 110%,rgba(14,48,68,.65),transparent),
+        linear-gradient(170deg,#05111a 0%,#0b1e2b 52%,#06131d 100%);
+    }
+    .shell{max-width:940px;padding:20px 22px 28px;}
+    .heading{align-items:center;margin-bottom:10px;gap:16px;}
+    .brand-lockup{display:flex;gap:14px;align-items:center;min-width:0}
+    .brand-mark{position:relative;width:40px;height:45px;flex:0 0 40px;
+      display:grid;place-items:center;border:1px solid #84b9c34d;
+      background:linear-gradient(145deg,#173846,#081e2a);
+      border-radius:13px;box-shadow:inset 0 0 21px #2a8da31c,0 5px 16px #0007;}
+    .brand-mark:before{content:"";width:21px;height:21px;position:absolute;
+      border:1.5px solid #9de2d5;transform:rotate(45deg);
+      box-shadow:0 0 16px #58d5c055;}
+    .brand-mark span{position:absolute;width:5px;height:5px;border-radius:50%;
+      background:#c8fef0;box-shadow:0 0 7px #67d7c9;}
+    .brand-mark span:nth-child(1){top:12px;left:11px}
+    .brand-mark span:nth-child(2){top:12px;right:11px}
+    .brand-mark span:nth-child(3){bottom:9px;left:18px}
+    .brand-eyebrow{color:#89d6d1;letter-spacing:.26em;font-size:9px;font-weight:850;margin-bottom:2px;}
+    .brand-eyebrow span{color:#6e8d9e;letter-spacing:.08em;}
+    .brand-type h1{font-size:clamp(21px,3.2vw,29px);line-height:1.08;
+      letter-spacing:.018em;font-weight:640;white-space:nowrap;}
+    .brand-type h1 em{font-style:normal;font-weight:350;color:#c4e5e8}
+    .phase{border-radius:6px;padding:7px 10px;letter-spacing:.12em;
+      color:#d4b991;border:1px solid #b49b6748;background:#b49b670b;
+      font-size:9px;font-weight:800;white-space:nowrap;}
+    .disclaimer{font-size:11px;color:#9db3bd;margin:0 0 12px 3px;
+      display:flex;gap:9px;align-items:center;letter-spacing:.025em}
+    .tagline-note{color:#708b99}
+    .live-indicator{width:6px;height:6px;border-radius:50%;display:inline-block;
+      background:#78dccb;box-shadow:0 0 12px #57c8b5}
+    .hud{min-height:80px;padding:14px 20px;
+      border:1px solid #8eb5bf2d;border-bottom:1px solid #acd5d040;
+      border-radius:16px 16px 0 0;
+      background:linear-gradient(112deg,rgba(21,52,66,.94),rgba(9,29,43,.97));
+      box-shadow:inset 0 1px #d8f5ed11;}
+    #equation{font-size:clamp(23px,4.5vw,36px);line-height:1.14;
+      font-weight:760;letter-spacing:.015em;
+      color:#edfafb;text-shadow:0 0 16px #bcece726;}
+    #rowKind,#modeBadge,#curriculumBadge{display:inline-block;margin:6px 10px 0 0;
+      letter-spacing:.08em;font-weight:700;font-size:9px;color:#b1c9d2}
+    #curriculumBadge{color:#d8c197}
+    #modeBadge{color:#8bd4c7}
+    .cell-progress,.energy{display:inline-block;font-size:10px;letter-spacing:.06em;
+      margin:5px 14px 0 0;color:#c8e7e5}
+    .cell-progress{color:#a6c3cd}
+    #height{font-size:11px;font-weight:660;line-height:1.65;color:#a6d3d1;
+      background:#153c4838;border:1px solid #85b9bd21;
+      padding:9px 11px;border-radius:10px;min-width:110px}
+    .board{height:clamp(390px,calc(100dvh - 225px),690px);
+      border:1px solid #729ca73c;border-top:none;
+      border-radius:0 0 18px 18px;
+      background:#071823;
+      box-shadow:inset 0 12px 45px #0007,0 17px 55px #0008;
+      isolation:isolate;}
+    .board:after{content:"";position:absolute;pointer-events:none;inset:0;
+      border-radius:inherit;
+      background:linear-gradient(180deg,#07182477,transparent 19%,transparent 77%,#04111b99);
+      box-shadow:inset 0 0 80px #06111bb0;z-index:1;}
+    .choices{z-index:3}
+    .choice{z-index:4;border:1.4px solid #83c9ce;border-radius:15px;
+      background:linear-gradient(155deg,rgba(42,88,104,.98),rgba(17,52,73,.99) 55%,rgba(10,34,51,.98));
+      color:#f7ffff;letter-spacing:.02em;font-size:clamp(23px,3.2vw,31px);
+      text-shadow:0 2px 5px #071f2c;
+      box-shadow:inset 0 1px 1px #d5ffec55,inset 0 -5px 12px #071b2a99,
+                 0 0 0 5px #2d8b9413,0 9px 20px #0009;
+      transition:transform .18s ease,border-color .16s,box-shadow .16s;}
+    .choice:hover:not(:disabled){transform:translateX(-50%) translateY(-3px);
+      border-color:#b7f7e0;box-shadow:0 0 0 5px #4fcb9f25,0 11px 23px #000b;}
+    .choice:disabled{opacity:.7;filter:saturate(.55)}
+    .choice.selected{outline:2px solid #d5f4e2;outline-offset:2px}
+    .choice.short{color:#ffd1c4;border-color:#e58d85;
+      background:linear-gradient(150deg,#713e46,#361e2e);}
+    .choice[data-modifier="CAPACITOR"]{border-color:#e0ba76}
+    .choice[data-modifier="RELAY"]{border-color:#8bdfe3}
+    .math-working{z-index:6;top:14px;left:50%;right:auto;max-width:calc(100% - 28px);
+      transform:translateX(-50%);white-space:nowrap;
+      background:#102d40f0;border:1px solid #76b3b8;border-radius:11px;
+      box-shadow:0 5px 25px #0009}
+    .cue-notice{z-index:7}
+    .view-readout{font-size:9px;text-align:center;color:#7195a1;
+      letter-spacing:.17em;padding:7px;border:none;background:none;}
+    .status-wrap{border-radius:10px;overflow:hidden;min-height:38px}
+    .status{min-height:38px;border:1px solid #6389952f;border-radius:10px;
+      background:#102838bb;font-size:12px;color:#b8d5dd;display:flex;align-items:center;
+      padding:8px 13px}
+    .controls{display:grid;grid-template-columns:1.25fr 1fr 1fr 1fr;gap:8px;margin:11px 0 16px}
+    button.action{border-color:#658c9a55;
+      background:linear-gradient(160deg,#1a3a4a,#122c3f);
+      color:#e1f7f8;border-radius:10px;font-size:12px;
+      box-shadow:inset 0 1px #d3f7e911;}
+    #pulse{border-color:#65b9ac80;
+      background:linear-gradient(155deg,#1c5753,#143e46);
+      color:#dbfff1;}
+    .audio-control{background:linear-gradient(155deg,#213b4b,#182e3b)!important}
+    button.action:hover:not(:disabled){border-color:#9bcec4;background:#245166}
+    .dev-controls,.dev-tuning,details{margin-top:10px}
+    .dev-controls summary,.dev-tuning summary,details>summary{
+      list-style-position:inside;border:1px solid #759dab26;
+      border-radius:9px;padding:12px 13px;color:#a8c8d2;
+      background:#142c3b74;cursor:pointer;}
+    details[open]>summary{border-color:#6a9ba54d;color:#e0eeee}
+    .lab-group{border-color:#739da44a;background:#0e273348}
+    .lab-group legend{color:#b9d7d9}
+    .summary-card{background:#102b3b;border-color:#88b9b2}
+    @media(max-width:650px){
+      .shell{padding:10px 9px 22px}
+      .heading{gap:9px}.brand-mark{width:34px;height:38px;flex-basis:34px}
+      .brand-lockup{gap:9px}
+      .brand-type h1{font-size:clamp(19px,5vw,24px)}
+      .brand-eyebrow{letter-spacing:.17em;font-size:8px}
+      .phase{font-size:8px;padding:6px;letter-spacing:.04em}
+      .disclaimer{font-size:10px;flex-wrap:wrap}
+      .tagline-note{display:none}
+      .hud{padding:12px 13px;min-height:73px}
+      #equation{font-size:clamp(23px,7vw,31px)}
+      #height{min-width:89px;padding:7px;font-size:10px}
+      #rowKind,#modeBadge,#curriculumBadge{margin-top:4px;margin-right:5px;font-size:8px}
+      .cell-progress,.energy{margin:3px 8px 0 0;font-size:9px}
+      .board{height:clamp(370px,calc(100svh - 235px),620px)}
+      .choice{font-size:clamp(22px,7vw,28px);border-radius:13px}
+      .controls{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+      button.action{font-size:11px;padding:9px 5px;min-height:44px}
+    }
+    @media(max-width:350px){
+      .brand-type h1{font-size:19px}.phase{max-width:113px;white-space:normal;text-align:center}
+      .hud{gap:7px}
+      #height{min-width:76px}
+      .controls{gap:4px}
+      .board{height:clamp(370px,calc(100svh - 225px),570px)}
+      .status{font-size:11px}
+    }
+    @media(prefers-reduced-motion:reduce){
+      .choice{transition:none}
+      .choice:hover:not(:disabled){transform:translateX(-50%)}
+    }
+
+    /* CC2-06A visual review: readable mobile HUD + physically truthful
+       offscreen Pursuer awareness (not a fake on-board enemy). */
+    .hud{display:grid;grid-template-columns:minmax(0,1fr) auto;
+      grid-template-areas:"equation height" "meta meta";
+      align-items:center;column-gap:16px;row-gap:6px;}
+    .hud-primary{grid-area:equation;min-width:0}
+    .hud-metadata{grid-area:meta;display:flex;gap:4px 13px;
+      align-items:center;flex-wrap:wrap;padding-top:4px;
+      border-top:1px solid #82b1af26}
+    #height{grid-area:height;line-height:1.55}
+    #rowKind,#modeBadge,#curriculumBadge,.cell-progress,.energy{
+      margin:0;display:block;line-height:1.45}
+    .threat-indicator{position:absolute;left:50%;bottom:44px;
+      transform:translateX(-50%);z-index:7;display:flex;
+      align-items:center;gap:9px;max-width:calc(100% - 24px);
+      padding:8px 13px;border:1px solid #f3989a77;border-radius:40px;
+      background:linear-gradient(110deg,#381f31f4,#16212ff4);
+      color:#ffb5b9;font-size:10px;letter-spacing:.105em;font-weight:800;
+      box-shadow:0 5px 22px #000a,0 0 25px #bb526526;
+      white-space:nowrap;pointer-events:none}
+    .threat-indicator[hidden]{display:none;}
+    .threat-indicator[data-direction="above"]{top:14px;bottom:auto}
+    .threat-beacon{width:21px;height:21px;flex:0 0 21px;display:grid;
+      place-items:center;border-radius:50%;border:1px solid #fa9cab;
+      background:#762f52;box-shadow:0 0 10px #d94c7590;color:#ffe4e5}
+    @media(max-width:650px){
+      .hud{column-gap:8px;row-gap:6px;padding:11px 12px}
+      .hud-metadata{gap:3px 8px;align-items:center}
+      #height{min-width:82px;font-size:10px;padding:7px 8px}
+      #equation{font-size:clamp(23px,7.6vw,31px)}
+      #rowKind,#modeBadge,#curriculumBadge,.cell-progress,.energy{
+        font-size:9px;letter-spacing:.04em}
+      .threat-indicator{font-size:9px;padding:6px 9px}
+    }
+    @media(max-width:350px){
+      .hud{column-gap:6px}
+      #height{min-width:78px;font-size:9px}
+      #rowKind,#modeBadge,#curriculumBadge,.cell-progress,.energy{font-size:8.5px}
+    }
   </style>
 </head>
 <body data-pursuer="on" data-features="on" data-summary="on">
   <main class="shell">
     <div class="heading">
-      <h1>Circuit Climb <span style="color:#7dd3f1">2.0</span></h1>
-      <span class="phase">CC2-05B · LIVING PURSUER</span>
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="brand-type"><div class="brand-eyebrow">MATHFORGE <span> / WORLD 03</span></div>
+          <h1>Circuit <em>Climb</em></h1></div>
+      </div>
+      <span class="phase">PRODUCTION LOOK · CONCEPT 01</span>
     </div>
-    <p class="disclaimer"><strong>Playtest candidate</strong> · Earn Pulse, climb and review verified results</p>
+    <p class="disclaimer"><span class="live-indicator" aria-hidden="true"></span> A mathematical chase through the circuit tower <span class="tagline-note">· Choose the correct path. Stay ahead.</span></p>
     <section class="hud" aria-label="Mathematics and progress">
-      <div><div id="equation" role="status" aria-live="polite">Loading…</div>
+      <div class="hud-primary"><div id="equation" role="status" aria-live="polite">Loading…</div></div>
+      <div id="height">ROW 0<br>BOT SEARCH</div>
+      <div class="hud-metadata">
         <div id="rowKind" class="row-kind">STAGE 1 · NORMAL ROW</div>
         <div id="modeBadge" class="row-kind">CLIMB</div>
         <div id="curriculumBadge" class="row-kind" aria-label="Current mathematical curriculum">MAKE TARGET · TO 10</div>
         <div id="cellProgress" class="cell-progress" aria-label="Power cell 1: zero of four rows completed">CELL 1 · ○○○○ · 0/4 powered</div>
-        <div id="energy" class="energy" role="status" aria-live="polite">PULSE 0/4</div></div>
-      <div id="height">ROW 0<br>0 attempts</div>
+        <div id="energy" class="energy" role="status" aria-live="polite">PULSE 0/4</div>
+      </div>
     </section>
     <section class="board" id="board" aria-label="Numbered three-platform climbing board">
       <canvas id="worldCanvas" aria-hidden="true"></canvas>
       <div id="cueNotice" class="cue-notice" hidden></div>
+      <div id="threatIndicator" class="threat-indicator" role="status" aria-live="off" hidden>
+        <span class="threat-beacon" aria-hidden="true">◆</span>
+        <span id="threatText">PURSUER APPROACHING</span>
+      </div>
       <div id="mathWorking" class="math-working" role="status" aria-live="polite" hidden></div>
       <div class="choices" id="choices" aria-label="Choose a numbered destination"></div>
     </section>
-    <div class="view-readout" id="viewReadout" role="status">Camera auto-fit: 3 rows above + 3 below · Spark centered</div>
+    <div class="view-readout" id="viewReadout" role="status">SIGHTLINE · 2 ROWS UP / 2 ROWS DOWN</div>
     <div class="status-wrap">
       <div id="status" class="status" role="status" aria-live="polite">Choose the number that completes the sum.</div>
       <div id="cellNotice" class="cell-notice" role="status" aria-live="polite" hidden></div>
@@ -162,7 +367,7 @@
     <details class="dev-tuning" id="tuningPanel">
       <summary>Developer Laboratory · Camera / Spark / Pursuer</summary>
       <p class="lab-hint">
-        The viewport always auto-fits at least 3 row positions above and below Spark (including unnumbered scaffolding), even on small screens. The zoom value is a maximum; it may auto-reduce to preserve visibility. Camera zoom is visual only and changes live. All other movement and
+        The camera shows at least two row levels above and below Spark. Horizontal tower width stays legible while vertical framing adjusts independently. Future positions are non-clickable architecture, never invented mathematical questions. The zoom value is a maximum; it may auto-reduce to preserve visibility. Camera zoom is visual only and changes live. All other movement and
         AI parameters take effect when you select <strong>Apply tuning &amp; new run</strong>.
         A new run is essential for repeatable, fair comparison.
         <span class="preview-key">Dim rows = structural previews, not generated math questions</span>

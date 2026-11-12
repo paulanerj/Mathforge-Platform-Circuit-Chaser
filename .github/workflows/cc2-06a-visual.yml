@@ -1,0 +1,66 @@
+name: CC2-06A production visual UI, two-row sightline and math/pursuer parity qualification
+on:
+  push:
+    branches: [feature/cc2-06a-production-visual-pass]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tuned-gameplay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Prove original SOT-02 source is unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=0a6f138f229119bc6b6c15ee1f658046c7075f50
+          git merge-base --is-ancestor 1087ceb7863fe20489894d3e48202f4911ac56ef HEAD
+          while IFS= read -r path; do
+            test "$(git rev-parse "HEAD:$path")" = "$(git rev-parse "$base:$path")"
+          done < <(git ls-tree -r --name-only "$base" src/games/circuit-climb/)
+          echo "PASS original SOT-02 custody"
+      - run: npm ci
+      - name: TypeScript and configuration contracts
+        run: npm run lint
+      - name: Exact source-owned CC2 behavior / long-run tests
+        run: npx vitest run src/games/circuit-climb-2/tests
+      - name: Full inherited and new unit test regression
+        run: npm test
+      - name: Project build
+        run: npm run build
+      - name: Inherited CC2-04 accurate summaries and pursuer gameplay
+        run: node src/games/circuit-climb-2/devtools/cc2-04-browser-smoke.mjs
+      - name: CC2-04-Q2 mathematical curriculum browser regression
+        run: node src/games/circuit-climb-2/devtools/cc2-04-q2-browser-smoke.mjs
+      - name: Production camera + exact platform XY parity and device screenshots
+        run: node src/games/circuit-climb-2/devtools/cc2-06a-browser-smoke.mjs
+      - name: Preserve screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc2-06a-viewport-screenshots
+          path: cc2-06a-screenshots/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Protected original Chromium gameplay regression
+        run: npm run test:circuit-climb:browser
+      - name: Bundle complete updated game into ONE offline HTML
+        run: node src/games/circuit-climb-2/devtools/buildPortable06A.mjs
+      - name: Actual file-protocol play with all HTTP blocked
+        run: node src/games/circuit-climb-2/devtools/cc2-06a-portable-smoke.mjs
+      - name: Deliver playable single-file offline build
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-06A-Production-Visual-Playable
+          path: cc2-standalone/CC2-06A-ProductionVisual-Playable.html
+          retention-days: 30
