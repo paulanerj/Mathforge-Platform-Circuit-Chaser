@@ -11,6 +11,7 @@ import {
 import { CircuitClimbChaseCore } from '../pursuer/CircuitClimbChaseCore';
 import type { PursuerSnapshot } from '../pursuer/pursuerController';
 import type { FeatureSnapshotV1, FeatureEventV1 } from '../features/progression';
+import type { RunResultV1 } from '../results/runResult';
 import { RunConfigV1, defaultRunConfig } from '../config/runConfig';
 import { getRow, findPlatform } from '../world/world';
 
@@ -28,6 +29,14 @@ const exportButton = document.querySelector<HTMLButtonElement>('#export')!;
 const seedInput = document.querySelector<HTMLInputElement>('#seed')!;
 const framingSelect = document.querySelector<HTMLSelectElement>('#framing')!;
 const movementSelect = document.querySelector<HTMLSelectElement>('#movement')!;
+const modeSelect = document.querySelector<HTMLSelectElement>('#gameMode');
+const resultButton = document.querySelector<HTMLButtonElement>('#resultButton');
+const summaryDialog = document.querySelector<HTMLDialogElement>('#summaryDialog');
+const closeSummary = document.querySelector<HTMLButtonElement>('#closeSummary');
+const summaryTitle = document.querySelector<HTMLElement>('#summaryTitle');
+const summaryStats = document.querySelector<HTMLElement>('#summaryStats');
+const equationReview = document.querySelector<HTMLElement>('#equationReview');
+const achievementReview = document.querySelector<HTMLElement>('#achievementReview');
 const log = document.querySelector<HTMLElement>('#events')!;
 const pulseButton = document.querySelector<HTMLButtonElement>('#pulse');
 const energy = document.querySelector<HTMLElement>('#energy');
@@ -50,9 +59,12 @@ interface SurfaceEngine {
   features():FeatureSnapshotV1|null;
   featureEvents():FeatureEventV1[];
   pulse():{ok:boolean;affected?:boolean;reason?:string};
+  results():RunResultV1|null;
 }
 const botEnabled=document.body.dataset.pursuer==='on';
 const featuresEnabled=document.body.dataset.features==='on';
+const resultEnabled=document.body.dataset.results==='on';
+let lastPresentedRun='';
 const manualQA=featuresEnabled && new URLSearchParams(location.search).get('manual')==='1';
 const graphDebug=new URLSearchParams(location.search).get('graph')==='1';
 function makeSurfaceEngine(seed:string,config:RunConfigV1=defaultRunConfig()):SurfaceEngine{
@@ -71,6 +83,7 @@ function makeSurfaceEngine(seed:string,config:RunConfigV1=defaultRunConfig()):Su
       features:()=>game.featureSnapshot(),
       featureEvents:()=>game.featureEventLog(),
       pulse:()=>game.activatePulse(),
+      results:()=>game.runResult(),
     };
   }
   const game=new CircuitClimbCore(seed,config);
@@ -87,6 +100,7 @@ function makeSurfaceEngine(seed:string,config:RunConfigV1=defaultRunConfig()):Su
     features:()=>null,
     featureEvents:()=>[],
     pulse:()=>({ok:false,reason:'PURSUER_OFF'}),
+    results:()=>null,
   };
 }
 let engine:SurfaceEngine=makeSurfaceEngine(seedInput.value);
@@ -120,6 +134,7 @@ function configFromControls(): RunConfigV1 {
     ...defaultRunConfig(),
     framingPercent: Number(framingSelect.value) as RunConfigV1['framingPercent'],
     movement: movementSelect.value as RunConfigV1['movement'],
+    mode:modeSelect?modeSelect.value as RunConfigV1['mode']:'climb',
   };
 }
 
@@ -480,12 +495,22 @@ function draw(): void {
   height.innerHTML = `ROW ${state.completedRows}<br>${state.attempts} attempts · ${state.score} pts`
     + (botHud ? `<br><span style="color:#ff9db6">BOT ${botHud.belief.mode}</span>` : '');
   pause.textContent = state.paused ? 'Resume' : 'Pause';
+  if(resultEnabled){
+    if(resultButton)resultButton.hidden=state.phase!=='ended';
+    pause.hidden=state.phase==='ended';
+    if(state.phase==='ended'&&lastPresentedRun!==state.runId){
+      lastPresentedRun=state.runId;
+      showRunSummary();
+    }
+  }
   updateChoices();
   if (previousEventCount !== engine.eventLog().length) updateMessage();
   else renderFeedback();
 }
 
 function beginNewRun(): void {
+  if(summaryDialog?.open)summaryDialog.close();
+  lastPresentedRun='';
   engine = makeSurfaceEngine(seedInput.value.trim() || 'cc2-02a-demo', configFromControls());
   currentProblemId = '';
   previousEventCount = 0;
@@ -499,6 +524,54 @@ function beginNewRun(): void {
   updateMessage();
   draw();
 }
+
+/**
+ * Product results are drawn exclusively from source-validated landed
+ * equations. Do not display accepted wrong or unlanded attempts as solved.
+ */
+function showRunSummary():void{
+  const result=engine.results();
+  if(!result||!summaryDialog||!summaryTitle||
+      !summaryStats||!equationReview||!achievementReview)return;
+  const endings:Record<string,string>={
+    CAPTURED:'Pursuer captured the Spark',
+    PRACTICE_GOAL:'Practice cell complete',
+    CHALLENGE_GOAL:'Challenge completed',
+    QUIT:'Run ended',RESTARTED:'Run restarted',
+  };
+  summaryTitle.textContent=endings[result.endReason??'']??'Current run results';
+  summaryStats.textContent=
+    result.rowsCompleted+' rows · '+result.cellsCompleted+' cells · '+
+    result.attemptsAccepted+' attempts · '+
+    (result.accuracyPercent===null?'—':result.accuracyPercent.toFixed(0)+'%')+
+    ' accuracy · '+result.score+' pts';
+  equationReview.replaceChildren();
+  if(result.solvedEquations.length===0){
+    const empty=document.createElement('li');
+    empty.textContent='No completed equations yet.';
+    equationReview.appendChild(empty);
+  }
+  for(const item of result.solvedEquations){
+    const line=document.createElement('li');
+    line.textContent='Row '+item.rowIndex+': '+item.incoming+
+      ' + '+item.operand+' = '+item.result;
+    equationReview.appendChild(line);
+  }
+  achievementReview.replaceChildren();
+  for(const achievement of result.achievements){
+    const label=document.createElement('li');
+    label.textContent=achievement.description;
+    achievementReview.appendChild(label);
+  }
+  if(result.achievements.length===0){
+    const none=document.createElement('li');
+    none.textContent='No milestones earned this run.';
+    achievementReview.appendChild(none);
+  }
+  if(!summaryDialog.open)summaryDialog.showModal();
+}
+if(closeSummary)closeSummary.onclick=()=>summaryDialog?.close();
+if(resultButton)resultButton.onclick=showRunSummary;
 
 if(pulseButton)pulseButton.onclick=()=>{
   const result=engine.pulse();
@@ -514,6 +587,7 @@ pause.onclick = () => {
 restart.onclick = beginNewRun;
 framingSelect.onchange = beginNewRun;
 movementSelect.onchange = beginNewRun;
+if(modeSelect)modeSelect.onchange=beginNewRun;
 exportButton.onclick = () => {
   const output = JSON.stringify({
     replay: engine.replayExport(),
@@ -554,6 +628,7 @@ document.addEventListener('visibilitychange', () => {
   features: () => engine.features(),
   featureEvents: () => engine.featureEvents(),
   pulse: () => {const outcome=engine.pulse();updateFeatureEvents();return outcome;},
+  results: () => engine.results(),
   advanceForQA: (ticks:number) => {
     if(!manualQA)throw new Error('QA_MANUAL_MODE_REQUIRED');
     engine.advanceTicks(ticks);draw();
