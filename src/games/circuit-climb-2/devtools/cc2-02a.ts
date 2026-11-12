@@ -81,6 +81,8 @@ const exportPreset=document.querySelector<HTMLButtonElement>('#exportPreset');
 const importPreset=document.querySelector<HTMLButtonElement>('#importPreset');
 const viewReadout=document.querySelector<HTMLElement>('#viewReadout');
 const cueNotice=document.querySelector<HTMLElement>('#cueNotice');
+const threatIndicator=document.querySelector<HTMLElement>('#threatIndicator');
+const threatText=document.querySelector<HTMLElement>('#threatText');
 const soundToggle=document.querySelector<HTMLButtonElement>('#soundToggle');
 const testSound=document.querySelector<HTMLButtonElement>('#testSound');
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1014,6 +1016,28 @@ function draw(): void {
         ? `MAKE TARGET · ${state.currentProblem.targetValue}`
         : 'RUNNING ADDITION · TO 20');
   const botHud=engine.bot();
+  // Directional threat information uses only the ACTUAL world position
+  // already published to the renderer. It neither moves the bot nor
+  // fabricates it on the tower when the bot is more than two levels away.
+  if(threatIndicator){
+    threatIndicator.hidden=true;
+    if(botHud && productionFrame){
+      const px=projectProductionPoint(
+        botHud.body.x,botHud.body.y,productionFrame,600,canvas.clientWidth);
+      const below=px.y>canvas.clientHeight-22;
+      const above=px.y<22;
+      if(below||above){
+        const distance=Math.max(1,Math.round(
+          Math.abs(botHud.body.y-state.spark.y)/g.rowGap));
+        const direction=below?'BELOW':'ABOVE';
+        if(threatText)threatText.textContent=
+          'PURSUER '+direction+' · '+distance+
+          (distance===1?' TIER':' TIERS');
+        threatIndicator.dataset.direction=below?'below':'above';
+        threatIndicator.hidden=false;
+      }
+    }
+  }
   if(botHud && botHud.emotion!==previousBotEmotion){
     const personalityCue:Partial<Record<PursuerEmotionV1,FeedbackCueId>>={
       NOTICE:'notice',HESITATING:'hesitate',
@@ -1079,8 +1103,11 @@ function draw(): void {
       }
     }
   }
-  height.innerHTML = `ROW ${state.completedRows}<br>${state.attempts} attempts · ${state.score} pts`
-    + (botHud ? `<br><span style="color:#ff9db6">BOT ${botHud.belief.mode}</span>` : '');
+  height.innerHTML = canvas.clientWidth<430
+    ? `ROW ${state.completedRows} · ${state.score} pts`+
+      (botHud?`<br><span style="color:#ff9db6">BOT ${botHud.belief.mode}</span>`:'')
+    : `ROW ${state.completedRows}<br>${state.attempts} attempts · ${state.score} pts`+
+      (botHud?`<br><span style="color:#ff9db6">BOT ${botHud.belief.mode}</span>`:'');
   pause.textContent = state.paused ? 'Resume' : 'Pause';
   updateChoices();
   if (previousEventCount !== engine.eventLog().length) updateMessage();
