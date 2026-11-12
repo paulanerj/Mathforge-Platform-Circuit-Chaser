@@ -13,6 +13,7 @@ import {
 } from '../features/progression';
 import {CircuitClimbChaseCore,replayChase} from '../pursuer/CircuitClimbChaseCore';
 import {defaultPursuerPreset} from '../pursuer/pursuerPreset';
+import {PursuerController} from '../pursuer/pursuerController';
 
 function completeRows(number:number){
   const core=new CircuitClimbCore('cc2-03-ledger-source');
@@ -99,7 +100,27 @@ describe('CC2-03 row modifiers and earned charge',()=>{
 });
 
 describe('CC2-03 integrated pursuer replay with earned ability',()=>{
-  it('keeps complete replay identity and actual slowdown when Pulse is in range',()=>{
+  it('a slowed Pursuer travels less actual collision-safe distance with equal evidence',()=>{
+    const game=new CircuitClimbChaseCore('physical-speed-test');
+    const world=game.learnerSnapshot().world;
+    const start=game.learnerSnapshot().spark;
+    const full=new PursuerController(world);
+    const slow=new PursuerController(world);
+    // Both receive the exact same sensed player and graph; only chassis
+    // speed differs. Neither controller knows any math answer.
+    for(let tick=1;tick<=25;tick++){
+      full.step(world,start,tick,1);
+      slow.step(world,start,tick,0.65);
+    }
+    const fastState=full.snapshot(),slowState=slow.snapshot();
+    expect(fastState.activeSensedTicks).toBeGreaterThan(0);
+    expect(slowState.activeSensedTicks).toBeGreaterThan(0);
+    expect(fastState.body.distanceTravelled).toBeGreaterThan(slowState.body.distanceTravelled);
+    expect(fastState.routeFailures).toBe(0);
+    expect(slowState.routeFailures).toBe(0);
+  });
+
+  it('keeps complete replay identity with earned Pulse and truthful in-range report',()=>{
     const config={...defaultRunConfig(),mode:'climb' as const};
     const preset={...defaultPursuerPreset(),speedPursuit:0.1,speedSearch:0.1};
     const featureConfig={...defaultFeatureConfig(),pulseRadius:500};
@@ -113,8 +134,11 @@ describe('CC2-03 integrated pursuer replay with earned ability',()=>{
       expect(game.learnerSnapshot().completedRows).toBe(row);
     }
     expect(game.featureSnapshot().charge).toBe(4);
+    const bot=game.snapshot().pursuer.body;
+    const spark=game.snapshot().learner.spark;
+    const physicalDistance=Math.hypot(bot.x-spark.x,bot.y-spark.y);
     const used=game.activatePulse();
-    expect(used).toEqual({ok:true,affected:true});
+    expect(used).toEqual({ok:true,affected:physicalDistance<=featureConfig.pulseRadius});
     expect(game.featureSnapshot().pulseUntilTick).toBeGreaterThan(game.learnerSnapshot().tick);
     game.advanceTicks(15);
     const replay=game.replayExport();
