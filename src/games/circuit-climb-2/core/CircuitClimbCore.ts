@@ -475,6 +475,16 @@ export class CircuitClimbCore {
    */
   attemptCaptureAt(x: number, y: number, radius: number): boolean {
     this.record('CAPTURE_TEST', { x, y, radius });
+    return this.adjudicatePursuerCapture(x, y, radius);
+  }
+
+  /**
+   * Internal 02B physical contact seam: no replay command is recorded for
+   * autonomous per-tick capture checks. Otherwise an endless chase would
+   * append 60 fake user inputs each second and corrupt replay semantics.
+   * This method is the SAME source-owned capture adjudicator as the old probe.
+   */
+  adjudicatePursuerCapture(x: number, y: number, radius: number): boolean {
     if (this.state.paused || this.state.phase === 'ended') return false;
     if (!Number.isFinite(x) || !Number.isFinite(y) ||
         !Number.isFinite(radius) || radius <= 0) throw new Error('INVALID_CAPTURE_PROBE');
