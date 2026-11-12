@@ -232,16 +232,58 @@ function draw(): void {
     }
   }
 
-  // The planned path is drawn in light cyan and the already travelled part
-  // uses the same fixed-tick state that controls the physical Spark.
+  // Draw planned topology quietly, then illuminate only the portion that
+  // has been PHYSICALLY travelled. This visual never grades a learner answer.
   if (state.travel?.movement === 'circuit' && state.travel.points.length > 1) {
     const pts = state.travel.points;
-    context.lineWidth = 4;
-    context.strokeStyle = 'rgba(105,220,244,.42)';
+    context.lineWidth = 3;
+    context.strokeStyle = 'rgba(105,220,244,.27)';
     context.beginPath();
     context.moveTo(pts[0].x, worldY(pts[0].y));
     for (const p of pts.slice(1)) context.lineTo(p.x, worldY(p.y));
     context.stroke();
+
+    let remaining = state.travel.distance;
+    context.beginPath();
+    context.moveTo(pts[0].x, worldY(pts[0].y));
+    for (let i = 1; i < pts.length; i += 1) {
+      const start = pts[i - 1];
+      const finish = pts[i];
+      const length = Math.abs(finish.x - start.x) + Math.abs(finish.y - start.y);
+      if (remaining >= length) {
+        context.lineTo(finish.x, worldY(finish.y));
+        remaining -= length;
+      } else {
+        const ratio = length === 0 ? 1 : Math.max(0, remaining / length);
+        context.lineTo(
+          start.x + (finish.x - start.x) * ratio,
+          worldY(start.y + (finish.y - start.y) * ratio),
+        );
+        break;
+      }
+    }
+    context.save();
+    context.strokeStyle = '#9aeaf6';
+    context.shadowColor = '#9beef9';
+    context.shadowBlur = 12;
+    context.lineWidth = 5;
+    context.stroke();
+    context.restore();
+  }
+
+  // During the automatic wrong-answer return, a clearly different trail
+  // indicates the short circuit and the direction of safe retreat.
+  if (state.travel?.kind === 'return') {
+    const travel = state.travel;
+    context.save();
+    context.setLineDash([8, 7]);
+    context.strokeStyle = 'rgba(253,151,139,.75)';
+    context.lineWidth = 3;
+    context.beginPath();
+    context.moveTo(travel.from.x, worldY(travel.from.y));
+    context.lineTo(travel.to.x, worldY(travel.to.y));
+    context.stroke();
+    context.restore();
   }
 
   context.save();
@@ -260,6 +302,20 @@ function draw(): void {
   context.textBaseline = 'middle';
   context.textAlign = 'center';
   context.fillText(String(state.spark.value), state.spark.x, worldY(state.spark.y));
+  if (state.travel?.kind === 'outbound') {
+    const option = findPlatform(state.world, state.travel.platformId);
+    if (option?.value !== null && option?.value !== undefined) {
+      // The selected addend accompanies the blue Spark and reinforces why
+      // the new result will only be carried after a correct landing.
+      const x = state.spark.x + g.playerRadius + 13;
+      const y = worldY(state.spark.y) - g.playerRadius - 4;
+      context.font = 'bold 17px system-ui';
+      context.textBaseline = 'middle';
+      context.textAlign = 'center';
+      context.fillStyle = '#e6fcff';
+      context.fillText('+' + option.value, x, y);
+    }
+  }
 
   equation.textContent = `${state.currentProblem.incomingValue} + ? = ${state.currentProblem.targetValue}`;
   height.innerHTML = `ROW ${state.completedRows}<br>${state.attempts} attempts · ${state.score} pts`;
