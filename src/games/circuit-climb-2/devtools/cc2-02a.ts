@@ -10,6 +10,7 @@ import {
 } from '../core/CircuitClimbCore';
 import { CircuitClimbChaseCore } from '../pursuer/CircuitClimbChaseCore';
 import type { PursuerSnapshot } from '../pursuer/pursuerController';
+import type { FeatureSnapshotV1, FeatureEventV1 } from '../features/progression';
 import { RunConfigV1, defaultRunConfig } from '../config/runConfig';
 import { getRow, findPlatform } from '../world/world';
 
@@ -28,6 +29,9 @@ const seedInput = document.querySelector<HTMLInputElement>('#seed')!;
 const framingSelect = document.querySelector<HTMLSelectElement>('#framing')!;
 const movementSelect = document.querySelector<HTMLSelectElement>('#movement')!;
 const log = document.querySelector<HTMLElement>('#events')!;
+const pulseButton = document.querySelector<HTMLButtonElement>('#pulse');
+const energy = document.querySelector<HTMLElement>('#energy');
+const rowKind = document.querySelector<HTMLElement>('#rowKind');
 const context = canvas.getContext('2d')!;
 /**
  * One presentation port for two actual authoritative engines. Without the
@@ -43,8 +47,13 @@ interface SurfaceEngine {
   stateDigest():string;replayExport():unknown;
   bot():PursuerSnapshot|null;
   devGraph():ReturnType<CircuitClimbChaseCore['devGraph']>|null;
+  features():FeatureSnapshotV1|null;
+  featureEvents():FeatureEventV1[];
+  pulse():{ok:boolean;affected?:boolean;reason?:string};
 }
 const botEnabled=document.body.dataset.pursuer==='on';
+const featuresEnabled=document.body.dataset.features==='on';
+const manualQA=featuresEnabled && new URLSearchParams(location.search).get('manual')==='1';
 const graphDebug=new URLSearchParams(location.search).get('graph')==='1';
 function makeSurfaceEngine(seed:string,config:RunConfigV1=defaultRunConfig()):SurfaceEngine{
   if(botEnabled){
@@ -59,6 +68,9 @@ function makeSurfaceEngine(seed:string,config:RunConfigV1=defaultRunConfig()):Su
       replayExport:()=>game.replayExport(),
       bot:()=>game.snapshot().pursuer,
       devGraph:()=>game.devGraph(),
+      features:()=>game.featureSnapshot(),
+      featureEvents:()=>game.featureEventLog(),
+      pulse:()=>game.activatePulse(),
     };
   }
   const game=new CircuitClimbCore(seed,config);
@@ -72,6 +84,9 @@ function makeSurfaceEngine(seed:string,config:RunConfigV1=defaultRunConfig()):Su
     replayExport:()=>game.replayExport(),
     bot:()=>null,
     devGraph:()=>null,
+    features:()=>null,
+    featureEvents:()=>[],
+    pulse:()=>({ok:false,reason:'PURSUER_OFF'}),
   };
 }
 let engine:SurfaceEngine=makeSurfaceEngine(seedInput.value);
@@ -81,6 +96,8 @@ let lastTime = 0;
 let accumulator = 0;
 let currentProblemId = '';
 let previousEventCount = 0;
+let previousFeatureEventCount = 0;
+let featureNoticeUntil = 0;
 let buttons: HTMLButtonElement[] = [];
 let canvasResizes = 0;
 let workingUntil = 0;
@@ -170,6 +187,35 @@ function updateMessage(): void {
   log.textContent = events.slice(-14).map(item =>
     `T${item.tick} ${item.type} ${JSON.stringify(item.detail)}`).join('\n');
   renderFeedback();
+  updateFeatureEvents();
+}
+
+/**
+ * Feature events are independently sourced and keep the math ledger intact.
+ * A Relay is a visual-only wave; no feedback may reveal answer identity.
+ */
+function updateFeatureEvents():void{
+  if(!featuresEnabled)return;
+  const all=engine.featureEvents();
+  for(const event of all.slice(previousFeatureEventCount)){
+    if(event.type==='ABILITY_ACTIVATED'){
+      const affected=event.detail.affected===true;
+      status.textContent=affected
+        ? 'CIRCUIT PULSE · red Pursuer slowed temporarily'
+        : 'CIRCUIT PULSE · no Pursuer in range; charge spent';
+      featureNoticeUntil=performance.now()+1750;
+    }else if(event.type==='RELAY_CHAIN'){
+      status.textContent='Relay powered · previous solved links illuminated';
+      featureNoticeUntil=performance.now()+900;
+    }else if(event.type==='CHARGE_GAINED' && event.detail.modifier==='CAPACITOR'){
+      status.textContent='Capacitor row powered · earned extra Pulse charge';
+      featureNoticeUntil=performance.now()+1100;
+    }else if(event.type==='STAGE_REACHED'){
+      status.textContent='Stage '+event.detail.stage+' reached · tower continues';
+      featureNoticeUntil=performance.now()+1600;
+    }
+  }
+  previousFeatureEventCount=all.length;
 }
 
 function updateChoices(): void {
@@ -184,6 +230,8 @@ function updateChoices(): void {
       button.type = 'button';
       button.className = 'choice';
       button.dataset.platformId = option.platformId;
+      const modifier=featuresEnabled?engine.features()?.nextModifier:'NORMAL';
+      button.dataset.modifier=modifier??'NORMAL';
       button.textContent = String(option.value);
       button.setAttribute('aria-label', `Choose ${option.value} to complete ${problem.incomingValue} plus blank equals ${problem.targetValue}`);
       button.onclick = () => { engine.selectPlatform(option.platformId); updateMessage(); };
@@ -412,6 +460,23 @@ function draw(): void {
 
   equation.textContent = `${state.currentProblem.incomingValue} + ? = ${state.currentProblem.targetValue}`;
   const botHud=engine.bot();
+  if(featuresEnabled){
+    const feature=engine.features();
+    if(feature){
+      if(energy) energy.textContent='PULSE '+feature.charge+'/'+feature.capacity+
+        (feature.pulseUntilTick>state.tick
+          ? ' · ACTIVE '+Math.ceil((feature.pulseUntilTick-state.tick)/60)+'s':'');
+      if(rowKind)rowKind.textContent='STAGE '+feature.stage+
+        ' · '+feature.nextModifier+' ROW';
+      if(pulseButton){
+        pulseButton.textContent='Pulse '+feature.charge+'/'+feature.capacity;
+        pulseButton.disabled=!feature.pulseAvailable;
+        pulseButton.setAttribute('aria-label',feature.pulseAvailable
+          ? 'Activate charged Circuit Pulse to slow nearby pursuer'
+          : 'Circuit Pulse unavailable; charge '+feature.charge+' of '+feature.capacity);
+      }
+    }
+  }
   height.innerHTML = `ROW ${state.completedRows}<br>${state.attempts} attempts · ${state.score} pts`
     + (botHud ? `<br><span style="color:#ff9db6">BOT ${botHud.belief.mode}</span>` : '');
   pause.textContent = state.paused ? 'Resume' : 'Pause';
@@ -424,6 +489,8 @@ function beginNewRun(): void {
   engine = makeSurfaceEngine(seedInput.value.trim() || 'cc2-02a-demo', configFromControls());
   currentProblemId = '';
   previousEventCount = 0;
+  previousFeatureEventCount = 0;
+  featureNoticeUntil = 0;
   workingUntil = 0;
   noticeUntil = 0;
   cameraY = engine.snapshot().spark.y - logicalHeight * 0.72;
@@ -433,6 +500,12 @@ function beginNewRun(): void {
   draw();
 }
 
+if(pulseButton)pulseButton.onclick=()=>{
+  const result=engine.pulse();
+  if(!result.ok)status.textContent='Pulse unavailable · '+(result.reason??'not ready');
+  updateFeatureEvents();
+  draw();
+};
 pause.onclick = () => {
   if (engine.snapshot().paused) engine.resume();
   else engine.pause();
@@ -478,6 +551,14 @@ document.addEventListener('visibilitychange', () => {
   replay: () => engine.replayExport(),
   rendererStats: () => ({ canvasResizes }),
   pursuer: () => engine.bot(),
+  features: () => engine.features(),
+  featureEvents: () => engine.featureEvents(),
+  pulse: () => {const outcome=engine.pulse();updateFeatureEvents();return outcome;},
+  advanceForQA: (ticks:number) => {
+    if(!manualQA)throw new Error('QA_MANUAL_MODE_REQUIRED');
+    engine.advanceTicks(ticks);draw();
+    return engine.snapshot();
+  },
 };
 
 function frame(time: number): void {
@@ -485,12 +566,13 @@ function frame(time: number): void {
   accumulator += Math.min(100, Math.max(0, time - lastTime));
   lastTime = time;
   let steps = 0;
-  while (accumulator >= 1000 / 60 && steps < 6) {
+  while (!manualQA && accumulator >= 1000 / 60 && steps < 6) {
     engine.advanceTicks(1);
     accumulator -= 1000 / 60;
     steps += 1;
   }
   if (steps === 6 && accumulator > 1000 / 60) accumulator = 0;
+  if (manualQA) accumulator=0;
   draw();
   requestAnimationFrame(frame);
 }
