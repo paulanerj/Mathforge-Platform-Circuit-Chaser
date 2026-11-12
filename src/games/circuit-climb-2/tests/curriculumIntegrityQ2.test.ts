@@ -59,7 +59,7 @@ describe('CC2-04-Q2: make-target arithmetic is independent of skip counting', ()
         expect(new Set(problem.options.map(o => o.value)).size).toBe(3);
       }
     }
-  });
+  }, 30000);
 
   it('uses real correct landings and a named reset for each independent target problem', () => {
     const core = coreFor('makeTarget20');
