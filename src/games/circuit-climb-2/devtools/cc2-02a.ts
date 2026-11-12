@@ -5,7 +5,11 @@
  * The canvas only renders snapshots; the DOM buttons send platform commands.
  * It contains NO pursuer simulation and NO invented answer assessment.
  */
-import { CircuitClimbCore } from '../core/CircuitClimbCore';
+import {
+  CircuitClimbCore,type EngineStateV1,type GameEventV1,type SelectionResultV1,
+} from '../core/CircuitClimbCore';
+import { CircuitClimbChaseCore } from '../pursuer/CircuitClimbChaseCore';
+import type { PursuerSnapshot } from '../pursuer/pursuerController';
 import { RunConfigV1, defaultRunConfig } from '../config/runConfig';
 import { getRow, findPlatform } from '../world/world';
 
@@ -25,7 +29,52 @@ const framingSelect = document.querySelector<HTMLSelectElement>('#framing')!;
 const movementSelect = document.querySelector<HTMLSelectElement>('#movement')!;
 const log = document.querySelector<HTMLElement>('#events')!;
 const context = canvas.getContext('2d')!;
-let engine = new CircuitClimbCore(seedInput.value);
+/**
+ * One presentation port for two actual authoritative engines. Without the
+ * data-pursuer flag we reproduce CC2-02A/Q1 exactly; with it, the source
+ * owns a real finite-sense Pursuer and the same learner transaction ledger.
+ */
+interface SurfaceEngine {
+  snapshot():EngineStateV1;
+  eventLog():GameEventV1[];
+  selectPlatform(id:string):SelectionResultV1;
+  advanceTicks(n:number):void;
+  pause():void;resume():void;
+  stateDigest():string;replayExport():unknown;
+  bot():PursuerSnapshot|null;
+  devGraph():ReturnType<CircuitClimbChaseCore['devGraph']>|null;
+}
+const botEnabled=document.body.dataset.pursuer==='on';
+const graphDebug=new URLSearchParams(location.search).get('graph')==='1';
+function makeSurfaceEngine(seed:string,config:RunConfigV1=defaultRunConfig()):SurfaceEngine{
+  if(botEnabled){
+    const game=new CircuitClimbChaseCore(seed,config);
+    return {
+      snapshot:()=>game.learnerSnapshot(),
+      eventLog:()=>game.eventLog(),
+      selectPlatform:id=>game.selectPlatform(id),
+      advanceTicks:n=>game.advanceTicks(n),
+      pause:()=>game.pause(),resume:()=>game.resume(),
+      stateDigest:()=>game.stateDigest(),
+      replayExport:()=>game.replayExport(),
+      bot:()=>game.snapshot().pursuer,
+      devGraph:()=>game.devGraph(),
+    };
+  }
+  const game=new CircuitClimbCore(seed,config);
+  return {
+    snapshot:()=>game.snapshot(),
+    eventLog:()=>game.eventLog(),
+    selectPlatform:id=>game.selectPlatform(id),
+    advanceTicks:n=>game.advanceTicks(n),
+    pause:()=>game.pause(),resume:()=>game.resume(),
+    stateDigest:()=>game.stateDigest(),
+    replayExport:()=>game.replayExport(),
+    bot:()=>null,
+    devGraph:()=>null,
+  };
+}
+let engine:SurfaceEngine=makeSurfaceEngine(seedInput.value);
 let cameraY = 0;
 let logicalHeight = 800;
 let lastTime = 0;
@@ -76,7 +125,9 @@ function updateMessage(): void {
     RUN_ENDED: 'Run ended. Choose New run to restart.',
   };
   for (const event of newEvents) {
-    status.textContent = messages[event.type] ?? status.textContent;
+    status.textContent = event.type==='RUN_ENDED' && event.detail.reason==='CAPTURED'
+      ? 'The red pursuer reached the grounded Spark. Capture is physical and terminal.'
+      : messages[event.type] ?? status.textContent;
     if (event.type === 'RUN_STARTED') {
       workingUntil = 0;
       noticeUntil = 0;
@@ -290,6 +341,44 @@ function draw(): void {
     context.restore();
   }
 
+  // Developer-only geometry mode: the physics network is not invented by
+  // the UI. It displays edges issued by the same real pursuit controller.
+  const bot=engine.bot();
+  if(botEnabled && graphDebug){
+    const graph=engine.devGraph();
+    if(graph){
+      const nodes=new Map(graph.nodes.map(n=>[n.id,n]));
+      context.save();
+      context.lineWidth=1.2;
+      context.strokeStyle='rgba(255,126,155,.19)';
+      for(const edge of graph.edges){
+        const a=nodes.get(edge.a),b=nodes.get(edge.b);
+        if(!a||!b)continue;
+        context.beginPath();context.moveTo(a.x,worldY(a.y));
+        context.lineTo(b.x,worldY(b.y));context.stroke();
+      }
+      context.restore();
+    }
+  }
+  if(bot){
+    // All bot coordinates and its sensing flag come from the real sim state.
+    context.save();
+    context.shadowBlur=18;
+    context.shadowColor=bot.sensed?'#ff6d8d':'#c54b75';
+    context.fillStyle=bot.sensed?'#a52e59':'#61263f';
+    context.strokeStyle=bot.sensed?'#ffd0da':'#ff8bab';
+    context.lineWidth=2.5;
+    context.beginPath();
+    context.arc(bot.body.x,worldY(bot.body.y),bot.radius,0,2*Math.PI);
+    context.fill();context.stroke();
+    context.fillStyle='#fff0f6';
+    context.font='bold 12px system-ui';
+    context.textAlign='center';
+    context.textBaseline='middle';
+    context.fillText('◆',bot.body.x,worldY(bot.body.y));
+    context.restore();
+  }
+
   context.save();
   context.shadowBlur = 23;
   context.shadowColor = '#78dcfe';
@@ -322,7 +411,9 @@ function draw(): void {
   }
 
   equation.textContent = `${state.currentProblem.incomingValue} + ? = ${state.currentProblem.targetValue}`;
-  height.innerHTML = `ROW ${state.completedRows}<br>${state.attempts} attempts · ${state.score} pts`;
+  const botHud=engine.bot();
+  height.innerHTML = `ROW ${state.completedRows}<br>${state.attempts} attempts · ${state.score} pts`
+    + (botHud ? `<br><span style="color:#ff9db6">BOT ${botHud.belief.mode}</span>` : '');
   pause.textContent = state.paused ? 'Resume' : 'Pause';
   updateChoices();
   if (previousEventCount !== engine.eventLog().length) updateMessage();
@@ -330,7 +421,7 @@ function draw(): void {
 }
 
 function beginNewRun(): void {
-  engine = new CircuitClimbCore(seedInput.value.trim() || 'cc2-02a-demo', configFromControls());
+  engine = makeSurfaceEngine(seedInput.value.trim() || 'cc2-02a-demo', configFromControls());
   currentProblemId = '';
   previousEventCount = 0;
   workingUntil = 0;
@@ -386,6 +477,7 @@ document.addEventListener('visibilitychange', () => {
   events: () => engine.eventLog(),
   replay: () => engine.replayExport(),
   rendererStats: () => ({ canvasResizes }),
+  pursuer: () => engine.bot(),
 };
 
 function frame(time: number): void {
