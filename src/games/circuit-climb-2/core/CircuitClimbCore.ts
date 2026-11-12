@@ -13,6 +13,8 @@ import { makeRandomStreams, SeededRandom } from '../config/prng';
 import {
   freshCellValue, generateAdd20Problem, ProblemV1, ROWS_PER_CELL,
 } from '../math/add20';
+import { generateMakeTarget20Problem } from '../math/makeTarget20';
+import { generateSkip2To10Problem, initialSkipValue } from '../math/skip2to10';
 import {
   addProblemRow, createWorld, findPlatform, landingFor, planRoute,
   pointAlongRoute, pointOnHop, retainRecentRows, WorldV1,
@@ -159,8 +161,9 @@ export class CircuitClimbCore {
     this.mathRng = makeRandomStreams(`${this.seed}:run-${this.runNumber}`).math;
     const world = createWorld(this.config);
     const basePlatform = world.rows[0].platforms[1];
-    const startValue = freshCellValue(this.mathRng);
-    const problem = generateAdd20Problem(runId, 1, startValue, this.mathRng);
+    const startValue = this.config.curriculum === 'skip2to10'
+      ? initialSkipValue() : freshCellValue(this.mathRng);
+    const problem = this.generateProblem(runId, 1, startValue);
     addProblemRow(world, problem);
     const start = landingFor(world, basePlatform);
     const state: EngineStateV1 = {
@@ -187,6 +190,15 @@ export class CircuitClimbCore {
     this.state = state;
     this.emit('RUN_STARTED', { seed: this.seed, configHash: configHash(this.config) });
     return state;
+  }
+
+  /** One deterministic curriculum boundary; world, AI, renderers never decide math. */
+  private generateProblem(runId: string, rowIndex: number, incoming: number): ProblemV1 {
+    switch (this.config.curriculum) {
+      case 'add20': return generateAdd20Problem(runId, rowIndex, incoming, this.mathRng);
+      case 'makeTarget20': return generateMakeTarget20Problem(runId, rowIndex, incoming, this.mathRng);
+      case 'skip2to10': return generateSkip2To10Problem(runId, rowIndex, incoming, this.mathRng);
+    }
   }
 
   private emit(type: GameEventV1['type'], detail: Record<string, string | number | boolean>): void {
@@ -253,7 +265,9 @@ export class CircuitClimbCore {
     const from = { x: this.state.spark.x, y: this.state.spark.y };
     const to = route.landing;
     const attemptId = `${problem.problemId}/attempt-${this.state.attemptsOnCurrentRow + 1}`;
-    const correct = problem.incomingValue + (platform.value ?? Number.NaN) === problem.targetValue;
+    const correct = problem.operation === 'skip-count-by-2'
+      ? platform.value === problem.targetValue
+      : problem.incomingValue + (platform.value ?? Number.NaN) === problem.targetValue;
     const firstTry = this.state.attemptsOnCurrentRow === 0;
 
     platform.selected = true;
@@ -404,18 +418,22 @@ export class CircuitClimbCore {
     }
 
     let nextIncoming = problem.targetValue;
-    if (completedCell) {
-      nextIncoming = freshCellValue(this.mathRng);
+    // In make-target mode every problem has its own source value. Never
+    // silently turn a solved 10 into a new 2–4: emit an explicit rebase.
+    const needsRebase = completedCell || this.config.curriculum === 'makeTarget20';
+    if (needsRebase) {
+      nextIncoming = this.config.curriculum === 'skip2to10'
+        ? initialSkipValue() : freshCellValue(this.mathRng);
       this.emit('VOLTAGE_REBASE', {
         oldValue: problem.targetValue,
         newValue: nextIncoming,
         completedCell: this.state.completedCells,
-        cause: 'CELL_RECHARGE',
+        cause: completedCell ? 'CELL_RECHARGE' : 'NEXT_TARGET_PROBLEM',
       });
       this.state.spark.value = nextIncoming;
     }
     const nextIndex = platform.row + 1;
-    const nextProblem = generateAdd20Problem(this.state.runId, nextIndex, nextIncoming, this.mathRng);
+    const nextProblem = this.generateProblem(this.state.runId, nextIndex, nextIncoming);
     addProblemRow(this.state.world, nextProblem);
     this.state.currentProblem = nextProblem;
     retainRecentRows(this.state.world, platform.row);
