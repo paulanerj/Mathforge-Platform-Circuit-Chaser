@@ -113,6 +113,7 @@ export type ReplayV1 = {
   config: RunConfigV1;
   configHash: string;
   commands: ReplayCommandV1[];
+  finalTick: number;
 };
 
 /** Stable state digest for comparisons across FPS and repeated runs. */
@@ -224,6 +225,7 @@ export class CircuitClimbCore {
       config: clone(this.config),
       configHash: configHash(this.config),
       commands: clone(this.commands),
+      finalTick: this.state.tick,
     };
   }
 
@@ -503,5 +505,9 @@ export function replayCore(trace: ReplayV1): CircuitClimbCore {
       core.attemptCaptureAt(item.x ?? NaN, item.y ?? NaN, item.radius ?? NaN);
     }
   }
+  if (!Number.isInteger(trace.finalTick) || trace.finalTick < core.snapshot().tick) {
+    throw new Error('REPLAY_FINAL_TICK_INVALID');
+  }
+  core.advanceTicks(trace.finalTick - core.snapshot().tick);
   return core;
 }
