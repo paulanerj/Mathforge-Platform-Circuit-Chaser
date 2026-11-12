@@ -556,9 +556,11 @@ function draw(): void {
     previewRowsRendered++;
     context.save();
     context.setLineDash([6,7]);
-    context.strokeStyle='rgba(113,168,195,.20)';
-    context.fillStyle='rgba(39,70,96,.10)';
-    context.lineWidth=1.5;
+    // Previews must be visible at 60–70% camera zoom, yet clearly
+    // secondary to the numbered, selectable platforms.
+    context.strokeStyle='rgba(125,177,202,.42)';
+    context.fillStyle='rgba(48,88,116,.19)';
+    context.lineWidth=1.7;
     for(const x of g.columns){
       roundedRect(x-g.platformWidth/2,y,g.platformWidth,g.platformHeight,10);
       context.fill();context.stroke();
