@@ -66,7 +66,15 @@ The isolated `cc2-04.html` exposes a readable end-of-run dialog with exactly sou
 
 CI also runs TypeScript checks, the complete inherited original + new unit suite, all prior CC2-02A/Q1/02B/03 browser checks, original SOT-02 browser regression and protected source custody guard.
 
-**CI:** [CC2-04 GitHub Actions workflow](https://github.com/paulanerj/Mathforge-Platform-Circuit-Chaser/actions/workflows/cc2-04-achievements.yml). Confirm a successful run at the exact executable SHA before promoting this candidate.
+**FINAL AUTOMATED QUALIFICATION: PASS** on [GitHub Actions 43162491101](https://github.com/paulanerj/Mathforge-Platform-Circuit-Chaser/actions/runs/43162491101) at exact executable SHA `14d8f7820c2aaad4d23d32779cb7d6d59abd077e`:
+- **61/61** CC2-specific source-backed tests (11 files), **267/267** total inherited and new tests (31 files).
+- **55/55** brand-new CC2-04 actual Chromium summary and achievement assertions.
+- **68/68** CC2-03 Pulse/Capacitor/Relay browser assertions, **28/28** live chase assertions and preserved 02A/Q1 browser tests.
+- **100/100** adversarial cross-board Pursuer reacquisition fixtures, all reporting real contact, loss, reacquisition, and zero route failures.
+- **Original SOT-02 source custody, TypeScript, build, and original browser regression: PASS**.
+- Real browser screenshots retained as `cc2-04-verified-summary-review` (**629,760 bytes**) in the same CI run. Previous CC2-03 and 02B artifacts remain accessible there as well.
+
+The following report update is documentation-only and does not change executable source. **Human iPhone/Galaxy tablet play acceptance, commercial UI and MathForge SDK integration remain OPEN.**
 
 ## 3. How to play the candidate locally
 
