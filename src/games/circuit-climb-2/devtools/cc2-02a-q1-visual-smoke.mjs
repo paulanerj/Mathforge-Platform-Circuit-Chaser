@@ -76,6 +76,7 @@ async function checkMobile(page, spec) {
       buttons,
     };
   });
+  console.log('Q1 LAYOUT ' + spec.name + ' ' + JSON.stringify(data));
   assert(data.scrollWidth <= data.viewport.width + 1,
     spec.name + ': no horizontal page overflow');
   assert(data.pauseBottom <= data.viewport.height + 1,
