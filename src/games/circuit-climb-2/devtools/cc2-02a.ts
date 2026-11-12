@@ -212,6 +212,10 @@ function draw(): void {
     const y = worldY(row.y);
     if (y > h + 100 || y < -150) continue;
     for (const p of row.platforms) {
+      // Row zero has one real source platform. Its outer two entries are
+      // geometry placeholders marked dead internally, NOT past wrong answers.
+      // Painting them red would falsely suggest the learner began with errors.
+      if (row.index === 0 && p.column !== 1) continue;
       const x = p.x - p.width / 2;
       context.save();
       context.shadowColor = p.powered ? '#5edcc8' : p.dead ? '#d06466' : '#315772';
@@ -223,7 +227,7 @@ function draw(): void {
       context.fill();
       context.stroke();
       context.restore();
-      if (p.powered) {
+      if (p.powered && row.index > 0) {
         context.fillStyle = '#b2ffe7';
         context.textAlign = 'center';
         context.font = 'bold 15px system-ui';
