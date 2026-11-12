@@ -466,14 +466,17 @@ function updateChoices(): void {
   for (const button of buttons) {
     const platform = findPlatform(state.world, button.dataset.platformId!);
     if (!platform) continue;
-    const scale = canvas.clientWidth / state.world.geometry.logicalWidth;
-    // World geometry stays fixed; only the DOM's finger hit area expands.
-    // At 320px width an unexpanded tile would be only ~31px tall.
-    const width = Math.max(52, platform.width * scale);
-    const height = Math.max(44, platform.height * scale);
-    const y = worldY(platform.y + platform.height / 2) * scale - height / 2;
-    button.style.left = `${100 * platform.x / state.world.geometry.logicalWidth}%`;
-    button.style.top = `${y}px`;
+    const scale=canvas.clientWidth/state.world.geometry.logicalWidth*cameraView.zoom;
+    // DOM hit zones and Canvas share EXACTLY the same render-only projector.
+    // Keep a >=52x44px real touch target on compact screens.
+    const width=Math.max(52,platform.width*scale);
+    const height=Math.max(44,platform.height*scale);
+    const centre=projectCameraPoint(platform.x,
+      platform.y+platform.height/2,cameraY,canvas.clientWidth,
+      state.world.geometry.logicalWidth,cameraView.zoom);
+    const y=centre.y-height/2;
+    button.style.left=`${centre.x}px`;
+    button.style.top=`${y}px`;
     button.style.width = `${width}px`;
     button.style.height = `${height}px`;
     button.disabled = state.phase !== 'ready' || state.paused || platform.dead;
@@ -509,16 +512,23 @@ function draw(): void {
   const g = state.world.geometry;
   const features = featuresEnabled ? engine.features() : null;
   fitCanvas();
-  const targetCamera = state.spark.y - logicalHeight * 0.72;
-  cameraY += (targetCamera - cameraY) * 0.13;
-  const h = logicalHeight;
+  const zoom=cameraView.zoom;
+  const targetCamera=state.spark.y-logicalHeight*0.72/zoom;
+  cameraY+=(targetCamera-cameraY)*cameraView.follow;
+  const h=logicalHeight/zoom;
 
-  const background = context.createLinearGradient(0, 0, 0, h);
+  // Paint the entire physical viewport BEFORE applying world-only zoom.
+  // Neither hitboxes nor physics coordinate space are modified.
+  const background = context.createLinearGradient(0, 0, 0, logicalHeight);
   background.addColorStop(0, '#07131f');
   background.addColorStop(0.6, '#10283a');
   background.addColorStop(1, '#08111b');
   context.fillStyle = background;
-  context.fillRect(0, 0, 600, h);
+  context.fillRect(0, 0, 600, logicalHeight);
+  context.save();
+  context.translate(300,0);
+  context.scale(zoom,zoom);
+  context.translate(-300,0);
 
   // Three vertical architectural lanes establish strong visual continuity.
   for (const x of g.columns) {
@@ -530,6 +540,28 @@ function draw(): void {
     context.moveTo(x, 0);
     context.lineTo(x, h);
     context.stroke();
+  }
+
+  // This lab preview deliberately does not generate future equations or
+  // publish future platform IDs. The silhouettes are noninteractive
+  // architectural scaffolding only; current math stays hidden until READY.
+  previewRowsRendered=0;
+  for(let offset=1;offset<=4;offset++){
+    const futureIndex=state.currentProblem.rowIndex+offset;
+    if(state.world.rows.some(row=>row.index===futureIndex))continue;
+    const y=worldY(-futureIndex*g.rowGap);
+    if(y>h+g.platformHeight||y<-g.platformHeight)continue;
+    previewRowsRendered++;
+    context.save();
+    context.setLineDash([6,7]);
+    context.strokeStyle='rgba(113,168,195,.20)';
+    context.fillStyle='rgba(39,70,96,.10)';
+    context.lineWidth=1.5;
+    for(const x of g.columns){
+      roundedRect(x-g.platformWidth/2,y,g.platformWidth,g.platformHeight,10);
+      context.fill();context.stroke();
+    }
+    context.restore();
   }
 
   for (const row of state.world.rows) {
@@ -753,6 +785,7 @@ function draw(): void {
       context.fillText((state.currentProblem.operation === 'skip-count-by-2' ? '→' : '+') + option.value, x, y);
     }
   }
+  context.restore(); // Close render-only camera transform before any DOM work.
 
   equation.textContent = state.currentProblem.operation === 'skip-count-by-2'
     ? `Count by 2: ${state.currentProblem.incomingValue} → ?`
@@ -826,7 +859,7 @@ function beginNewRun(): void {
   if(reviewSummary)reviewSummary.disabled=true;
   workingUntil = 0;
   noticeUntil = 0;
-  cameraY = engine.snapshot().spark.y - logicalHeight * 0.72;
+  cameraY=engine.snapshot().spark.y-logicalHeight*0.72/cameraView.zoom;
   accumulator = 0;
   lastTime = performance.now();
   updateMessage();
@@ -896,7 +929,9 @@ document.addEventListener('visibilitychange', () => {
   snapshot: () => engine.snapshot(),
   events: () => engine.eventLog(),
   replay: () => engine.replayExport(),
-  rendererStats: () => ({ canvasResizes }),
+  rendererStats: () => ({canvasResizes,zoom:cameraView.zoom,
+    follow:cameraView.follow,previewRowsRendered,cameraY,
+    framingPercent:engine.snapshot().world.geometry.rowGap}),
   pursuer: () => engine.bot(),
   features: () => engine.features(),
   featureEvents: () => engine.featureEvents(),
