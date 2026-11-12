@@ -35,6 +35,8 @@ const energy = document.querySelector<HTMLElement>('#energy');
 const rowKind = document.querySelector<HTMLElement>('#rowKind');
 const cellProgress = document.querySelector<HTMLElement>('#cellProgress');
 const modeSelect = document.querySelector<HTMLSelectElement>('#mode');
+const curriculumSelect = document.querySelector<HTMLSelectElement>('#curriculum');
+const curriculumBadge = document.querySelector<HTMLElement>('#curriculumBadge');
 const modeBadge = document.querySelector<HTMLElement>('#modeBadge');
 const summaryPanel = document.querySelector<HTMLElement>('#summaryPanel');
 const summaryTitle = document.querySelector<HTMLElement>('#summaryTitle');
@@ -145,6 +147,7 @@ function configFromControls(): RunConfigV1 {
   return {
     ...defaultRunConfig(),
     mode:(modeSelect?.value as RunConfigV1['mode'])??defaultRunConfig().mode,
+    curriculum:(curriculumSelect?.value as RunConfigV1['curriculum'])??defaultRunConfig().curriculum,
     framingPercent: Number(framingSelect.value) as RunConfigV1['framingPercent'],
     movement: movementSelect.value as RunConfigV1['movement'],
   };
@@ -156,14 +159,14 @@ function updateMessage(): void {
   // Consume all new events; reading events.at(-1) would hide the equation.
   const newEvents = events.slice(previousEventCount);
   const messages: Record<string, string> = {
-    RUN_STARTED: 'Choose a numbered platform to complete the equation.',
+    RUN_STARTED: 'Choose a numbered platform according to the displayed math rule.',
     ATTEMPT_EVALUATED: 'Choice accepted. Watch the arithmetic along the circuit.',
     LANDING_CONFIRMED: 'The Spark reached the selected platform.',
-    PLATFORM_SHORTED: 'Wrong sum: the selected platform shorted.',
+    PLATFORM_SHORTED: 'Wrong mathematical choice: the selected platform shorted.',
     RETURN_FINISHED: 'Back safely. The remaining choices are still available.',
     ROW_COMPLETED: 'Correct landing. The Spark now carries the solved total.',
     CELL_COMPLETED: 'Four correct rows completed. The cell is charged.',
-    VOLTAGE_REBASE: 'Checkpoint recharge: a new starting number is shown.',
+    VOLTAGE_REBASE: 'Starting number reset — the transition is not an equation.',
     RUN_PAUSED: 'Paused. Movement and simulation time are frozen.',
     RUN_RESUMED: 'Resumed. Choose your next platform.',
     RUN_ENDED: 'Run ended. Choose New run to restart.',
@@ -178,8 +181,11 @@ function updateMessage(): void {
     }
     if (event.type === 'ATTEMPT_EVALUATED') {
       const d = event.detail;
+      const skip = d.operation === 'skip-count-by-2';
       const actual = Number(d.incomingValue) + Number(d.selectedValue);
-      mathWorking.textContent = `${d.incomingValue} + ${d.selectedValue} = ${actual}  ·  target ${d.targetValue}`;
+      mathWorking.textContent = skip
+        ? `Count by 2: ${d.incomingValue} → ${d.selectedValue} · next ${d.targetValue}`
+        : `${d.incomingValue} + ${d.selectedValue} = ${actual}  ·  target ${d.targetValue}`;
       mathWorking.dataset.kind = 'active';
       workingUntil = Infinity;
     }
@@ -188,7 +194,9 @@ function updateMessage(): void {
         item.detail.attemptId === event.detail.attemptId)?.detail;
       if (d) {
         const sum = Number(d.incomingValue) + Number(d.selectedValue);
-        mathWorking.textContent = `${d.incomingValue} + ${d.selectedValue} = ${sum}  ≠  ${d.targetValue}`;
+        mathWorking.textContent = d.operation === 'skip-count-by-2'
+          ? `${d.incomingValue} → ${d.selectedValue} · expected next ${d.targetValue}`
+          : `${d.incomingValue} + ${d.selectedValue} = ${sum}  ≠  ${d.targetValue}`;
         mathWorking.dataset.kind = 'incorrect';
       }
       workingUntil = performance.now() + 1700;
@@ -199,14 +207,20 @@ function updateMessage(): void {
     if (event.type === 'ROW_COMPLETED') {
       const solved = engine.snapshot().solved.at(-1);
       if (solved) {
-        mathWorking.textContent = `${solved.incoming} + ${solved.operand} = ${solved.result}  ✓`;
+        const attempt = events.find(item => item.type === 'ATTEMPT_EVALUATED' &&
+          item.detail.attemptId === solved.attemptId);
+        mathWorking.textContent = attempt?.detail.operation === 'skip-count-by-2'
+          ? `${solved.incoming} → ${solved.result} · count by 2 ✓`
+          : `${solved.incoming} + ${solved.operand} = ${solved.result}  ✓`;
         mathWorking.dataset.kind = 'correct';
         workingUntil = performance.now() + 1700;
       }
     }
     if (event.type === 'VOLTAGE_REBASE') {
       const d = event.detail;
-      cellNotice.textContent = `CELL ${d.completedCell} RECHARGED · ${d.oldValue} → ${d.newValue} (new start)`;
+      cellNotice.textContent = d.cause === 'NEXT_TARGET_PROBLEM'
+        ? `NEW QUESTION · Spark resets ${d.oldValue} → ${d.newValue}`
+        : `CELL ${d.completedCell} RECHARGED · ${d.oldValue} → ${d.newValue} (new start)`;
       noticeUntil = performance.now() + 2600;
     }
   }
@@ -336,7 +350,9 @@ function updateChoices(): void {
       const modifier=featuresEnabled?engine.features()?.nextModifier:'NORMAL';
       button.dataset.modifier=modifier??'NORMAL';
       button.textContent = String(option.value);
-      button.setAttribute('aria-label', `Choose ${option.value} to complete ${problem.incomingValue} plus blank equals ${problem.targetValue}`);
+      button.setAttribute('aria-label', problem.operation === 'skip-count-by-2'
+        ? `Choose ${option.value} as the next value after ${problem.incomingValue} when counting by two`
+        : `Choose ${option.value} to complete ${problem.incomingValue} plus blank equals ${problem.targetValue}`);
       button.onclick = () => { engine.selectPlatform(option.platformId); updateMessage(); };
       choices.appendChild(button);
       buttons.push(button);
@@ -629,11 +645,18 @@ function draw(): void {
       context.textBaseline = 'middle';
       context.textAlign = 'center';
       context.fillStyle = '#e6fcff';
-      context.fillText('+' + option.value, x, y);
+      context.fillText((state.currentProblem.operation === 'skip-count-by-2' ? '→' : '+') + option.value, x, y);
     }
   }
 
-  equation.textContent = `${state.currentProblem.incomingValue} + ? = ${state.currentProblem.targetValue}`;
+  equation.textContent = state.currentProblem.operation === 'skip-count-by-2'
+    ? `Count by 2: ${state.currentProblem.incomingValue} → ?`
+    : `${state.currentProblem.incomingValue} + ? = ${state.currentProblem.targetValue}`;
+  if(curriculumBadge)curriculumBadge.textContent =
+    state.currentProblem.operation === 'skip-count-by-2' ? 'SKIP COUNT · TO 10'
+    : (curriculumSelect?.value === 'makeTarget20'
+        ? `MAKE TARGET · ${state.currentProblem.targetValue}`
+        : 'RUNNING ADDITION · TO 20');
   const botHud=engine.bot();
   if(featuresEnabled){
     const feature=engine.features();
@@ -718,6 +741,7 @@ pause.onclick = () => {
 };
 restart.onclick = beginNewRun;
 if(modeSelect)modeSelect.onchange=beginNewRun;
+if(curriculumSelect)curriculumSelect.onchange=beginNewRun;
 framingSelect.onchange = beginNewRun;
 movementSelect.onchange = beginNewRun;
 if(summaryClose)summaryClose.onclick=()=>{if(summaryPanel)summaryPanel.hidden=true;};
