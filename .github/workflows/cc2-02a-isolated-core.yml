@@ -52,6 +52,14 @@ jobs:
         run: npm run lint
       - name: Source-backed new CC2-02A core tests
         run: npx vitest run src/games/circuit-climb-2/tests
+      - name: Export 20-row deterministic gameplay replay
+        run: npx tsx src/games/circuit-climb-2/devtools/exportGolden.mts > cc2-02a-golden-run.json
+      - name: Retain golden evidence artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc2-02a-20-row-golden-replay
+          path: cc2-02a-golden-run.json
+          retention-days: 30
       - name: Retained original unit suite
         run: npm test
       - name: Production build remains intact
