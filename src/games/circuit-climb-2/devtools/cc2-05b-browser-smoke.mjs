@@ -3,6 +3,9 @@
  * entirely source-backed math, authored personality and visual/audio controls.
  */
 import {chromium} from 'playwright-core';
+import {mkdirSync} from 'node:fs';
+import {join} from 'node:path';
+const captures='cc2-05b-screenshots';mkdirSync(captures,{recursive:true});
 import {findChromium,LAUNCH_ARGS,startDevServer}
   from '../../circuit-climb/tools/circuitClimbBrowserHarness.mjs';
 const server=await startDevServer({port:3196});
@@ -39,6 +42,7 @@ try{
     check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),
       viewport.width+'px: no horizontal overflow');
     check(errors.length===0,viewport.width+'px: no browser script errors');
+    await page.screenshot({path:join(captures,'seven-row-start-'+viewport.width+'.png'),fullPage:true});
     if(viewport.width===390){
       const before=JSON.stringify(data.state);
       await page.locator('#tuningPanel summary').click();
