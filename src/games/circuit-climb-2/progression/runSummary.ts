@@ -75,16 +75,29 @@ export function buildRunSummary(
       throw Error('CC2_SUMMARY_TERMINAL_LEDGER_MISMATCH');
   }
   const equations:EquationReviewV1[]=state.solved.map((solved,i)=>{
+    const attempt=attempts.find(event=>event.detail.attemptId===solved.attemptId);
+    const operation=attempt?.detail.operation;
+    // Skip-count platforms show the destination total, not an addend.
+    // Reading the source-owned attempt prevents a false "2 + 4 = 4" review.
+    const arithmeticValid=operation==='skip-count-by-2'
+      ? solved.operand===solved.result &&
+        solved.result===solved.incoming+2
+      : operation==='add' &&
+        solved.incoming+solved.operand===solved.result;
     if(!Number.isFinite(solved.incoming)||
       !Number.isFinite(solved.operand)||
-      solved.incoming+solved.operand!==solved.result ||
+      !arithmeticValid ||
+      attempt?.detail.correct!==true ||
+      attempt?.detail.selectedValue!==solved.operand ||
       solved.rowIndex!==i+1 ||
       landings[i]?.detail.attemptId!==solved.attemptId)
       throw Error('CC2_SUMMARY_EQUATION_LEDGER_MISMATCH');
     return {
       problemId:solved.problemId,attemptId:solved.attemptId,
       row:solved.rowIndex,
-      equation:`${solved.incoming} + ${solved.operand} = ${solved.result}`,
+      equation:operation==='skip-count-by-2'
+        ? `${solved.incoming} → ${solved.result} (count by 2)`
+        : `${solved.incoming} + ${solved.operand} = ${solved.result}`,
       incoming:solved.incoming,operand:solved.operand,result:solved.result,
     };
   });
