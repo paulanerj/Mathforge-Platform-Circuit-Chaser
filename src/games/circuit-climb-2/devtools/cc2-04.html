@@ -101,6 +101,7 @@
       <div><div id="equation" role="status" aria-live="polite">Loading…</div>
         <div id="rowKind" class="row-kind">STAGE 1 · NORMAL ROW</div>
         <div id="modeBadge" class="row-kind">CLIMB</div>
+        <div id="curriculumBadge" class="row-kind" aria-label="Current mathematical curriculum">MAKE TARGET · TO 10</div>
         <div id="cellProgress" class="cell-progress" aria-label="Power cell 1: zero of four rows completed">CELL 1 · ○○○○ · 0/4 powered</div>
         <div id="energy" class="energy" role="status" aria-live="polite">PULSE 0/4</div></div>
       <div id="height">ROW 0<br>0 attempts</div>
@@ -122,12 +123,13 @@
     </div>
     <details class="dev-controls">
       <summary>Developer settings · seed, framing and movement</summary>
-      <p class="dev-note">This is a test candidate. Settings change starts a fresh run. Run reports contain source-owned events and deterministic replay.</p>
+      <p class="dev-note">This is a test candidate. Settings change starts a fresh run. Make target: platform = amount to ADD. Skip count: platform = NEXT EVEN TOTAL. Running addition: carries its solved total until the four-row recharge. Run reports contain source-owned events and deterministic replay.</p>
       <button class="action" id="export" type="button">Export replay</button>
       <button class="action" id="endRun" type="button">End run</button>
       <button class="action" id="reviewSummary" type="button" disabled>Review results</button>
       <div class="settings">
         <label>Mode<select id="mode"><option value="climb" selected>Climb</option><option value="practice">Practice</option><option value="challenge">Challenge</option></select></label>
+        <label>Mathematics<select id="curriculum"><option value="makeTarget20" selected>Make target (10, 12 … 20)</option><option value="skip2to10">Skip count by 2 to 10</option><option value="add20">Running addition to 20</option></select></label>
         <label>Seed<input id="seed" value="cc2-02a-demo" spellcheck="false"></label>
         <label>World framing<select id="framing"><option>80</option><option>90</option><option selected>100</option><option>110</option><option>120</option></select></label>
         <label>Movement<select id="movement"><option value="circuit">Circuit</option><option value="hop">Hop</option></select></label>
