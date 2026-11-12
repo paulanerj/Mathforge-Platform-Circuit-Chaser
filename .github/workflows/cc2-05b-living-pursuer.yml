@@ -1,7 +1,7 @@
 name: CC2-05B seven-row viewport, personality and audio qualification
 on:
   push:
-    branches: [feature/cc2-05b-camera-behavior-tuning]
+    branches: [feature/cc2-05b-seven-row-personality-audio]
   workflow_dispatch:
 
 permissions:
@@ -55,7 +55,7 @@ jobs:
       - name: Protected original Chromium gameplay regression
         run: npm run test:circuit-climb:browser
       - name: Bundle complete updated game into ONE offline HTML
-        run: node src/games/circuit-climb-2/devtools/buildPortable05A.mjs
+        run: node src/games/circuit-climb-2/devtools/buildPortable05B.mjs
       - name: Actual file-protocol play with all HTTP blocked
         run: node src/games/circuit-climb-2/devtools/cc2-05b-portable-smoke.mjs
       - name: Deliver playable single-file offline build
