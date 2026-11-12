@@ -25,6 +25,7 @@ import {
   FeatureProgression,defaultFeatureConfig,validateFeatureConfig,
   type FeatureConfigV1,type FeatureSnapshotV1,type FeatureEventV1,
 } from '../features/progression';
+import {buildRunSummary,type RunSummaryV1} from '../progression/runSummary';
 
 export interface ChaseSnapshotV1 {
   learner:EngineStateV1;
@@ -148,6 +149,11 @@ export class CircuitClimbChaseCore {
   learnerSnapshot():EngineStateV1{return this.core.snapshot();}
   eventLog():GameEventV1[]{return this.core.eventLog();}
   featureEventLog():FeatureEventV1[]{return this.features.eventLog();}
+  /** Source-only projection: strict parity, solved-only equations, no mastery. */
+  runSummary():RunSummaryV1{
+    return buildRunSummary(this.core.snapshot(),
+      this.core.eventLog(),this.features.eventLog());
+  }
   featureSnapshot():FeatureSnapshotV1{
     const state=this.core.snapshot();
     const bot=this.pursuer.snapshot().body;
