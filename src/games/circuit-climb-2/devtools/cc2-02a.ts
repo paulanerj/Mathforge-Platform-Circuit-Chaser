@@ -19,10 +19,12 @@ import {defaultLearnerMotionPreset,type LearnerMotionPresetV1} from '../config/l
 import {
   defaultDevLabPreset,intermediateDevLabPreset,
   validateCameraView,validateDevLabPreset,
-  exportDevLabPreset,importDevLabPreset,projectCameraPoint,
+  exportDevLabPreset,importDevLabPreset,
   type DevLabPresetV1,type CameraViewPresetV1,
 } from '../config/devLabPreset';
 import { getRow, findPlatform } from '../world/world';
+import {computeProductionCamera,projectProductionPoint,
+  type ProductionCameraFrame} from '../presentation/productionCamera';
 import {defaultPursuerPersonality,validatePursuerPersonality,
   type PursuerPersonalityV1,type PursuerEmotionV1} from '../pursuer/personality';
 import {
@@ -162,6 +164,8 @@ let previousBotEmotion:PursuerEmotionV1|null=null;
 let cameraY = 0;
 let previewRowsRendered=0;
 let effectiveCameraZoom=0.70;
+let horizontalCameraScale=1;
+let productionFrame:ProductionCameraFrame|null=null;
 let cameraRowGap=205;
 let viewportCoverage={above:0,below:0};
 let logicalHeight = 800;
@@ -549,26 +553,20 @@ function updateChoices(): void {
   for (const button of buttons) {
     const platform = findPlatform(state.world, button.dataset.platformId!);
     if (!platform) continue;
-    const scale=canvas.clientWidth/state.world.geometry.logicalWidth*effectiveCameraZoom;
-    // Physical destinations and canvas still use EXACTLY one projection.
-    // On narrow screens the three lanes can project only 36px apart.
-    // Magnify/spread ACTIVE BUTTONS (not physics/platform position) when
-    // necessary; otherwise >=52px hit targets would overlap and mis-tap.
-    // Their ordinal ordering remains the actual source-owned option ordering.
-    const width=Math.max(52,platform.width*scale);
-    const height=Math.max(44,platform.height*scale);
-    const centre=projectCameraPoint(platform.x,
-      platform.y+platform.height/2,cameraY,canvas.clientWidth,
-      state.world.geometry.logicalWidth,effectiveCameraZoom);
+    // Source platform and clickable card use ONE mathematical coordinate:
+    // there is no "spread the buttons but leave the tower compressed" hack.
+    if(!productionFrame)continue;
+    const cssScale=canvas.clientWidth/state.world.geometry.logicalWidth;
+    const xScale=productionFrame.xScale*cssScale;
+    const yScale=productionFrame.yScale*cssScale;
+    const width=Math.max(64,Math.min(132,platform.width*xScale*0.91));
+    const height=Math.max(49,Math.min(78,platform.height*yScale*1.8));
+    const centre=projectProductionPoint(platform.x,
+      platform.y+platform.height/2,productionFrame,
+      state.world.geometry.logicalWidth,canvas.clientWidth);
     const y=centre.y-height/2;
-    const laneSpacing=(state.world.geometry.columns[1]-
-      state.world.geometry.columns[0])*scale;
-    const needsSpread=laneSpacing<width+9;
-    const screenX=needsSpread
-      ? canvas.clientWidth*(0.20+platform.column*0.30)
-      : centre.x;
-    button.style.left=`${screenX}px`;
-    button.dataset.magnified=needsSpread?'true':'false';
+    button.style.left=`${centre.x}px`;
+    button.dataset.magnified='false';
     button.style.top=`${y}px`;
     button.style.width = `${width}px`;
     button.style.height = `${height}px`;
@@ -605,25 +603,24 @@ function draw(): void {
   const g = state.world.geometry;
   const features = featuresEnabled ? engine.features() : null;
   fitCanvas();
-  // Camera is a presentation-only viewport. To reveal at least three
-  // FULL platform rows above and three below the player we calculate a
-  // resolution-specific maximum zoom. Physics, pursuer and math are not scaled.
-  // Include vertical card heights + canvas padding so 3-row reach is not
-  // marginally clipped on narrow phones.
+  // CAMERA 06A: horizontal and vertical views are independent.
+  // 2 levels above + 2 below, without squeezing the tower into 3 thin lanes.
+  // This is render-only: core geometry, pursuer routes and math are unchanged.
   cameraRowGap=g.rowGap;
-  const totalWorldSpan=6*g.rowGap+g.platformHeight+140;
-  const fitZoom=logicalHeight/totalWorldSpan;
-  const zoom=Math.max(0.15,Math.min(cameraView.zoom,fitZoom));
+  productionFrame=computeProductionCamera({
+    logicalWidth:600,logicalHeight,rowGap:g.rowGap,
+    platformHeight:g.platformHeight,columns:g.columns,
+    sparkY:state.spark.y,previousCameraY:cameraY,
+    maxZoom:cameraView.zoom,follow:cameraView.follow,
+  });
+  const zoom=productionFrame.yScale;
+  horizontalCameraScale=productionFrame.xScale;
   effectiveCameraZoom=zoom;
-  const targetCamera=state.spark.y-logicalHeight/(2*zoom);
-  // Follow smoothing is retained only inside the free margin and cannot
-  // push one of the six guaranteed rows outside the visible viewport.
-  const spare=Math.max(0,(logicalHeight/zoom-totalWorldSpan)/2);
-  cameraY+=(targetCamera-cameraY)*cameraView.follow;
-  cameraY=Math.max(targetCamera-spare,Math.min(targetCamera+spare,cameraY));
+  cameraY=productionFrame.cameraY;
   const h=logicalHeight/zoom;
-  viewportCoverage={above:(state.spark.y-cameraY)/g.rowGap,
-    below:(cameraY+h-state.spark.y)/g.rowGap};
+  viewportCoverage={
+    above:productionFrame.aboveRows,below:productionFrame.belowRows,
+  };
 
   // Paint the entire physical viewport BEFORE applying world-only zoom.
   // Neither hitboxes nor physics coordinate space are modified.
@@ -635,7 +632,7 @@ function draw(): void {
   context.fillRect(0, 0, 600, logicalHeight);
   context.save();
   context.translate(300,0);
-  context.scale(zoom,zoom);
+  context.scale(horizontalCameraScale,zoom);
   context.translate(-300,0);
 
   // Three vertical architectural lanes establish strong visual continuity.
@@ -650,32 +647,29 @@ function draw(): void {
     context.stroke();
   }
 
-  // This lab preview deliberately does not generate future equations or
-  // publish future platform IDs. The silhouettes are noninteractive
-  // architectural scaffolding only; current math stays hidden until READY.
+  // The tower has only TWO visible tier positions above and below.
+  // Unpublished mathematical choices are never rendered as fake buttons.
+  // Instead, ungenerated tiers are a SINGLE structural stone/metal rail.
   previewRowsRendered=0;
   const sparkIndex=state.spark.row;
-  // Render future and past *structural* scaffolding with NO numbers,
-  // no problem IDs, no correct answers, and no interactive hit targets.
-  // Keep the closest 3 rows in each direction visible even at row zero.
-  const previewIndices=[];
-  for(let index=sparkIndex-3;index<=sparkIndex+4;index++){
+  for(let index=sparkIndex-2;index<=sparkIndex+2;index++){
     if(index===sparkIndex || state.world.rows.some(row=>row.index===index))continue;
-    previewIndices.push(index);
-  }
-  for(const futureIndex of previewIndices){
-    const y=worldY(-futureIndex*g.rowGap);
-    if(y>h+g.platformHeight||y<-g.platformHeight)continue;
+    const y=worldY(-index*g.rowGap);
+    if(y>h+g.platformHeight || y<-g.platformHeight)continue;
     previewRowsRendered++;
     context.save();
-    context.setLineDash([6,7]);
-    // Previews must be visible at 60–70% camera zoom, yet clearly
-    // secondary to the numbered, selectable platforms.
-    context.strokeStyle='rgba(125,177,202,.42)';
-    context.fillStyle='rgba(48,88,116,.19)';
-    context.lineWidth=1.7;
+    const left=g.columns[0]-g.platformWidth*.74;
+    const right=g.columns[2]+g.platformWidth*.74;
+    const lineY=y+g.platformHeight*.54;
+    context.strokeStyle='rgba(129,190,198,.26)';
+    context.lineWidth=2.4;
+    context.beginPath();context.moveTo(left,lineY);context.lineTo(right,lineY);
+    context.stroke();
+    context.fillStyle='rgba(63,114,126,.19)';
+    context.strokeStyle='rgba(131,185,188,.21)';
     for(const x of g.columns){
-      roundedRect(x-g.platformWidth/2,y,g.platformWidth,g.platformHeight,10);
+      roundedRect(x-g.platformWidth*.40,y+g.platformHeight*.36,
+        g.platformWidth*.80,g.platformHeight*.32,7);
       context.fill();context.stroke();
     }
     context.restore();
@@ -964,7 +958,7 @@ function draw(): void {
     ? `Count by 2: ${state.currentProblem.incomingValue} → ?`
     : `${state.currentProblem.incomingValue} + ? = ${state.currentProblem.targetValue}`;
   if(viewReadout){
-    viewReadout.textContent='3 rows ABOVE + 3 BELOW Spark · camera auto-fit '+
+    viewReadout.textContent='SIGHTLINE · 2 ROWS ABOVE / 2 BELOW · vertical fit '+
       Math.round(effectiveCameraZoom*100)+'% · user maximum '+
       Math.round(cameraView.zoom*100)+'%';
   }
@@ -1246,6 +1240,7 @@ document.addEventListener('visibilitychange', () => {
   rendererStats: () => ({canvasResizes,zoom:cameraView.zoom,
     effectiveZoom:effectiveCameraZoom,follow:cameraView.follow,
     previewRowsRendered,cameraY,viewportCoverage,cameraRowGap,
+    horizontalCameraScale,
     framingPercent:engine.snapshot().world.geometry.rowGap}),
   pursuer: () => engine.bot(),
   features: () => engine.features(),
