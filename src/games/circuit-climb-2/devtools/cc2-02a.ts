@@ -321,6 +321,17 @@ function labMessage(message:string,error=false):void {
   labStatus.dataset.error=error?'yes':'no';
 }
 
+function emitCue(id:FeedbackCueId):void {
+  audio.cue(id);
+  if(!currentFeedback.vfxEnabled)return;
+  const now=performance.now();
+  activeCue={id,started:now,until:now+(reducedMotion?550:850)};
+  if(cueNotice){
+    cueNotice.textContent=CUE_CATALOG[id].label;
+    cueNotice.hidden=false;
+    cueNotice.style.borderColor=CUE_CATALOG[id].color;
+  }
+}
 function updateMessage(): void {
   const events = engine.eventLog();
   // ROW_COMPLETED and VOLTAGE_REBASE can occur in the same simulation tick.
@@ -340,6 +351,10 @@ function updateMessage(): void {
     RUN_ENDED: 'Run ended. Choose New run to restart.',
   };
   for (const event of newEvents) {
+    const cue=event.type==='RUN_ENDED'
+      ? event.detail.reason==='CAPTURED'?'capture':'quit'
+      : CORE_CUES[event.type];
+    if(cue)emitCue(cue);
     status.textContent = event.type==='RUN_ENDED' && event.detail.reason==='CAPTURED'
       ? 'The red pursuer reached the grounded Spark. Capture is physical and terminal.'
       : messages[event.type] ?? status.textContent;
@@ -480,6 +495,10 @@ function updateFeatureEvents():void{
   if(!featuresEnabled)return;
   const all=engine.featureEvents();
   for(const event of all.slice(previousFeatureEventCount)){
+    const cue=event.type==='ABILITY_ACTIVATED'
+      ? event.detail.affected===true?'pulse':'pulseMiss'
+      : FEATURE_CUES[event.type];
+    if(cue)emitCue(cue);
     if(event.type==='ABILITY_ACTIVATED'){
       const affected=event.detail.affected===true;
       status.textContent=affected
@@ -872,20 +891,66 @@ function draw(): void {
       context.fillText((state.currentProblem.operation === 'skip-count-by-2' ? '→' : '+') + option.value, x, y);
     }
   }
+  // Every important event can play an ORIGINAL cue and generate a matching,
+  // optional electrical response. These rings do not alter core physics.
+  if(activeCue && currentFeedback.vfxEnabled){
+    const now=performance.now();
+    if(now<=activeCue.until){
+      const cue=CUE_CATALOG[activeCue.id];
+      const fade=Math.max(0,1-(now-activeCue.started)/
+        Math.max(1,activeCue.until-activeCue.started));
+      const point=cue.target==='pursuer'?engine.bot()?.body:state.spark;
+      if(point){
+        const r=cue.target==='pursuer'?engine.bot()!.radius:g.playerRadius;
+        const extra=reducedMotion?5:(1-fade)*28*currentFeedback.vfxIntensity;
+        context.save();
+        context.globalAlpha=fade*currentFeedback.vfxIntensity*0.85;
+        context.strokeStyle=cue.color;
+        context.lineWidth=3.5;
+        context.shadowColor=cue.color;
+        context.shadowBlur=reducedMotion?0:16;
+        context.beginPath();
+        context.arc(point.x,worldY(point.y),r+11+extra,0,Math.PI*2);
+        context.stroke();
+        context.restore();
+      }
+    }else{
+      activeCue=null;
+      if(cueNotice)cueNotice.hidden=true;
+    }
+  }
   context.restore(); // Close render-only camera transform before any DOM work.
 
   equation.textContent = state.currentProblem.operation === 'skip-count-by-2'
     ? `Count by 2: ${state.currentProblem.incomingValue} → ?`
     : `${state.currentProblem.incomingValue} + ? = ${state.currentProblem.targetValue}`;
+  if(viewReadout){
+    viewReadout.textContent='3 rows ABOVE + 3 BELOW Spark · camera auto-fit '+
+      Math.round(effectiveCameraZoom*100)+'% · user maximum '+
+      Math.round(cameraView.zoom*100)+'%';
+  }
   if(curriculumBadge)curriculumBadge.textContent =
     state.currentProblem.operation === 'skip-count-by-2' ? 'SKIP COUNT · TO 10'
     : (curriculumSelect?.value === 'makeTarget20'
         ? `MAKE TARGET · ${state.currentProblem.targetValue}`
         : 'RUNNING ADDITION · TO 20');
   const botHud=engine.bot();
+  if(botHud && botHud.emotion!==previousBotEmotion){
+    const personalityCue:Partial<Record<PursuerEmotionV1,FeedbackCueId>>={
+      NOTICE:'notice',HESITATING:'hesitate',
+      FRUSTRATED:'frustrated',CURIOUS:'curious',
+      FOCUSED:'focus',
+    };
+    const id=personalityCue[botHud.emotion];
+    if(id && previousBotEmotion!==null)emitCue(id);
+    previousBotEmotion=botHud.emotion;
+  }
   if(botReadout && botHud && state.tick%15===0) {
     const report=[
       'MODE: '+botHud.belief.mode+' · '+botHud.belief.reason,
+      'EMOTION: '+botHud.emotion+
+        ' · HESITATIONS: '+botHud.personalityHesitations+
+        ' · DETOURS: '+botHud.personalityDetours,
       'SENSOR: '+(botHud.sensed?'LIVE ':'NO LIVE ')+botHud.lastSensorSource,
       'PURSUER: X '+botHud.body.x.toFixed(1)+
         ' · Y '+botHud.body.y.toFixed(1),
@@ -962,15 +1027,23 @@ function beginNewRun(): void {
   }
   const nextEngine=makeSurfaceEngine(
     seedInput.value.trim()||'cc2-02a-demo',
-    next.run,next.learner,next.pursuer,
+    next.run,next.learner,next.pursuer,next.personality,
   );
   engine=nextEngine;
   cameraView=next.camera;
   appliedLabPreset=next;
+  currentFeedback=next.feedback!;
+  audio.configure(currentFeedback);
+  if(soundToggle){
+    soundToggle.textContent=currentFeedback.enabled?'Sound: On':'Sound: Off';
+    soundToggle.setAttribute('aria-pressed',String(currentFeedback.enabled));
+  }
   if(zoomValue)zoomValue.textContent=Math.round(next.camera.zoom*100)+'%';
   currentProblemId = '';
   previousEventCount = 0;
   previousFeatureEventCount = 0;
+  previousBotEmotion=null;
+  activeCue=null;
   featureNoticeUntil = 0;
   toastUntil=0;
   seenAchievements.clear();
@@ -1014,10 +1087,10 @@ if(applyTuning)applyTuning.onclick=()=>{
   if(engine!==prior)labMessage('Validated tuning applied. New run started; replay includes source-owned learner and pursuer presets.');
 };
 if(resetTuning)resetTuning.onclick=()=>{
-  const base=defaultDevLabPreset();
-  loadLabPreset({...base,run:{...base.run,curriculum:'makeTarget20'}});
+  const base=intermediateDevLabPreset();
+  loadLabPreset(base);
   beginNewRun();
-  labMessage('Lab defaults restored. New Make Target run started.');
+  labMessage('Intermediate curious Pursuer restored (search 1.44, pursuit 2.28).');
 };
 if(exportPreset)exportPreset.onclick=()=>{
   try{
@@ -1025,7 +1098,7 @@ if(exportPreset)exportPreset.onclick=()=>{
     if(presetData)presetData.value=payload;
     const url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
     const link=document.createElement('a');
-    link.href=url;link.download='cc2-05a-behavior-preset.json';link.click();
+    link.href=url;link.download='cc2-05b-living-pursuer-preset.json';link.click();
     URL.revokeObjectURL(url);
     labMessage('Validated versioned tuning preset exported. Paste its JSON here to restore.');
   }catch(error){
@@ -1046,6 +1119,25 @@ if(importPreset)importPreset.onclick=()=>{
       String(error instanceof Error?error.message:error),true);
   }
 };
+
+// Browsers require a gesture to unlock Web Audio. Never unlock from the
+// simulation tick, startup, a test assertion or an animation effect.
+document.addEventListener('pointerdown',()=>audio.unlock(),{capture:true});
+document.addEventListener('keydown',()=>audio.unlock(),{capture:true});
+if(soundToggle)soundToggle.onclick=()=>{
+  currentFeedback=validateFeedbackPreset({
+    ...currentFeedback,enabled:!currentFeedback.enabled,
+  });
+  audio.configure(currentFeedback);
+  if(soundToggle){
+    soundToggle.textContent=currentFeedback.enabled?'Sound: On':'Sound: Off';
+    soundToggle.setAttribute('aria-pressed',String(currentFeedback.enabled));
+  }
+  const box=document.querySelector<HTMLInputElement>('#feedbackEnabled');
+  if(box)box.checked=currentFeedback.enabled;
+  if(currentFeedback.enabled)emitCue('resume');
+};
+if(testSound)testSound.onclick=()=>emitCue('achievement');
 
 if(pulseButton)pulseButton.onclick=()=>{
   const result=engine.pulse();
@@ -1071,6 +1163,7 @@ exportButton.onclick = () => {
   const output = JSON.stringify({
     replay: engine.replayExport(),
     appliedLabPreset: {...appliedLabPreset,camera:cameraView},
+    feedbackCuesPlayed:audio.history(),
     stateDigest: engine.stateDigest(),
     events: engine.eventLog(),
     finalState: engine.snapshot(),
@@ -1119,6 +1212,9 @@ document.addEventListener('visibilitychange', () => {
   features: () => engine.features(),
   featureEvents: () => engine.featureEvents(),
   summary: () => engine.summary(),
+  feedbackHistory:()=>audio.history(),
+  feedbackSettings:()=>({...currentFeedback}),
+  activePreset:()=>({...appliedLabPreset}),
   pulse: () => {const outcome=engine.pulse();updateFeatureEvents();return outcome;},
   advanceForQA: (ticks:number) => {
     if(!manualQA)throw new Error('QA_MANUAL_MODE_REQUIRED');
@@ -1143,5 +1239,6 @@ function frame(time: number): void {
   requestAnimationFrame(frame);
 }
 
+loadLabPreset(intermediateDevLabPreset());
 beginNewRun();
 requestAnimationFrame(frame);
