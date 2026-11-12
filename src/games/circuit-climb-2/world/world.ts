@@ -175,6 +175,12 @@ export function planRoute(
 /** The route is already actor-safe. This helper only interpolates its centre. */
 export function pointAlongRoute(points: readonly RoutePoint[], distance: number): RoutePoint {
   if (points.length < 2) throw new Error('WORLD_EMPTY_ROUTE');
+  // The final sample must be the exact source-owned landing coordinate.
+  // Summing floating-point segment lengths can otherwise leave a 1e-13 unit
+  // residual even when distance equals the stored route total.
+  const total = points.slice(1).reduce((sum, point, i) =>
+    sum + Math.abs(point.x - points[i].x) + Math.abs(point.y - points[i].y), 0);
+  if (distance >= total - 1e-8) return { ...points[points.length - 1] };
   let remaining = Math.max(0, distance);
   for (let i = 1; i < points.length; i += 1) {
     const a = points[i - 1];
