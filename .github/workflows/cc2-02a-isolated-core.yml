@@ -25,13 +25,28 @@ jobs:
         run: |
           set -euo pipefail
           git merge-base --is-ancestor fe3f88c629548ce0f21540ef3fc5a748b16000c8 HEAD
-          protected=c8838c30947c2a561bfc8322a6159e4f28fef61a
+          frozen=0a6f138f229119bc6b6c15ee1f658046c7075f50
           while IFS= read -r file; do
             actual="$(git rev-parse "HEAD:$file")"
-            expected="$(git rev-parse "$protected:$file")"
-            test "$actual" = "$expected"
-          done < <(git ls-tree -r --name-only "$protected" src/games/circuit-climb)
-          echo "Protected Circuit Climb source: unchanged."
+            expected="$(git rev-parse "$frozen:$file")"
+            if [ "$actual" != "$expected" ]; then
+              echo "Protected SOT-02 file changed: $file"
+              exit 1
+            fi
+          done < <(git ls-tree -r --name-only "$frozen" src/games/circuit-climb/)
+          product=c8838c30947c2a561bfc8322a6159e4f28fef61a
+          for file in \
+            src/games/circuit-climb/CircuitClimbSurface.tsx \
+            src/games/circuit-climb/geometry/circuitClimbGeometry.ts \
+            src/games/circuit-climb/runtime/circuitClimbLearnerRouting.ts \
+            src/games/circuit-climb/runtime/useCircuitClimbPrototypeRuntime.ts \
+            src/games/circuit-climb/services/CircuitClimbMathAdapter.ts \
+            src/games/circuit-climb/pursuer/circuitClimbPursuer.ts \
+            src/games/circuit-climb/styles/circuit-climb.css
+          do
+            test "$(git rev-parse "HEAD:$file")" = "$(git rev-parse "$product:$file")"
+          done
+          echo "Protected Circuit Climb source and transfer: unchanged."
       - run: npm ci
       - name: TypeScript project validation
         run: npm run lint
