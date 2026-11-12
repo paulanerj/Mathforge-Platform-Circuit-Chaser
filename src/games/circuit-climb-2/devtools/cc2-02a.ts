@@ -17,11 +17,20 @@ import {defaultPursuerPreset,type PursuerPresetV1} from '../pursuer/pursuerPrese
 import {defaultFeatureConfig} from '../features/progression';
 import {defaultLearnerMotionPreset,type LearnerMotionPresetV1} from '../config/learnerMotionPreset';
 import {
-  defaultDevLabPreset,validateCameraView,validateDevLabPreset,
+  defaultDevLabPreset,intermediateDevLabPreset,
+  validateCameraView,validateDevLabPreset,
   exportDevLabPreset,importDevLabPreset,projectCameraPoint,
   type DevLabPresetV1,type CameraViewPresetV1,
 } from '../config/devLabPreset';
 import { getRow, findPlatform } from '../world/world';
+import {defaultPursuerPersonality,validatePursuerPersonality,
+  type PursuerPersonalityV1,type PursuerEmotionV1} from '../pursuer/personality';
+import {
+  defaultFeedbackPreset,validateFeedbackPreset,
+  CUE_CATALOG,CORE_CUES,FEATURE_CUES,
+  type FeedbackPresetV1,type FeedbackCueId,
+} from '../presentation/feedback';
+import {CircuitClimbFeedbackAudio} from './feedbackAudio';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#worldCanvas')!;
 const board = document.querySelector<HTMLElement>('#board')!;
@@ -68,7 +77,12 @@ const applyTuning=document.querySelector<HTMLButtonElement>('#applyTuning');
 const resetTuning=document.querySelector<HTMLButtonElement>('#resetTuning');
 const exportPreset=document.querySelector<HTMLButtonElement>('#exportPreset');
 const importPreset=document.querySelector<HTMLButtonElement>('#importPreset');
+const viewReadout=document.querySelector<HTMLElement>('#viewReadout');
+const cueNotice=document.querySelector<HTMLElement>('#cueNotice');
+const soundToggle=document.querySelector<HTMLButtonElement>('#soundToggle');
+const testSound=document.querySelector<HTMLButtonElement>('#testSound');
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const audio=new CircuitClimbFeedbackAudio();
 const context = canvas.getContext('2d')!;
 /**
  * One presentation port for two actual authoritative engines. Without the
@@ -99,10 +113,11 @@ function makeSurfaceEngine(
   seed:string,config:RunConfigV1=defaultRunConfig(),
   learnerMotion:LearnerMotionPresetV1=defaultLearnerMotionPreset(),
   pursuerPreset:PursuerPresetV1=defaultPursuerPreset(),
+  personality:PursuerPersonalityV1=defaultPursuerPersonality(),
 ):SurfaceEngine{
   if(botEnabled){
     const game=new CircuitClimbChaseCore(seed,config,pursuerPreset,
-      defaultFeatureConfig(),learnerMotion);
+      defaultFeatureConfig(),learnerMotion,personality);
     return {
       snapshot:()=>game.learnerSnapshot(),
       eventLog:()=>game.eventLog(),
@@ -139,8 +154,11 @@ function makeSurfaceEngine(
   };
 }
 let engine:SurfaceEngine=makeSurfaceEngine(seedInput.value);
-let cameraView:CameraViewPresetV1={...defaultDevLabPreset().camera};
-let appliedLabPreset:DevLabPresetV1=defaultDevLabPreset();
+let cameraView:CameraViewPresetV1={...intermediateDevLabPreset().camera};
+let appliedLabPreset:DevLabPresetV1=intermediateDevLabPreset();
+let currentFeedback:FeedbackPresetV1=defaultFeedbackPreset();
+let activeCue:{id:FeedbackCueId;until:number;started:number}|null=null;
+let previousBotEmotion:PursuerEmotionV1|null=null;
 let cameraY = 0;
 let previewRowsRendered=0;
 let effectiveCameraZoom=0.70;
@@ -222,6 +240,25 @@ function collectLabPreset():DevLabPresetV1 {
     schemaVersion:'cc2-dev-lab/v1',
     run:configFromControls(),learner:learnerMotion,
     pursuer:pursuerPreset,camera,
+    personality:{
+      ...defaultPursuerPersonality(),
+      style:(document.querySelector<HTMLSelectElement>('#personalityStyle')?.value??'curious') as 'curious'|'relentless',
+      hesitationChance:numericControl('hesitationChance'),
+      hesitationMinTicks:numericControl('hesitationMinTicks'),
+      hesitationMaxTicks:numericControl('hesitationMaxTicks'),
+      hesitationCooldownTicks:numericControl('hesitationCooldownTicks'),
+      noticeTicks:numericControl('noticeTicks'),
+      detourChance:numericControl('detourChance'),
+      detourTicks:numericControl('detourTicks'),
+      frustrationTicks:numericControl('frustrationTicks'),
+    },
+    feedback:{
+      ...defaultFeedbackPreset(),
+      enabled:boolControl('feedbackEnabled'),
+      volume:numericControl('feedbackVolume'),
+      vfxEnabled:boolControl('vfxEnabled'),
+      vfxIntensity:numericControl('vfxIntensity'),
+    },
   });
 }
 function loadLabPreset(preset:DevLabPresetV1):void {
@@ -244,6 +281,15 @@ function loadLabPreset(preset:DevLabPresetV1):void {
     actorRadiusRatio:p.pursuer.actorRadiusRatio,
     spawnRowsBelow:p.pursuer.spawnRowsBelow,
     cameraZoom:p.camera.zoom,cameraFollow:p.camera.follow,
+    hesitationChance:p.personality!.hesitationChance,
+    hesitationMinTicks:p.personality!.hesitationMinTicks,
+    hesitationMaxTicks:p.personality!.hesitationMaxTicks,
+    hesitationCooldownTicks:p.personality!.hesitationCooldownTicks,
+    noticeTicks:p.personality!.noticeTicks,
+    detourChance:p.personality!.detourChance,
+    detourTicks:p.personality!.detourTicks,
+    frustrationTicks:p.personality!.frustrationTicks,
+    feedbackVolume:p.feedback!.volume,vfxIntensity:p.feedback!.vfxIntensity,
   };
   for(const [id,value] of Object.entries(fields)){
     const element=document.querySelector<HTMLInputElement|HTMLSelectElement>('#'+id);
@@ -251,10 +297,22 @@ function loadLabPreset(preset:DevLabPresetV1):void {
   }
   const shield=document.querySelector<HTMLInputElement>('#transitShield');
   if(shield)shield.checked=p.run.transitShield;
+  const persona=document.querySelector<HTMLSelectElement>('#personalityStyle');
+  if(persona)persona.value=p.personality!.style;
+  const feedbackCheckbox=document.querySelector<HTMLInputElement>('#feedbackEnabled');
+  const vfxCheckbox=document.querySelector<HTMLInputElement>('#vfxEnabled');
+  if(feedbackCheckbox)feedbackCheckbox.checked=p.feedback!.enabled;
+  if(vfxCheckbox)vfxCheckbox.checked=p.feedback!.vfxEnabled;
   if(modeSelect)modeSelect.value=p.run.mode;
   if(curriculumSelect)curriculumSelect.value=p.run.curriculum;
   movementSelect.value=p.run.movement;
   cameraView=p.camera;
+  currentFeedback=p.feedback!;
+  audio.configure(currentFeedback);
+  if(soundToggle){
+    soundToggle.textContent=currentFeedback.enabled?'Sound: On':'Sound: Off';
+    soundToggle.setAttribute('aria-pressed',String(currentFeedback.enabled));
+  }
   if(zoomValue)zoomValue.textContent=Math.round(100*p.camera.zoom)+'%';
 }
 function labMessage(message:string,error=false):void {
