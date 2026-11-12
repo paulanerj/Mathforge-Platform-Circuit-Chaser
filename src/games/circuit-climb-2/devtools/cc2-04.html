@@ -264,6 +264,46 @@
       .choice{transition:none}
       .choice:hover:not(:disabled){transform:translateX(-50%)}
     }
+
+    /* CC2-06A visual review: readable mobile HUD + physically truthful
+       offscreen Pursuer awareness (not a fake on-board enemy). */
+    .hud{display:grid;grid-template-columns:minmax(0,1fr) auto;
+      grid-template-areas:"equation height" "meta meta";
+      align-items:center;column-gap:16px;row-gap:6px;}
+    .hud-primary{grid-area:equation;min-width:0}
+    .hud-metadata{grid-area:meta;display:flex;gap:4px 13px;
+      align-items:center;flex-wrap:wrap;padding-top:4px;
+      border-top:1px solid #82b1af26}
+    #height{grid-area:height;line-height:1.55}
+    #rowKind,#modeBadge,#curriculumBadge,.cell-progress,.energy{
+      margin:0;display:block;line-height:1.45}
+    .threat-indicator{position:absolute;left:50%;bottom:15px;
+      transform:translateX(-50%);z-index:7;display:flex;
+      align-items:center;gap:9px;max-width:calc(100% - 24px);
+      padding:8px 13px;border:1px solid #f3989a77;border-radius:40px;
+      background:linear-gradient(110deg,#381f31f4,#16212ff4);
+      color:#ffb5b9;font-size:10px;letter-spacing:.105em;font-weight:800;
+      box-shadow:0 5px 22px #000a,0 0 25px #bb526526;
+      white-space:nowrap;pointer-events:none}
+    .threat-indicator[hidden]{display:none;}
+    .threat-indicator[data-direction="above"]{top:14px;bottom:auto}
+    .threat-beacon{width:21px;height:21px;flex:0 0 21px;display:grid;
+      place-items:center;border-radius:50%;border:1px solid #fa9cab;
+      background:#762f52;box-shadow:0 0 10px #d94c7590;color:#ffe4e5}
+    @media(max-width:650px){
+      .hud{column-gap:8px;row-gap:6px;padding:11px 12px}
+      .hud-metadata{gap:3px 8px;align-items:center}
+      #height{min-width:82px;font-size:10px;padding:7px 8px}
+      #equation{font-size:clamp(23px,7.6vw,31px)}
+      #rowKind,#modeBadge,#curriculumBadge,.cell-progress,.energy{
+        font-size:9px;letter-spacing:.04em}
+      .threat-indicator{font-size:9px;padding:6px 9px}
+    }
+    @media(max-width:350px){
+      .hud{column-gap:6px}
+      #height{min-width:78px;font-size:9px}
+      #rowKind,#modeBadge,#curriculumBadge,.cell-progress,.energy{font-size:8.5px}
+    }
   </style>
 </head>
 <body data-pursuer="on" data-features="on" data-summary="on">
@@ -278,17 +318,23 @@
     </div>
     <p class="disclaimer"><span class="live-indicator" aria-hidden="true"></span> A mathematical chase through the circuit tower <span class="tagline-note">· Choose the correct path. Stay ahead.</span></p>
     <section class="hud" aria-label="Mathematics and progress">
-      <div><div id="equation" role="status" aria-live="polite">Loading…</div>
+      <div class="hud-primary"><div id="equation" role="status" aria-live="polite">Loading…</div></div>
+      <div id="height">ROW 0<br>BOT SEARCH</div>
+      <div class="hud-metadata">
         <div id="rowKind" class="row-kind">STAGE 1 · NORMAL ROW</div>
         <div id="modeBadge" class="row-kind">CLIMB</div>
         <div id="curriculumBadge" class="row-kind" aria-label="Current mathematical curriculum">MAKE TARGET · TO 10</div>
         <div id="cellProgress" class="cell-progress" aria-label="Power cell 1: zero of four rows completed">CELL 1 · ○○○○ · 0/4 powered</div>
-        <div id="energy" class="energy" role="status" aria-live="polite">PULSE 0/4</div></div>
-      <div id="height">ROW 0<br>0 attempts</div>
+        <div id="energy" class="energy" role="status" aria-live="polite">PULSE 0/4</div>
+      </div>
     </section>
     <section class="board" id="board" aria-label="Numbered three-platform climbing board">
       <canvas id="worldCanvas" aria-hidden="true"></canvas>
       <div id="cueNotice" class="cue-notice" hidden></div>
+      <div id="threatIndicator" class="threat-indicator" role="status" aria-live="off" hidden>
+        <span class="threat-beacon" aria-hidden="true">◆</span>
+        <span id="threatText">PURSUER APPROACHING</span>
+      </div>
       <div id="mathWorking" class="math-working" role="status" aria-live="polite" hidden></div>
       <div class="choices" id="choices" aria-label="Choose a numbered destination"></div>
     </section>
