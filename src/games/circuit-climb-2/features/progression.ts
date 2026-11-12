@@ -146,6 +146,9 @@ export class FeatureProgression {
     if(paused)return {ok:false,reason:'PAUSED'};
     if(mode==='practice')return {ok:false,reason:'PRACTICE_DEMO_ONLY'};
     if(phase!=='ready')return {ok:false,reason:'NOT_GROUNDED'};
+    // Four new correct rows can be solved in less than a 150-tick Pulse.
+    // Do not permit an active slow effect to be rearmed or overwritten.
+    if(this.pulseUntilTick>tick)return {ok:false,reason:'ABILITY_ALREADY_ACTIVE'};
     if(this.charge!==this.config.chargeCapacity)return {ok:false,reason:'CHARGE_NOT_FULL'};
     if(!Number.isFinite(targetDistance)||targetDistance<0)throw Error('CC2_PULSE_DISTANCE_INVALID');
     const affected=targetDistance<=this.config.pulseRadius;
@@ -180,7 +183,8 @@ export class FeatureProgression {
       stage:Math.floor(this.completedRows/12)+1,
       nextModifier:modifierForRow(this.completedRows+1,this.config),
       pulseAvailable:!this.ended&&!paused&&mode!=='practice'&&
-        phase==='ready'&&this.charge===this.config.chargeCapacity,
+        phase==='ready'&&this.pulseUntilTick<=tick&&
+        this.charge===this.config.chargeCapacity,
       events:clone(this.events),
     };
   }

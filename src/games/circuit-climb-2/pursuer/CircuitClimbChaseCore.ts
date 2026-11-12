@@ -79,7 +79,11 @@ export class CircuitClimbChaseCore {
   private adjudicate():boolean{
     if(this.config.mode==='practice')return false; // demonstration ghost
     const bot=this.pursuer.snapshot();
-    return this.core.adjudicatePursuerCapture(bot.body.x,bot.body.y,bot.radius);
+    const captured=this.core.adjudicatePursuerCapture(bot.body.x,bot.body.y,bot.radius);
+    // A contact before a user action or before a simulation tick may end
+    // the run. Consume terminal evidence immediately in every path.
+    if(captured)this.features.consume(this.core.eventLog());
+    return captured;
   }
   selectPlatform(platformId:string):SelectionResultV1{
     this.record('SELECT',platformId);
@@ -100,7 +104,10 @@ export class CircuitClimbChaseCore {
   }
   pause():void{this.record('PAUSE');this.core.pause();}
   resume():void{this.record('RESUME');this.core.resume();}
-  quit():void{this.record('QUIT');this.core.quit();}
+  quit():void{
+    this.record('QUIT');this.core.quit();
+    this.features.consume(this.core.eventLog());
+  }
   restart():void{
     this.record('RESTART');
     this.core.restart();
