@@ -550,15 +550,25 @@ function updateChoices(): void {
     const platform = findPlatform(state.world, button.dataset.platformId!);
     if (!platform) continue;
     const scale=canvas.clientWidth/state.world.geometry.logicalWidth*effectiveCameraZoom;
-    // DOM hit zones and Canvas share EXACTLY the same render-only projector.
-    // Keep a >=52x44px real touch target on compact screens.
+    // Physical destinations and canvas still use EXACTLY one projection.
+    // On narrow screens the three lanes can project only 36px apart.
+    // Magnify/spread ACTIVE BUTTONS (not physics/platform position) when
+    // necessary; otherwise >=52px hit targets would overlap and mis-tap.
+    // Their ordinal ordering remains the actual source-owned option ordering.
     const width=Math.max(52,platform.width*scale);
     const height=Math.max(44,platform.height*scale);
     const centre=projectCameraPoint(platform.x,
       platform.y+platform.height/2,cameraY,canvas.clientWidth,
       state.world.geometry.logicalWidth,effectiveCameraZoom);
     const y=centre.y-height/2;
-    button.style.left=`${centre.x}px`;
+    const laneSpacing=(state.world.geometry.columns[1]-
+      state.world.geometry.columns[0])*scale;
+    const needsSpread=laneSpacing<width+9;
+    const screenX=needsSpread
+      ? canvas.clientWidth*(0.20+platform.column*0.30)
+      : centre.x;
+    button.style.left=`${screenX}px`;
+    button.dataset.magnified=needsSpread?'true':'false';
     button.style.top=`${y}px`;
     button.style.width = `${width}px`;
     button.style.height = `${height}px`;
@@ -601,7 +611,7 @@ function draw(): void {
   // Include vertical card heights + canvas padding so 3-row reach is not
   // marginally clipped on narrow phones.
   cameraRowGap=g.rowGap;
-  const totalWorldSpan=6*g.rowGap+g.platformHeight+54;
+  const totalWorldSpan=6*g.rowGap+g.platformHeight+140;
   const fitZoom=logicalHeight/totalWorldSpan;
   const zoom=Math.max(0.15,Math.min(cameraView.zoom,fitZoom));
   effectiveCameraZoom=zoom;
@@ -843,6 +853,12 @@ function draw(): void {
       context.restore();
     }
   }
+  // Keep readable actors and number glyphs even when seven rows must fit
+  // on a short 320px screen. This is purely VISUAL enlargement, never the
+  // collision radius supplied to the learner core or Pursuer chassis.
+  const pixelToWorld=600/(Math.max(1,canvas.clientWidth)*effectiveCameraZoom);
+  const sparkVisualRadius=Math.max(g.playerRadius,13*pixelToWorld);
+  const botVisualRadius=bot?Math.max(bot.radius,11*pixelToWorld):0;
   if(bot){
     // All bot coordinates and its sensing flag come from the real sim state.
     context.save();
@@ -857,10 +873,10 @@ function draw(): void {
     context.strokeStyle=bot.sensed?'#ffd0da':'#ff8bab';
     context.lineWidth=2.5;
     context.beginPath();
-    context.arc(bot.body.x,worldY(bot.body.y),bot.radius,0,2*Math.PI);
+    context.arc(bot.body.x,worldY(bot.body.y),botVisualRadius,0,2*Math.PI);
     context.fill();context.stroke();
     context.fillStyle='#fff0f6';
-    context.font='bold 12px system-ui';
+    context.font='bold '+Math.max(12,13*pixelToWorld)+'px system-ui';
     context.textAlign='center';
     context.textBaseline='middle';
     const face=bot.emotion==='NOTICE'?'!'
@@ -878,7 +894,7 @@ function draw(): void {
       context.globalAlpha=Math.max(.05,alpha);
       context.lineWidth=2;
       context.arc(bot.body.x,worldY(bot.body.y),
-        bot.radius+8+4*pulse,0,Math.PI*2);
+        botVisualRadius+8+4*pulse,0,Math.PI*2);
       context.stroke();
     }
     context.restore();
@@ -891,12 +907,12 @@ function draw(): void {
   context.strokeStyle = '#a4edff';
   context.lineWidth = 3;
   context.beginPath();
-  context.arc(state.spark.x, worldY(state.spark.y), g.playerRadius, 0, Math.PI * 2);
+  context.arc(state.spark.x, worldY(state.spark.y), sparkVisualRadius, 0, Math.PI * 2);
   context.fill();
   context.stroke();
   context.restore();
   context.fillStyle = '#ffffff';
-  context.font = 'bold 19px system-ui';
+  context.font = 'bold '+Math.max(19,14*pixelToWorld)+'px system-ui';
   context.textBaseline = 'middle';
   context.textAlign = 'center';
   context.fillText(String(state.spark.value), state.spark.x, worldY(state.spark.y));
@@ -905,9 +921,9 @@ function draw(): void {
     if (option?.value !== null && option?.value !== undefined) {
       // The selected addend accompanies the blue Spark and reinforces why
       // the new result will only be carried after a correct landing.
-      const x = state.spark.x + g.playerRadius + 13;
-      const y = worldY(state.spark.y) - g.playerRadius - 4;
-      context.font = 'bold 17px system-ui';
+      const x = state.spark.x + sparkVisualRadius + 13;
+      const y = worldY(state.spark.y) - sparkVisualRadius - 4;
+      context.font = 'bold '+Math.max(17,12*pixelToWorld)+'px system-ui';
       context.textBaseline = 'middle';
       context.textAlign = 'center';
       context.fillStyle = '#e6fcff';
@@ -924,7 +940,7 @@ function draw(): void {
         Math.max(1,activeCue.until-activeCue.started));
       const point=cue.target==='pursuer'?engine.bot()?.body:state.spark;
       if(point){
-        const r=cue.target==='pursuer'?engine.bot()!.radius:g.playerRadius;
+        const r=cue.target==='pursuer'?botVisualRadius:sparkVisualRadius;
         const extra=reducedMotion?5:(1-fade)*28*currentFeedback.vfxIntensity;
         context.save();
         context.globalAlpha=fade*currentFeedback.vfxIntensity*0.85;
