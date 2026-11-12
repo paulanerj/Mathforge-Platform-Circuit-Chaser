@@ -81,6 +81,7 @@ try{
   await page.goto(url,{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>Boolean(window.__CC2_02A__?.snapshot));
   await page.locator('#tuningPanel summary').click();
+  await page.locator('.dev-controls summary').click();
   await page.locator('#mode').selectOption('practice');
   await page.locator('#circuitSpeedPerTick').fill('32');
   await page.locator('#hopTicks').fill('24');
