@@ -77,6 +77,9 @@ try{
       viewport.width+'px: visible card center and real selectable hit target agree in X and Y');
     check((await page.locator('.phase').innerText()).includes('PRODUCTION LOOK'),
       viewport.width+'px: production concept unmistakably identified');
+    check(await page.locator('#threatIndicator').isVisible() &&
+      (await page.locator('#threatText').innerText()).includes('PURSUER BELOW'),
+      viewport.width+'px: physically offscreen bot has readable below-tower warning');
 
     await page.screenshot({path:join(captures,'production-start-'+viewport.width+'.png'),fullPage:true});
     if(viewport.width===390){
