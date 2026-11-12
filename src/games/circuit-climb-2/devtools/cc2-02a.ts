@@ -13,6 +13,14 @@ import type { PursuerSnapshot } from '../pursuer/pursuerController';
 import type { FeatureSnapshotV1, FeatureEventV1 } from '../features/progression';
 import type { RunSummaryV1 } from '../progression/runSummary';
 import { RunConfigV1, defaultRunConfig } from '../config/runConfig';
+import {defaultPursuerPreset,type PursuerPresetV1} from '../pursuer/pursuerPreset';
+import {defaultFeatureConfig} from '../features/progression';
+import {defaultLearnerMotionPreset,type LearnerMotionPresetV1} from '../config/learnerMotionPreset';
+import {
+  defaultDevLabPreset,validateCameraView,validateDevLabPreset,
+  exportDevLabPreset,importDevLabPreset,projectCameraPoint,
+  type DevLabPresetV1,type CameraViewPresetV1,
+} from '../config/devLabPreset';
 import { getRow, findPlatform } from '../world/world';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#worldCanvas')!;
@@ -49,6 +57,16 @@ const summaryRestart = document.querySelector<HTMLButtonElement>('#summaryRestar
 const reviewSummary = document.querySelector<HTMLButtonElement>('#reviewSummary');
 const endRunButton = document.querySelector<HTMLButtonElement>('#endRun');
 const achievementToast = document.querySelector<HTMLElement>('#achievementToast');
+const tuningPanel=document.querySelector<HTMLDetailsElement>('#tuningPanel');
+const cameraZoomInput=document.querySelector<HTMLInputElement>('#cameraZoom');
+const cameraFollowInput=document.querySelector<HTMLInputElement>('#cameraFollow');
+const zoomValue=document.querySelector<HTMLOutputElement>('#zoomValue');
+const labStatus=document.querySelector<HTMLElement>('#labStatus');
+const presetData=document.querySelector<HTMLTextAreaElement>('#presetData');
+const applyTuning=document.querySelector<HTMLButtonElement>('#applyTuning');
+const resetTuning=document.querySelector<HTMLButtonElement>('#resetTuning');
+const exportPreset=document.querySelector<HTMLButtonElement>('#exportPreset');
+const importPreset=document.querySelector<HTMLButtonElement>('#importPreset');
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const context = canvas.getContext('2d')!;
 /**
@@ -76,9 +94,14 @@ const featuresEnabled=document.body.dataset.features==='on';
 const summaryEnabled=document.body.dataset.summary==='on';
 const manualQA=featuresEnabled && new URLSearchParams(location.search).get('manual')==='1';
 const graphDebug=new URLSearchParams(location.search).get('graph')==='1';
-function makeSurfaceEngine(seed:string,config:RunConfigV1=defaultRunConfig()):SurfaceEngine{
+function makeSurfaceEngine(
+  seed:string,config:RunConfigV1=defaultRunConfig(),
+  learnerMotion:LearnerMotionPresetV1=defaultLearnerMotionPreset(),
+  pursuerPreset:PursuerPresetV1=defaultPursuerPreset(),
+):SurfaceEngine{
   if(botEnabled){
-    const game=new CircuitClimbChaseCore(seed,config);
+    const game=new CircuitClimbChaseCore(seed,config,pursuerPreset,
+      defaultFeatureConfig(),learnerMotion);
     return {
       snapshot:()=>game.learnerSnapshot(),
       eventLog:()=>game.eventLog(),
@@ -96,7 +119,7 @@ function makeSurfaceEngine(seed:string,config:RunConfigV1=defaultRunConfig()):Su
       summary:()=>game.runSummary(),
     };
   }
-  const game=new CircuitClimbCore(seed,config);
+  const game=new CircuitClimbCore(seed,config,learnerMotion);
   return {
     snapshot:()=>game.snapshot(),
     eventLog:()=>game.eventLog(),
@@ -115,7 +138,9 @@ function makeSurfaceEngine(seed:string,config:RunConfigV1=defaultRunConfig()):Su
   };
 }
 let engine:SurfaceEngine=makeSurfaceEngine(seedInput.value);
+let cameraView:CameraViewPresetV1={...defaultDevLabPreset().camera};
 let cameraY = 0;
+let previewRowsRendered=0;
 let logicalHeight = 800;
 let lastTime = 0;
 let accumulator = 0;
@@ -143,14 +168,94 @@ function renderFeedback(): void {
 
 function worldY(y: number): number { return y - cameraY; }
 
-function configFromControls(): RunConfigV1 {
+/**
+ * Developer input is read ONLY at explicit new-run boundaries.
+ * The complete preset is validated before any new runtime is created.
+ */
+function numericControl(id:string):number {
+  const element=document.querySelector<HTMLInputElement>('#'+id);
+  if(!element || element.value.trim()==='')throw Error('TUNING_MISSING_'+id);
+  return Number(element.value);
+}
+function boolControl(id:string):boolean {
+  const element=document.querySelector<HTMLInputElement>('#'+id);
+  if(!element)throw Error('TUNING_MISSING_'+id);
+  return element.checked;
+}
+function configFromControls():RunConfigV1 {
   return {
     ...defaultRunConfig(),
     mode:(modeSelect?.value as RunConfigV1['mode'])??defaultRunConfig().mode,
     curriculum:(curriculumSelect?.value as RunConfigV1['curriculum'])??defaultRunConfig().curriculum,
-    framingPercent: Number(framingSelect.value) as RunConfigV1['framingPercent'],
-    movement: movementSelect.value as RunConfigV1['movement'],
+    framingPercent:Number(framingSelect.value),
+    movement:movementSelect.value as RunConfigV1['movement'],
+    routeTurns:numericControl('routeTurns') as RunConfigV1['routeTurns'],
+    transitShield:boolControl('transitShield'),
+    landingGraceTicks:numericControl('landingGraceTicks'),
   };
+}
+function collectLabPreset():DevLabPresetV1 {
+  const learnerMotion:LearnerMotionPresetV1={
+    ...defaultLearnerMotionPreset(),
+    circuitSpeedPerTick:numericControl('circuitSpeedPerTick'),
+    hopTicks:numericControl('hopTicks'),
+    returnTicks:numericControl('returnTicks'),
+  };
+  const pursuerPreset:PursuerPresetV1={...defaultPursuerPreset()};
+  for(const field of [
+    'nearSenseRadius','clearSightRadius','trailSenseRadius',
+    'trailLifetimeTicks','staleContactTicks','speedSearch','speedPursuit',
+    'actorRadiusRatio','spawnRowsBelow',
+  ] as const) {
+    pursuerPreset[field]=numericControl(field);
+  }
+  const camera:CameraViewPresetV1={
+    zoom:numericControl('cameraZoom'),
+    follow:numericControl('cameraFollow'),
+  };
+  return validateDevLabPreset({
+    schemaVersion:'cc2-dev-lab/v1',
+    run:configFromControls(),learner:learnerMotion,
+    pursuer:pursuerPreset,camera,
+  });
+}
+function loadLabPreset(preset:DevLabPresetV1):void {
+  const p=validateDevLabPreset(preset);
+  const fields:Record<string,number>={
+    framing:p.run.framingPercent,routeTurns:p.run.routeTurns,
+    landingGraceTicks:p.run.landingGraceTicks,
+    ...{
+      circuitSpeedPerTick:p.learner.circuitSpeedPerTick,
+      hopTicks:p.learner.hopTicks,
+      returnTicks:p.learner.returnTicks,
+    },
+    nearSenseRadius:p.pursuer.nearSenseRadius,
+    clearSightRadius:p.pursuer.clearSightRadius,
+    trailSenseRadius:p.pursuer.trailSenseRadius,
+    trailLifetimeTicks:p.pursuer.trailLifetimeTicks,
+    staleContactTicks:p.pursuer.staleContactTicks,
+    speedSearch:p.pursuer.speedSearch,
+    speedPursuit:p.pursuer.speedPursuit,
+    actorRadiusRatio:p.pursuer.actorRadiusRatio,
+    spawnRowsBelow:p.pursuer.spawnRowsBelow,
+    cameraZoom:p.camera.zoom,cameraFollow:p.camera.follow,
+  };
+  for(const [id,value] of Object.entries(fields)){
+    const element=document.querySelector<HTMLInputElement|HTMLSelectElement>('#'+id);
+    if(element)element.value=String(value);
+  }
+  const shield=document.querySelector<HTMLInputElement>('#transitShield');
+  if(shield)shield.checked=p.run.transitShield;
+  if(modeSelect)modeSelect.value=p.run.mode;
+  if(curriculumSelect)curriculumSelect.value=p.run.curriculum;
+  movementSelect.value=p.run.movement;
+  cameraView=p.camera;
+  if(zoomValue)zoomValue.textContent=Math.round(100*p.camera.zoom)+'%';
+}
+function labMessage(message:string,error=false):void {
+  if(!labStatus)return;
+  labStatus.textContent=message;
+  labStatus.dataset.error=error?'yes':'no';
 }
 
 function updateMessage(): void {
