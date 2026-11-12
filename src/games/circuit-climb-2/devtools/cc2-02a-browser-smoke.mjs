@@ -47,7 +47,11 @@ async function open(page, width, framing = '100') {
   await page.setViewportSize({ width, height: 840 });
   await page.goto(scenarioUrl, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !!window.__CC2_02A__, { timeout: 12000 });
+  // Q1 moves developer configuration out of the learner's first viewport.
+  // Explicitly open/close the settings section before changing framing.
+  await page.locator('.dev-controls summary').click();
   await page.locator('#framing').selectOption(framing);
+  await page.locator('.dev-controls summary').click();
   await page.waitForTimeout(400);
 }
 
