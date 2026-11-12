@@ -206,6 +206,9 @@ function updateFeatureEvents():void{
         ? 'CIRCUIT PULSE · red Pursuer slowed temporarily'
         : 'CIRCUIT PULSE · no Pursuer in range; charge spent';
       featureNoticeUntil=performance.now()+1750;
+    }else if(event.type==='ABILITY_EXPIRED'){
+      status.textContent='Circuit Pulse expired · Pursuer returns to full speed';
+      featureNoticeUntil=performance.now()+1400;
     }else if(event.type==='RELAY_CHAIN'){
       status.textContent='Relay powered · previous solved links illuminated';
       featureNoticeUntil=performance.now()+900;
@@ -569,6 +572,10 @@ function draw(): void {
   updateChoices();
   if (previousEventCount !== engine.eventLog().length) updateMessage();
   else renderFeedback();
+  // A timer-based ability can expire without any new math/core event.
+  // Observe the independently sourced feature ledger as well.
+  if(featuresEnabled && engine.featureEvents().length!==previousFeatureEventCount)
+    updateFeatureEvents();
 }
 
 function beginNewRun(): void {

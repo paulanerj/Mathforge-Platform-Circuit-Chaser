@@ -156,6 +156,19 @@ try{
     'Relay emits an explicit visual-only milestone');
   check((await page.locator('#cellProgress').innerText()).includes('CELL 3'),
     'two completed four-row cells visibly advance cell number');
+  await shot(page,'relay-solved-wave-390');
+
+  for(let row=9;row<=12;row++)await solveOne(page,row);
+  const stageTwo=await read(page);
+  check(stageTwo.features.stage===2,
+    'stage progresses only after exactly twelve completed rows');
+  check(stageTwo.features.events.filter(e=>e.type==='STAGE_REACHED').length===1,
+    'stage milestone is emitted exactly once');
+  check((await page.locator('#rowKind').innerText()).includes('STAGE 2'),
+    'stage two is visible to player');
+  check((await page.locator('#cellProgress').innerText()).includes('CELL 4'),
+    'fourth power cell becomes visibly active after three completed cells');
+  await shot(page,'stage-two-390');
   check(errors.length===0,'real gameplay rendered without browser exception');
   console.log('CC2-03 BROWSER PASS — '+assertions+' assertions');
   await page.close();
