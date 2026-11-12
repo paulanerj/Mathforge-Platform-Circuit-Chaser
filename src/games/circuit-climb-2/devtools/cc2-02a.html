@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Circuit Climb 2.0 — Core Qualification Harness</title>
+  <style>
+    :root { color-scheme:dark; font: 14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; --ink:#e9f6fd; --muted:#a0b7c9; --edge:rgba(132,197,232,.25); background:#08131f; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); min-width:280px; }
+    .shell { max-width:680px; margin:auto; padding:14px 14px calc(16px + env(safe-area-inset-bottom)); }
+    .heading { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:10px; }
+    h1 { margin:0; font-size:18px; font-weight:720; letter-spacing:.025em; }
+    .phase { font-size:11px; padding:5px 8px; border-radius:20px; color:#a8dcec; border:1px solid #395f72; text-align:center; }
+    .disclaimer { margin:0 0 9px; color:#c0cfd9; font-size:12px; }
+    .hud { display:flex; align-items:center; gap:11px; justify-content:space-between; padding:12px; background:#12283b; border:1px solid var(--edge); border-radius:12px 12px 0 0; min-height:58px; }
+    #equation { font-weight:800; font-size:clamp(19px,5.5vw,29px); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    #height { color:#bceadd; font-variant-numeric:tabular-nums; text-align:right; font-size:12px; }
+    .board { position:relative; height:min(59dvh,610px); min-height:370px; background:#091724; border:1px solid var(--edge); border-top:0; overflow:hidden; touch-action:none; }
+    canvas { display:block; width:100%; height:100%; }
+    .choices { position:absolute; inset:0; pointer-events:none; }
+    .choice { pointer-events:auto; position:absolute; transform:translateX(-50%); border:1px solid #6795b2; border-radius:10px; background:linear-gradient(135deg,rgba(28,68,94,.98),rgba(23,45,67,.98)); color:#effdff; font-size:clamp(19px,5vw,25px); font-weight:800; box-shadow:0 2px 8px #0008; cursor:pointer; touch-action:manipulation; transition:background .12s; }
+    .choice:focus-visible { outline:3px solid #f4d879; outline-offset:2px; }
+    .choice:disabled { opacity:.48; cursor:default; }
+    .choice.short { color:#ffb1a3; border-color:#ad584f; background:#53292e; }
+    .choice.selected { outline:2px solid #8cdeff; }
+    .status { padding:9px 12px; background:#112537; border:1px solid var(--edge); border-top:0; font-size:12px; color:#b8d3df; min-height:37px; }
+    .controls { display:flex; flex-wrap:wrap; gap:7px; margin:12px 0; }
+    button.action { background:#19334a; border:1px solid #4e7792; color:#e7f7ff; border-radius:9px; padding:11px 14px; min-height:44px; font-weight:650; flex:1; cursor:pointer; }
+    .settings { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; border-top:1px solid var(--edge); padding-top:13px; }
+    label { color:var(--muted); font-size:11px; display:flex; flex-direction:column; gap:4px; }
+    input, select { min-width:0; width:100%; padding:9px; background:#142b3f; color:var(--ink); border:1px solid #42637b; border-radius:8px; font:inherit; }
+    details { color:var(--muted); margin-top:12px; font-size:12px; }
+    pre { background:#0c1c29; border:1px solid var(--edge); padding:10px; border-radius:8px; white-space:pre-wrap; word-break:break-word; max-height:130px; overflow:auto; color:#b1dce7; }
+    @media(max-width:390px){ .shell{padding:8px 8px calc(12px + env(safe-area-inset-bottom))} .choice{border-radius:8px} .hud{padding:8px} .board{height:min(60dvh,550px)} }
+    @media(prefers-reduced-motion:reduce){ .choice{transition:none} }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="heading">
+      <h1>Circuit Climb <span style="color:#7dd3f1">2.0</span></h1>
+      <span class="phase">CC2-02A · CORE TEST</span>
+    </div>
+    <p class="disclaimer"><strong>Pursuer intentionally absent.</strong> This is the isolated mathematics, routing and learner-state qualification build—not the final game.</p>
+    <section class="hud" aria-label="Mathematics and progress">
+      <div id="equation" role="status" aria-live="polite">Loading…</div>
+      <div id="height">ROW 0<br>0 attempts</div>
+    </section>
+    <section class="board" id="board" aria-label="Numbered three-platform climbing board">
+      <canvas id="worldCanvas" aria-hidden="true"></canvas>
+      <div class="choices" id="choices" aria-label="Choose a numbered destination"></div>
+    </section>
+    <div id="status" class="status" role="status" aria-live="polite">Choose the number that completes the sum.</div>
+    <div class="controls">
+      <button class="action" id="pause" type="button">Pause</button>
+      <button class="action" id="restart" type="button">New run</button>
+      <button class="action" id="export" type="button">Export replay</button>
+    </div>
+    <div class="settings">
+      <label>Seed<input id="seed" value="cc2-02a-demo" spellcheck="false"></label>
+      <label>World framing<select id="framing"><option>80</option><option>90</option><option selected>100</option><option>110</option><option>120</option></select></label>
+      <label>Movement<select id="movement"><option value="circuit">Circuit</option><option value="hop">Hop</option></select></label>
+    </div>
+    <details>
+      <summary>Developer: deterministic events and configuration</summary>
+      <pre id="events">No events yet.</pre>
+    </details>
+  </main>
+  <script type="module" src="./cc2-02a.ts"></script>
+</body>
+</html>
