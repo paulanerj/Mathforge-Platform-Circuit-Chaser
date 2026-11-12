@@ -16,23 +16,33 @@
     .hud { display:flex; align-items:center; gap:11px; justify-content:space-between; padding:12px; background:#12283b; border:1px solid var(--edge); border-radius:12px 12px 0 0; min-height:58px; }
     #equation { font-weight:800; font-size:clamp(19px,5.5vw,29px); font-variant-numeric:tabular-nums; white-space:nowrap; }
     #height { color:#bceadd; font-variant-numeric:tabular-nums; text-align:right; font-size:12px; }
-    .board { position:relative; height:min(59dvh,610px); min-height:370px; background:#091724; border:1px solid var(--edge); border-top:0; overflow:hidden; touch-action:none; }
+    .board { position:relative; height:clamp(260px,calc(100dvh - 270px),610px); min-height:0; background:#091724; border:1px solid var(--edge); border-top:0; overflow:hidden; touch-action:none; }
     canvas { display:block; width:100%; height:100%; }
     .choices { position:absolute; inset:0; pointer-events:none; }
-    .choice { pointer-events:auto; position:absolute; transform:translateX(-50%); border:1px solid #6795b2; border-radius:10px; background:linear-gradient(135deg,rgba(28,68,94,.98),rgba(23,45,67,.98)); color:#effdff; font-size:clamp(19px,5vw,25px); font-weight:800; box-shadow:0 2px 8px #0008; cursor:pointer; touch-action:manipulation; transition:background .12s; }
+    .choice { pointer-events:auto; position:absolute; transform:translateX(-50%); min-width:52px; min-height:44px; border:1px solid #6795b2; border-radius:10px; background:linear-gradient(135deg,rgba(28,68,94,.98),rgba(23,45,67,.98)); color:#effdff; font-size:clamp(19px,5vw,25px); font-weight:800; box-shadow:0 2px 8px #0008; cursor:pointer; touch-action:manipulation; transition:background .12s; }
     .choice:focus-visible { outline:3px solid #f4d879; outline-offset:2px; }
     .choice:disabled { opacity:.48; cursor:default; }
     .choice.short { color:#ffb1a3; border-color:#ad584f; background:#53292e; }
     .choice.selected { outline:2px solid #8cdeff; }
-    .status { padding:9px 12px; background:#112537; border:1px solid var(--edge); border-top:0; font-size:12px; color:#b8d3df; min-height:37px; }
+    .math-working { position:absolute; z-index:3; pointer-events:none; top:9px; left:9px; right:9px; display:flex; justify-content:center; text-align:center; padding:9px 12px; min-height:40px; border-radius:9px; font-size:clamp(14px,4vw,19px); font-weight:800; letter-spacing:.01em; font-variant-numeric:tabular-nums; color:#f1fdff; background:rgba(12,40,59,.96); border:1px solid #538ba8; box-shadow:0 3px 14px #0007; }
+    .math-working[data-kind="incorrect"] { color:#ffe2d6; background:rgba(71,32,38,.98); border-color:#ce827c; }
+    .math-working[data-kind="correct"] { color:#d8ffef; background:rgba(25,75,65,.96); border-color:#70d9b2; }
+    .math-working[hidden] { display:none; }
+    .status-wrap { position:relative; min-height:44px; }
+    .cell-notice { position:absolute; z-index:4; pointer-events:none; inset:0; padding:6px 10px; display:flex; align-items:center; justify-content:center; background:#124741; color:#e6fff5; border:1px solid #82d7c7; box-shadow:0 2px 10px #0006; text-align:center; font-size:11px; font-weight:800; font-variant-numeric:tabular-nums; }
+    .cell-notice[hidden] { display:none; }
+    .status { padding:9px 12px; background:#112537; border:1px solid var(--edge); border-top:0; font-size:12px; color:#b8d3df; min-height:44px; }
     .controls { display:flex; flex-wrap:wrap; gap:7px; margin:12px 0; }
     button.action { background:#19334a; border:1px solid #4e7792; color:#e7f7ff; border-radius:9px; padding:11px 14px; min-height:44px; font-weight:650; flex:1; cursor:pointer; }
-    .settings { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; border-top:1px solid var(--edge); padding-top:13px; }
+    .settings { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; padding-top:10px; }
+    .dev-controls { margin-top:5px; border-top:1px solid var(--edge); padding-top:7px; }
+    .dev-controls summary { cursor:pointer; color:#b9d7e8; padding:5px 0; font-size:12px; font-weight:600; }
+    .dev-controls .dev-note { margin:6px 0; font-size:11px; color:var(--muted); }
     label { color:var(--muted); font-size:11px; display:flex; flex-direction:column; gap:4px; }
     input, select { min-width:0; width:100%; padding:9px; background:#142b3f; color:var(--ink); border:1px solid #42637b; border-radius:8px; font:inherit; }
     details { color:var(--muted); margin-top:12px; font-size:12px; }
     pre { background:#0c1c29; border:1px solid var(--edge); padding:10px; border-radius:8px; white-space:pre-wrap; word-break:break-word; max-height:130px; overflow:auto; color:#b1dce7; }
-    @media(max-width:390px){ .shell{padding:8px 8px calc(12px + env(safe-area-inset-bottom))} .choice{border-radius:8px} .hud{padding:8px} .board{height:min(60dvh,550px)} }
+    @media(max-width:390px){ .shell{padding:8px 8px calc(12px + env(safe-area-inset-bottom))} .heading{margin-bottom:5px} .choice{border-radius:8px} .hud{padding:8px} .board{height:clamp(250px,calc(100dvh - 310px),550px)} .status{font-size:11px} }
     @media(prefers-reduced-motion:reduce){ .choice{transition:none} }
   </style>
 </head>
@@ -40,28 +50,36 @@
   <main class="shell">
     <div class="heading">
       <h1>Circuit Climb <span style="color:#7dd3f1">2.0</span></h1>
-      <span class="phase">CC2-02A · CORE TEST</span>
+      <span class="phase">Q1 · CORE LAB</span>
     </div>
-    <p class="disclaimer"><strong>Pursuer intentionally absent.</strong> This is the isolated mathematics, routing and learner-state qualification build—not the final game.</p>
+    <p class="disclaimer"><strong>Engine review</strong> · Pursuer intentionally off</p>
     <section class="hud" aria-label="Mathematics and progress">
       <div id="equation" role="status" aria-live="polite">Loading…</div>
       <div id="height">ROW 0<br>0 attempts</div>
     </section>
     <section class="board" id="board" aria-label="Numbered three-platform climbing board">
       <canvas id="worldCanvas" aria-hidden="true"></canvas>
+      <div id="mathWorking" class="math-working" role="status" aria-live="polite" hidden></div>
       <div class="choices" id="choices" aria-label="Choose a numbered destination"></div>
     </section>
-    <div id="status" class="status" role="status" aria-live="polite">Choose the number that completes the sum.</div>
+    <div class="status-wrap">
+      <div id="status" class="status" role="status" aria-live="polite">Choose the number that completes the sum.</div>
+      <div id="cellNotice" class="cell-notice" role="status" aria-live="polite" hidden></div>
+    </div>
     <div class="controls">
       <button class="action" id="pause" type="button">Pause</button>
       <button class="action" id="restart" type="button">New run</button>
       <button class="action" id="export" type="button">Export replay</button>
     </div>
-    <div class="settings">
-      <label>Seed<input id="seed" value="cc2-02a-demo" spellcheck="false"></label>
-      <label>World framing<select id="framing"><option>80</option><option>90</option><option selected>100</option><option>110</option><option>120</option></select></label>
-      <label>Movement<select id="movement"><option value="circuit">Circuit</option><option value="hop">Hop</option></select></label>
-    </div>
+    <details class="dev-controls">
+      <summary>Developer settings · seed, framing and movement</summary>
+      <p class="dev-note">Isolated Q1 test board. Settings changes start a fresh run. Pursuer intelligence is evaluated in CC2-02B.</p>
+      <div class="settings">
+        <label>Seed<input id="seed" value="cc2-02a-demo" spellcheck="false"></label>
+        <label>World framing<select id="framing"><option>80</option><option>90</option><option selected>100</option><option>110</option><option>120</option></select></label>
+        <label>Movement<select id="movement"><option value="circuit">Circuit</option><option value="hop">Hop</option></select></label>
+      </div>
+    </details>
     <details>
       <summary>Developer: deterministic events and configuration</summary>
       <pre id="events">No events yet.</pre>

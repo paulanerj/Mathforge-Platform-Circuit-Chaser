@@ -15,6 +15,8 @@ const choices = document.querySelector<HTMLElement>('#choices')!;
 const equation = document.querySelector<HTMLElement>('#equation')!;
 const height = document.querySelector<HTMLElement>('#height')!;
 const status = document.querySelector<HTMLElement>('#status')!;
+const mathWorking = document.querySelector<HTMLElement>('#mathWorking')!;
+const cellNotice = document.querySelector<HTMLElement>('#cellNotice')!;
 const pause = document.querySelector<HTMLButtonElement>('#pause')!;
 const restart = document.querySelector<HTMLButtonElement>('#restart')!;
 const exportButton = document.querySelector<HTMLButtonElement>('#export')!;
@@ -31,6 +33,19 @@ let accumulator = 0;
 let currentProblemId = '';
 let previousEventCount = 0;
 let buttons: HTMLButtonElement[] = [];
+let canvasResizes = 0;
+let workingUntil = 0;
+let noticeUntil = 0;
+
+/**
+ * Render-only timing never alters gameplay. The core owns every event and
+ * arithmetic result; DOM notices are temporary explanations of those facts.
+ */
+function renderFeedback(): void {
+  const now = performance.now();
+  mathWorking.hidden = !(workingUntil === Infinity || now < workingUntil);
+  cellNotice.hidden = !(now < noticeUntil);
+}
 
 function worldY(y: number): number { return y - cameraY; }
 
@@ -43,25 +58,67 @@ function configFromControls(): RunConfigV1 {
 }
 
 function updateMessage(): void {
-  const state = engine.snapshot();
   const events = engine.eventLog();
-  const event = events.at(-1);
-  const message: Record<string, string> = {
-    RUN_STARTED: 'Choose the numbered platform that completes the equation.',
-    ATTEMPT_EVALUATED: 'Selection accepted. Watch the mathematical route.',
-    LANDING_CONFIRMED: 'Arrival confirmed.',
-    PLATFORM_SHORTED: 'Wrong operand: that platform shorted. Returning to try again.',
-    RETURN_FINISHED: 'Back safely. Choose one of the remaining numbers.',
-    ROW_COMPLETED: 'Correct. The Spark climbs and its value advances.',
-    CELL_COMPLETED: 'Power cell completed: four correct landings.',
-    VOLTAGE_REBASE: `Cell recharged: new starting number ${String(event?.detail.newValue ?? state.spark.value)}.`,
-    RUN_PAUSED: 'Paused. Simulation time and travel are frozen.',
-    RUN_RESUMED: 'Resumed.',
-    RUN_ENDED: 'Run ended. Select New run to restart.',
+  // ROW_COMPLETED and VOLTAGE_REBASE can occur in the same simulation tick.
+  // Consume all new events; reading events.at(-1) would hide the equation.
+  const newEvents = events.slice(previousEventCount);
+  const messages: Record<string, string> = {
+    RUN_STARTED: 'Choose a numbered platform to complete the equation.',
+    ATTEMPT_EVALUATED: 'Choice accepted. Watch the arithmetic along the circuit.',
+    LANDING_CONFIRMED: 'The Spark reached the selected platform.',
+    PLATFORM_SHORTED: 'Wrong sum: the selected platform shorted.',
+    RETURN_FINISHED: 'Back safely. The remaining choices are still available.',
+    ROW_COMPLETED: 'Correct landing. The Spark now carries the solved total.',
+    CELL_COMPLETED: 'Four correct rows completed. The cell is charged.',
+    VOLTAGE_REBASE: 'Checkpoint recharge: a new starting number is shown.',
+    RUN_PAUSED: 'Paused. Movement and simulation time are frozen.',
+    RUN_RESUMED: 'Resumed. Choose your next platform.',
+    RUN_ENDED: 'Run ended. Choose New run to restart.',
   };
-  status.textContent = event ? message[event.type] ?? 'Ready.' : 'Ready.';
+  for (const event of newEvents) {
+    status.textContent = messages[event.type] ?? status.textContent;
+    if (event.type === 'RUN_STARTED') {
+      workingUntil = 0;
+      noticeUntil = 0;
+    }
+    if (event.type === 'ATTEMPT_EVALUATED') {
+      const d = event.detail;
+      const actual = Number(d.incomingValue) + Number(d.selectedValue);
+      mathWorking.textContent = `${d.incomingValue} + ${d.selectedValue} = ${actual}  ·  target ${d.targetValue}`;
+      mathWorking.dataset.kind = 'active';
+      workingUntil = Infinity;
+    }
+    if (event.type === 'PLATFORM_SHORTED') {
+      const d = events.find(item => item.type === 'ATTEMPT_EVALUATED' &&
+        item.detail.attemptId === event.detail.attemptId)?.detail;
+      if (d) {
+        const sum = Number(d.incomingValue) + Number(d.selectedValue);
+        mathWorking.textContent = `${d.incomingValue} + ${d.selectedValue} = ${sum}  ≠  ${d.targetValue}`;
+        mathWorking.dataset.kind = 'incorrect';
+      }
+      workingUntil = performance.now() + 1700;
+    }
+    if (event.type === 'RETURN_FINISHED') {
+      workingUntil = Math.max(workingUntil, performance.now() + 1000);
+    }
+    if (event.type === 'ROW_COMPLETED') {
+      const solved = engine.snapshot().solved.at(-1);
+      if (solved) {
+        mathWorking.textContent = `${solved.incoming} + ${solved.operand} = ${solved.result}  ✓`;
+        mathWorking.dataset.kind = 'correct';
+        workingUntil = performance.now() + 1700;
+      }
+    }
+    if (event.type === 'VOLTAGE_REBASE') {
+      const d = event.detail;
+      cellNotice.textContent = `CELL ${d.completedCell} RECHARGED · ${d.oldValue} → ${d.newValue} (new start)`;
+      noticeUntil = performance.now() + 2600;
+    }
+  }
+  previousEventCount = events.length;
   log.textContent = events.slice(-14).map(item =>
     `T${item.tick} ${item.type} ${JSON.stringify(item.detail)}`).join('\n');
+  renderFeedback();
 }
 
 function updateChoices(): void {
@@ -86,13 +143,16 @@ function updateChoices(): void {
   for (const button of buttons) {
     const platform = findPlatform(state.world, button.dataset.platformId!);
     if (!platform) continue;
-    const width = canvas.clientWidth * platform.width / state.world.geometry.logicalWidth;
     const scale = canvas.clientWidth / state.world.geometry.logicalWidth;
-    const y = worldY(platform.y) * scale;
+    // World geometry stays fixed; only the DOM's finger hit area expands.
+    // At 320px width an unexpanded tile would be only ~31px tall.
+    const width = Math.max(52, platform.width * scale);
+    const height = Math.max(44, platform.height * scale);
+    const y = worldY(platform.y + platform.height / 2) * scale - height / 2;
     button.style.left = `${100 * platform.x / state.world.geometry.logicalWidth}%`;
     button.style.top = `${y}px`;
     button.style.width = `${width}px`;
-    button.style.height = `${platform.height * scale}px`;
+    button.style.height = `${height}px`;
     button.disabled = state.phase !== 'ready' || state.paused || platform.dead;
     button.classList.toggle('short', platform.dead);
     button.classList.toggle('selected', platform.selected);
@@ -103,8 +163,15 @@ function updateChoices(): void {
 function fitCanvas(): void {
   const box = board.getBoundingClientRect();
   const dpr = Math.min(2, window.devicePixelRatio || 1);
-  canvas.width = Math.max(1, Math.round(box.width * dpr));
-  canvas.height = Math.max(1, Math.round(box.height * dpr));
+  const w = Math.max(1, Math.round(box.width * dpr));
+  const h = Math.max(1, Math.round(box.height * dpr));
+  // Assigning width/height reallocates and clears the backing store.
+  // Resize only when the CSS size or device pixel ratio actually changes.
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+    canvasResizes += 1;
+  }
   logicalHeight = 600 * box.height / box.width;
   context.setTransform(canvas.width / 600, 0, 0, canvas.width / 600, 0, 0);
 }
@@ -145,6 +212,10 @@ function draw(): void {
     const y = worldY(row.y);
     if (y > h + 100 || y < -150) continue;
     for (const p of row.platforms) {
+      // Row zero has one real source platform. Its outer two entries are
+      // geometry placeholders marked dead internally, NOT past wrong answers.
+      // Painting them red would falsely suggest the learner began with errors.
+      if (row.index === 0 && p.column !== 1) continue;
       const x = p.x - p.width / 2;
       context.save();
       context.shadowColor = p.powered ? '#5edcc8' : p.dead ? '#d06466' : '#315772';
@@ -156,7 +227,7 @@ function draw(): void {
       context.fill();
       context.stroke();
       context.restore();
-      if (p.powered) {
+      if (p.powered && row.index > 0) {
         context.fillStyle = '#b2ffe7';
         context.textAlign = 'center';
         context.font = 'bold 15px system-ui';
@@ -165,16 +236,58 @@ function draw(): void {
     }
   }
 
-  // The planned path is drawn in light cyan and the already travelled part
-  // uses the same fixed-tick state that controls the physical Spark.
+  // Draw planned topology quietly, then illuminate only the portion that
+  // has been PHYSICALLY travelled. This visual never grades a learner answer.
   if (state.travel?.movement === 'circuit' && state.travel.points.length > 1) {
     const pts = state.travel.points;
-    context.lineWidth = 4;
-    context.strokeStyle = 'rgba(105,220,244,.42)';
+    context.lineWidth = 3;
+    context.strokeStyle = 'rgba(105,220,244,.27)';
     context.beginPath();
     context.moveTo(pts[0].x, worldY(pts[0].y));
     for (const p of pts.slice(1)) context.lineTo(p.x, worldY(p.y));
     context.stroke();
+
+    let remaining = state.travel.distance;
+    context.beginPath();
+    context.moveTo(pts[0].x, worldY(pts[0].y));
+    for (let i = 1; i < pts.length; i += 1) {
+      const start = pts[i - 1];
+      const finish = pts[i];
+      const length = Math.abs(finish.x - start.x) + Math.abs(finish.y - start.y);
+      if (remaining >= length) {
+        context.lineTo(finish.x, worldY(finish.y));
+        remaining -= length;
+      } else {
+        const ratio = length === 0 ? 1 : Math.max(0, remaining / length);
+        context.lineTo(
+          start.x + (finish.x - start.x) * ratio,
+          worldY(start.y + (finish.y - start.y) * ratio),
+        );
+        break;
+      }
+    }
+    context.save();
+    context.strokeStyle = '#9aeaf6';
+    context.shadowColor = '#9beef9';
+    context.shadowBlur = 12;
+    context.lineWidth = 5;
+    context.stroke();
+    context.restore();
+  }
+
+  // During the automatic wrong-answer return, a clearly different trail
+  // indicates the short circuit and the direction of safe retreat.
+  if (state.travel?.kind === 'return') {
+    const travel = state.travel;
+    context.save();
+    context.setLineDash([8, 7]);
+    context.strokeStyle = 'rgba(253,151,139,.75)';
+    context.lineWidth = 3;
+    context.beginPath();
+    context.moveTo(travel.from.x, worldY(travel.from.y));
+    context.lineTo(travel.to.x, worldY(travel.to.y));
+    context.stroke();
+    context.restore();
   }
 
   context.save();
@@ -193,21 +306,35 @@ function draw(): void {
   context.textBaseline = 'middle';
   context.textAlign = 'center';
   context.fillText(String(state.spark.value), state.spark.x, worldY(state.spark.y));
+  if (state.travel?.kind === 'outbound') {
+    const option = findPlatform(state.world, state.travel.platformId);
+    if (option?.value !== null && option?.value !== undefined) {
+      // The selected addend accompanies the blue Spark and reinforces why
+      // the new result will only be carried after a correct landing.
+      const x = state.spark.x + g.playerRadius + 13;
+      const y = worldY(state.spark.y) - g.playerRadius - 4;
+      context.font = 'bold 17px system-ui';
+      context.textBaseline = 'middle';
+      context.textAlign = 'center';
+      context.fillStyle = '#e6fcff';
+      context.fillText('+' + option.value, x, y);
+    }
+  }
 
   equation.textContent = `${state.currentProblem.incomingValue} + ? = ${state.currentProblem.targetValue}`;
   height.innerHTML = `ROW ${state.completedRows}<br>${state.attempts} attempts · ${state.score} pts`;
   pause.textContent = state.paused ? 'Resume' : 'Pause';
   updateChoices();
-  if (previousEventCount !== engine.eventLog().length) {
-    previousEventCount = engine.eventLog().length;
-    updateMessage();
-  }
+  if (previousEventCount !== engine.eventLog().length) updateMessage();
+  else renderFeedback();
 }
 
 function beginNewRun(): void {
   engine = new CircuitClimbCore(seedInput.value.trim() || 'cc2-02a-demo', configFromControls());
   currentProblemId = '';
   previousEventCount = 0;
+  workingUntil = 0;
+  noticeUntil = 0;
   cameraY = engine.snapshot().spark.y - logicalHeight * 0.72;
   accumulator = 0;
   lastTime = performance.now();
@@ -258,6 +385,7 @@ document.addEventListener('visibilitychange', () => {
   snapshot: () => engine.snapshot(),
   events: () => engine.eventLog(),
   replay: () => engine.replayExport(),
+  rendererStats: () => ({ canvasResizes }),
 };
 
 function frame(time: number): void {

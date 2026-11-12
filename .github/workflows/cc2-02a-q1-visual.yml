@@ -1,0 +1,56 @@
+name: CC2-02A-Q1 visual and interaction qualification
+on:
+  push:
+    branches:
+      - feature/cc2-02a-q1-visual-interaction
+    paths:
+      - 'src/games/circuit-climb-2/**'
+      - '.github/workflows/cc2-02a-q1-visual.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  q1-visual-and-interaction:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Verify protected SOT-02 source unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          protected=0a6f138f229119bc6b6c15ee1f658046c7075f50
+          while IFS= read -r path; do
+            test "$(git rev-parse "HEAD:$path")" = "$(git rev-parse "$protected:$path")"
+          done < <(git ls-tree -r --name-only "$protected" src/games/circuit-climb/)
+          git merge-base --is-ancestor f456a8ef19e0d9fa45ba6e012975674617a2a2ce HEAD
+          echo "PASS original accepted game source custody"
+      - run: npm ci
+      - name: TypeScript project check
+        run: npm run lint
+      - name: Entire inherited and 2.0 test suite
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: Existing CC2-02A browser interactions
+        run: node src/games/circuit-climb-2/devtools/cc2-02a-browser-smoke.mjs
+      - name: CC2-Q1 visual interactions and screenshot capture
+        run: node src/games/circuit-climb-2/devtools/cc2-02a-q1-visual-smoke.mjs
+      - name: Preserve Q1 screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc2-q1-visual-evidence
+          path: cc2-q1-screenshots/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Original SOT-02 playable browser regression
+        run: npm run test:circuit-climb:browser
