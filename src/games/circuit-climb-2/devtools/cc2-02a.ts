@@ -635,17 +635,61 @@ function draw(): void {
   context.scale(horizontalCameraScale,zoom);
   context.translate(-300,0);
 
-  // Three vertical architectural lanes establish strong visual continuity.
-  for (const x of g.columns) {
-    context.fillStyle = 'rgba(59,117,151,.06)';
-    context.fillRect(x - 68, 0, 136, h);
-    context.strokeStyle = 'rgba(106,177,203,.13)';
-    context.lineWidth = 2;
-    context.beginPath();
-    context.moveTo(x, 0);
-    context.lineTo(x, h);
+  // The same real lane locations anchor the production architecture
+  // AND the three selectable buttons. No disconnected visual columns.
+  // An etched central core, three translucent shafts and fine filaments
+  // supply the MathForge Monument Valley-like dimensional language.
+  const shaftWidth=Math.min(
+    g.platformWidth*1.13,(g.columns[1]-g.columns[0])*.88);
+  const leftShaft=g.columns[0]-shaftWidth*.76;
+  const rightShaft=g.columns[2]+shaftWidth*.76;
+  const towerGlow=context.createLinearGradient(leftShaft,0,rightShaft,0);
+  towerGlow.addColorStop(0,'rgba(31,80,91,0)');
+  towerGlow.addColorStop(.5,'rgba(23,92,103,.21)');
+  towerGlow.addColorStop(1,'rgba(31,80,91,0)');
+  context.fillStyle=towerGlow;
+  context.fillRect(leftShaft,0,rightShaft-leftShaft,h);
+  for(let lane=0;lane<g.columns.length;lane++){
+    const x=g.columns[lane];
+    const shade=context.createLinearGradient(
+      x-shaftWidth/2,0,x+shaftWidth/2,0);
+    shade.addColorStop(0,'rgba(48,105,119,.06)');
+    shade.addColorStop(.22,'rgba(45,110,123,.12)');
+    shade.addColorStop(.78,'rgba(14,54,74,.11)');
+    shade.addColorStop(1,'rgba(53,119,126,.06)');
+    context.fillStyle=shade;
+    context.fillRect(x-shaftWidth/2,0,shaftWidth,h);
+    for(const side of [-1,1]){
+      context.beginPath();
+      context.strokeStyle=side<0
+        ? 'rgba(141,207,211,.19)':'rgba(121,180,190,.10)';
+      context.lineWidth=side<0?1.6:1.2;
+      context.moveTo(x+side*shaftWidth*.49,0);
+      context.lineTo(x+side*shaftWidth*.49,h);
+      context.stroke();
+    }
+    // A precise filament, not a bright attention-grabbing neon line.
+    context.save();
+    context.strokeStyle='rgba(116,214,206,.22)';
+    context.lineWidth=1.25;
+    context.beginPath();context.moveTo(x,0);context.lineTo(x,h);
     context.stroke();
+    context.restore();
   }
+  // Screen-size-safe text helper: letters and numbers stay upright and
+  // perfectly legible under the intentionally anisotropic tower camera.
+  const cssToLogical=600/Math.max(1,canvas.clientWidth);
+  const drawWorldLabel=(label:string,x:number,y:number,
+    screenSize:number,color:string,weight='700'):void=>{
+    context.save();
+    context.translate(x,y);
+    context.scale(1/horizontalCameraScale,1/zoom);
+    context.fillStyle=color;
+    context.textAlign='center';context.textBaseline='middle';
+    context.font=weight+' '+(screenSize*cssToLogical)+'px system-ui';
+    context.fillText(label,0,0);
+    context.restore();
+  };
 
   // The tower has only TWO visible tier positions above and below.
   // Unpublished mathematical choices are never rendered as fake buttons.
@@ -695,10 +739,7 @@ function draw(): void {
       context.stroke();
       context.restore();
       if (p.powered && row.index > 0) {
-        context.fillStyle = '#b2ffe7';
-        context.textAlign = 'center';
-        context.font = 'bold 15px system-ui';
-        context.fillText('✓', p.x, y + p.height * .58);
+        drawWorldLabel('✓',p.x,y+p.height*.58,18,'#c4ffe8');
       }
     }
   }
@@ -847,12 +888,17 @@ function draw(): void {
       context.restore();
     }
   }
-  // Keep readable actors and number glyphs even when seven rows must fit
-  // on a short 320px screen. This is purely VISUAL enlargement, never the
-  // collision radius supplied to the learner core or Pursuer chassis.
-  const pixelToWorld=600/(Math.max(1,canvas.clientWidth)*effectiveCameraZoom);
-  const sparkVisualRadius=Math.max(g.playerRadius,13*pixelToWorld);
-  const botVisualRadius=bot?Math.max(bot.radius,11*pixelToWorld):0;
+  // Source positions remain untouched. Circle aspect ratio is restored
+  // by inverting each presentation scale independently; the old renderer
+  // accidentally turned the orbs into vertically compressed ellipses.
+  const sparkRadiusPx=canvas.clientWidth<500?22:26;
+  const botRadiusPx=canvas.clientWidth<500?17:21;
+  const sparkVisualRadiusX=sparkRadiusPx*cssToLogical/horizontalCameraScale;
+  const sparkVisualRadiusY=sparkRadiusPx*cssToLogical/zoom;
+  const botVisualRadiusX=botRadiusPx*cssToLogical/horizontalCameraScale;
+  const botVisualRadiusY=botRadiusPx*cssToLogical/zoom;
+  const sparkVisualRadius=sparkVisualRadiusY;
+  const botVisualRadius=botVisualRadiusY;
   if(bot){
     // All bot coordinates and its sensing flag come from the real sim state.
     context.save();
@@ -867,17 +913,18 @@ function draw(): void {
     context.strokeStyle=bot.sensed?'#ffd0da':'#ff8bab';
     context.lineWidth=2.5;
     context.beginPath();
-    context.arc(bot.body.x,worldY(bot.body.y),botVisualRadius,0,2*Math.PI);
+    context.ellipse(bot.body.x,worldY(bot.body.y),
+      botVisualRadiusX,botVisualRadiusY,0,0,2*Math.PI);
     context.fill();context.stroke();
     context.fillStyle='#fff0f6';
-    context.font='bold '+Math.max(12,13*pixelToWorld)+'px system-ui';
     context.textAlign='center';
     context.textBaseline='middle';
     const face=bot.emotion==='NOTICE'?'!'
       :bot.emotion==='FRUSTRATED'?'×'
       :bot.emotion==='HESITATING'?'…'
       :bot.emotion==='CURIOUS'?'?':'◆';
-    context.fillText(face,bot.body.x,worldY(bot.body.y));
+    drawWorldLabel(face,bot.body.x,worldY(bot.body.y),
+      canvas.clientWidth<500?17:20,'#fff2f7','800');
     if(!reducedMotion && currentFeedback.vfxEnabled &&
        currentFeedback.vfxIntensity>0){
       // A subtle source-owned emotional oscillation: no movement or physics.
@@ -887,8 +934,9 @@ function draw(): void {
       context.strokeStyle=moodColor;
       context.globalAlpha=Math.max(.05,alpha);
       context.lineWidth=2;
-      context.arc(bot.body.x,worldY(bot.body.y),
-        botVisualRadius+8+4*pulse,0,Math.PI*2);
+      context.ellipse(bot.body.x,worldY(bot.body.y),
+        botVisualRadiusX+4+2*pulse,botVisualRadiusY+8+4*pulse,
+        0,0,Math.PI*2);
       context.stroke();
     }
     context.restore();
@@ -901,27 +949,23 @@ function draw(): void {
   context.strokeStyle = '#a4edff';
   context.lineWidth = 3;
   context.beginPath();
-  context.arc(state.spark.x, worldY(state.spark.y), sparkVisualRadius, 0, Math.PI * 2);
+  context.ellipse(state.spark.x,worldY(state.spark.y),
+    sparkVisualRadiusX,sparkVisualRadiusY,0,0,Math.PI*2);
   context.fill();
   context.stroke();
   context.restore();
-  context.fillStyle = '#ffffff';
-  context.font = 'bold '+Math.max(19,14*pixelToWorld)+'px system-ui';
-  context.textBaseline = 'middle';
-  context.textAlign = 'center';
-  context.fillText(String(state.spark.value), state.spark.x, worldY(state.spark.y));
+  drawWorldLabel(String(state.spark.value),state.spark.x,
+    worldY(state.spark.y),canvas.clientWidth<500?20:23,
+    '#f4ffff','800');
   if (state.travel?.kind === 'outbound') {
     const option = findPlatform(state.world, state.travel.platformId);
     if (option?.value !== null && option?.value !== undefined) {
       // The selected addend accompanies the blue Spark and reinforces why
       // the new result will only be carried after a correct landing.
-      const x = state.spark.x + sparkVisualRadius + 13;
-      const y = worldY(state.spark.y) - sparkVisualRadius - 4;
-      context.font = 'bold '+Math.max(17,12*pixelToWorld)+'px system-ui';
-      context.textBaseline = 'middle';
-      context.textAlign = 'center';
-      context.fillStyle = '#e6fcff';
-      context.fillText((state.currentProblem.operation === 'skip-count-by-2' ? '→' : '+') + option.value, x, y);
+      const x=state.spark.x+sparkVisualRadiusX+14;
+      const y=worldY(state.spark.y)-sparkVisualRadiusY-4;
+      drawWorldLabel((state.currentProblem.operation==='skip-count-by-2'?'→':'+')
+        +option.value,x,y,canvas.clientWidth<500?15:19,'#e8fff6');
     }
   }
   // Every important event can play an ORIGINAL cue and generate a matching,
@@ -943,7 +987,9 @@ function draw(): void {
         context.shadowColor=cue.color;
         context.shadowBlur=reducedMotion?0:16;
         context.beginPath();
-        context.arc(point.x,worldY(point.y),r+11+extra,0,Math.PI*2);
+        const rX=cue.target==='pursuer'?botVisualRadiusX:sparkVisualRadiusX;
+        context.ellipse(point.x,worldY(point.y),
+          rX+9+extra/3,r+11+extra,0,0,Math.PI*2);
         context.stroke();
         context.restore();
       }
