@@ -42,7 +42,7 @@ export function validateCameraView(value:unknown): CameraViewPresetV1 {
   const v=value as Record<string,unknown>;
   if (Object.keys(v).sort().join('|') !== 'follow|zoom' ||
       typeof v.zoom !== 'number' || !Number.isFinite(v.zoom) ||
-      v.zoom<0.60 || v.zoom>1 ||
+      v.zoom<0.25 || v.zoom>1 ||
       typeof v.follow !== 'number' || !Number.isFinite(v.follow) ||
       v.follow<0.05 || v.follow>0.50) throw Error('CC2_CAMERA_INVALID');
   return {zoom:v.zoom,follow:v.follow};
