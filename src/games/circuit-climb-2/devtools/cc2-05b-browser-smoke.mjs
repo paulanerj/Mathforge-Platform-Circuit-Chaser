@@ -42,6 +42,19 @@ try{
     check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),
       viewport.width+'px: no horizontal overflow');
     check(errors.length===0,viewport.width+'px: no browser script errors');
+    const boxes=await page.locator('.choice').evaluateAll(nodes=>
+      nodes.filter(node=>!node.hidden).map(node=>{
+        const r=node.getBoundingClientRect();
+        return {left:r.left,right:r.right,width:r.width};
+      }).sort((a,b)=>a.left-b.left));
+    check(boxes.length===3 &&
+      boxes.every((box,i)=>box.width>=51 &&
+        (i===0||box.left>=boxes[i-1].right+2)),
+      viewport.width+'px: all three accessible options remain non-overlapping');
+    if(viewport.width===320)
+      check(await page.locator('.choice[data-magnified="true"]').count()===3,
+        '320px: all three hit zones spread when physical lanes compress');
+
     await page.screenshot({path:join(captures,'seven-row-start-'+viewport.width+'.png'),fullPage:true});
     if(viewport.width===390){
       const before=JSON.stringify(data.state);
