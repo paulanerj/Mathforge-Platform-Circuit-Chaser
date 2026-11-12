@@ -6,7 +6,7 @@ import {
   addProblemRow, createWorld, getRow, landingFor, planRoute,
   pointAlongRoute, resolveWorldGeometry,
 } from '../world/world';
-import { computeActorSafeCorridors } from '../world/legacyGeometry';
+import { computeActorSafeCorridors, computePlatformCollisionRects, computeRouteCrossingOffset, pathIsClear } from '../world/legacyGeometry';
 import { isRouteClear, collectActivePlatforms } from '../world/legacyLearnerRouting';
 
 describe('CC2-02A: preserved geometry routed through an isolated typed world', () => {
@@ -89,5 +89,45 @@ describe('CC2-02A: preserved geometry routed through an isolated typed world', (
     expect(planRoute(world, world.rows[0].platforms[1], imaginary)).toEqual({
       ok: false, reason: 'NO_DESTINATION_ROW',
     });
+  });
+});
+
+describe('CC2-02A: explicitly retained SOT-02 geometry capability locks', () => {
+  it('assigns unique immutable row/column identities', () => {
+    const world = createWorld(defaultRunConfig());
+    const rng = new SeededRandom('ids');
+    const a = generateAdd20Problem('ids', 1, 3, rng);
+    const b = generateAdd20Problem('ids', 2, a.targetValue, rng);
+    addProblemRow(world, a);
+    addProblemRow(world, b);
+    const ids = world.rows.flatMap(row => row.platforms.map(platform => platform.id));
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const id of ids) expect(id).toMatch(/^row-\\d+-column-\\d+$/);
+  });
+
+  it('crossing altitude clears inflated collision rectangles at every 1% framing step', () => {
+    for (let percent = 80; percent <= 120; percent += 1) {
+      const world = createWorld({ ...defaultRunConfig(), framingPercent: percent });
+      const row = addProblemRow(world, generateAdd20Problem('crossing', 1, 3, new SeededRandom('p')));
+      const platform = row.platforms[1];
+      const [rect] = computePlatformCollisionRects(
+        [platform], world.geometry.playerRadius, world.geometry.routePlatformPadding);
+      const crossingY = row.y + computeRouteCrossingOffset(world.geometry);
+      expect(crossingY, `collision band not cleared at ${percent}%`).toBeGreaterThan(rect.bottom);
+      const sourceRect = computePlatformCollisionRects(
+        [world.rows[0].platforms[1]], world.geometry.playerRadius, world.geometry.routePlatformPadding)[0];
+      expect(rect.bottom, `no vertical inter-row band at ${percent}%`).toBeLessThan(sourceRect.top);
+    }
+  });
+
+  it('source-platform exception never permits collision with an unrelated tile', () => {
+    const world = createWorld(defaultRunConfig());
+    const upper = addProblemRow(world, generateAdd20Problem('source', 1, 4, new SeededRandom('p')));
+    const source = world.rows[0].platforms[1];
+    const rects = computePlatformCollisionRects(
+      [source, ...upper.platforms], world.geometry.playerRadius, world.geometry.routePlatformPadding);
+    const traversing = [{ x: 60, y: upper.y - 1 }, { x: 160, y: upper.y - 1 }];
+    expect(pathIsClear(traversing, rects, { sourcePlatform: source })).toBe(false);
+    expect(pathIsClear(traversing, rects)).toBe(false);
   });
 });
