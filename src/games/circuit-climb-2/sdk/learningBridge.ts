@@ -115,7 +115,9 @@ export class MathForgeLearningBridge {
           delivered++;
         }catch{
           failed++;
-          // Retain unacknowledged event for retry; other subscribers continue.
+          // Preserve source order: stop this subscriber's delivery batch
+          // until the failed event can be retried. Other hosts still advance.
+          break;
         }
       }
     }
