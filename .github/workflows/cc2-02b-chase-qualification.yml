@@ -45,5 +45,15 @@ jobs:
         run: node src/games/circuit-climb-2/devtools/cc2-02a-browser-smoke.mjs
       - name: CC2-02A-Q1 visual learner smoke remains functional
         run: node src/games/circuit-climb-2/devtools/cc2-02a-q1-visual-smoke.mjs
+      - name: New CC2-02B playable pursuit browser smoke
+        run: node src/games/circuit-climb-2/devtools/cc2-02b-browser-smoke.mjs
+      - name: Preserve real pursuit screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc2-02b-playable-pursuit-captures
+          path: cc2-02b-screenshots/
+          if-no-files-found: warn
+          retention-days: 30
       - name: Original SOT-02 Chromium browser smoke
         run: npm run test:circuit-climb:browser
