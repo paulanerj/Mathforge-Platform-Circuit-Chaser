@@ -79,8 +79,8 @@
     .controls { display:flex; flex-wrap:wrap; gap:7px; margin:12px 0; }
     button.action { background:#19334a; border:1px solid #4e7792; color:#e7f7ff; border-radius:9px; padding:11px 14px; min-height:44px; font-weight:650; flex:1; cursor:pointer; }
     .settings { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; padding-top:10px; }
-    .dev-controls { margin-top:5px; border-top:1px solid var(--edge); padding-top:7px; }
-    .dev-controls summary { cursor:pointer; color:#b9d7e8; padding:5px 0; font-size:12px; font-weight:600; }
+    .dev-controls, .dev-tuning { margin-top:5px; border-top:1px solid var(--edge); padding-top:7px; }
+    .dev-controls summary, .dev-tuning summary { cursor:pointer; color:#b9d7e8; padding:5px 0; font-size:12px; font-weight:600; }
     .dev-controls .dev-note { margin:6px 0; font-size:11px; color:var(--muted); }
     label { color:var(--muted); font-size:11px; display:flex; flex-direction:column; gap:4px; }
     input, select { min-width:0; width:100%; padding:9px; background:#142b3f; color:var(--ink); border:1px solid #42637b; border-radius:8px; font:inherit; }
@@ -151,7 +151,7 @@
         <label>Movement<select id="movement"><option value="circuit">Circuit</option><option value="hop">Hop</option></select></label>
       </div>
     </details>
-    <details class="dev-controls" id="tuningPanel">
+    <details class="dev-tuning" id="tuningPanel">
       <summary>Developer Laboratory · Camera / Spark / Pursuer</summary>
       <p class="lab-hint">
         Camera zoom is visual only and changes live. All other movement and
