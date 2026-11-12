@@ -69,6 +69,33 @@ describe('CC2-02B real-body cross-board intelligence regression',()=>{
     expect(result.searchSteps).toBeLessThanOrEqual(720);
   });
 
+  it('passes a published 100-scenario cross-board loss/reacquisition challenge',()=>{
+    // Fixed, source-readable population; changing geometry, side and
+    // transit duration cannot make the hidden player magically visible.
+    const results=Array.from({length:100},(_,i)=>{
+      const percent=80+(i%41);
+      const reverse=i%2===1;
+      const transitTicks=22+(i%7);
+      return {scenario:i,percent,reverse,transitTicks,
+        ...encounter(percent,reverse,transitTicks)};
+    });
+    const invalid=results.filter(r=>!r.first||!r.lost);
+    const failures=results.filter(r=>!r.reacquired);
+    const blocked=results.filter(r=>r.bot.routeFailures!==0);
+    const recovered=100-failures.length;
+    console.log('CC2-02B CROSS-BOARD-100 PROOF',JSON.stringify({
+      eligible:100-invalid.length,reacquired:recovered,
+      lost:results.filter(r=>r.lost).length,
+      noRouteFailures:100-blocked.length,
+      failedScenarios:failures.map(f=>({scenario:f.scenario,
+        percent:f.percent,reverse:f.reverse,searchSteps:f.searchSteps,
+        mode:f.bot.belief.mode})),
+    }));
+    expect(invalid.map(r=>r.scenario),'a genuine loss and first acquisition must occur').toEqual([]);
+    expect(blocked.map(r=>r.scenario),'blocked route is a hard failure').toEqual([]);
+    expect(recovered,'minimum 95% within 12 simulation seconds').toBeGreaterThanOrEqual(95);
+  });
+
   it('reacquires right-to-left and at 80%, 100%, 120% world geometries',()=>{
     for(const zoom of [80,100,120])for(const reverse of [false,true]){
       const result=encounter(zoom,reverse,24);
