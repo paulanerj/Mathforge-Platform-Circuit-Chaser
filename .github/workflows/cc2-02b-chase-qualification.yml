@@ -1,0 +1,59 @@
+name: CC2-02B intelligent pursuer qualification
+on:
+  push:
+    branches: [feature/cc2-02b-intelligent-pursuer]
+    paths:
+      - 'src/games/circuit-climb-2/**'
+      - '.github/workflows/cc2-02b-chase-qualification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pursuer-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Prove preserved SOT-02 source is unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=0a6f138f229119bc6b6c15ee1f658046c7075f50
+          git merge-base --is-ancestor 1087ceb7863fe20489894d3e48202f4911ac56ef HEAD
+          while IFS= read -r path; do
+            test "$(git rev-parse "HEAD:$path")" = "$(git rev-parse "$base:$path")"
+          done < <(git ls-tree -r --name-only "$base" src/games/circuit-climb/)
+          echo "PASS protected original gameplay"
+      - run: npm ci
+      - name: TypeScript project validation
+        run: npm run lint
+      - name: CC2-02B graph, perception, pursuit and actual-core tests
+        run: npx vitest run src/games/circuit-climb-2/tests
+      - name: Complete inherited unit regression
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: CC2-02A learner browser smoke remains functional
+        run: node src/games/circuit-climb-2/devtools/cc2-02a-browser-smoke.mjs
+      - name: CC2-02A-Q1 visual learner smoke remains functional
+        run: node src/games/circuit-climb-2/devtools/cc2-02a-q1-visual-smoke.mjs
+      - name: New CC2-02B playable pursuit browser smoke
+        run: node src/games/circuit-climb-2/devtools/cc2-02b-browser-smoke.mjs
+      - name: Preserve real pursuit screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc2-02b-playable-pursuit-captures
+          path: cc2-02b-screenshots/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Original SOT-02 Chromium browser smoke
+        run: npm run test:circuit-climb:browser
