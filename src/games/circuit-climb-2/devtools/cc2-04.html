@@ -85,6 +85,22 @@
     label { color:var(--muted); font-size:11px; display:flex; flex-direction:column; gap:4px; }
     input, select { min-width:0; width:100%; padding:9px; background:#142b3f; color:var(--ink); border:1px solid #42637b; border-radius:8px; font:inherit; }
     details { color:var(--muted); margin-top:12px; font-size:12px; }
+    .lab-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:9px;margin:10px 0;}
+    .lab-group {border:1px solid #355d71;border-radius:12px;padding:10px;margin-top:12px;min-width:0;}
+    .lab-group legend {color:#c3e9f5;padding:0 5px;font-size:12px;font-weight:700;}
+    .lab-hint {font-size:11px;color:#bdd2e0;line-height:1.55;}
+    .lab-action-row {display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;}
+    .lab-action-row button {flex:1;min-width:130px;}
+    .lab-check {flex-direction:row;align-items:center;gap:8px;}
+    .lab-check input {width:18px;height:18px;min-width:18px;}
+    .lab-status {min-height:24px;padding:6px 0;color:#aee9db;font-size:12px;}
+    .lab-status[data-error="yes"] {color:#ffb2a5;}
+    #presetData {display:block;width:100%;min-height:120px;resize:vertical;color:#e8f6fd;
+      padding:10px;border:1px solid #4c7792;border-radius:8px;background:#0a1e2e;
+      font:12px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;}
+    #cameraZoom {accent-color:#a1e3f3;}
+    .preview-key {display:inline-block;padding:2px 6px;border:1px solid #55758a;border-radius:6px;color:#bcd9e5;}
+
     pre { background:#0c1c29; border:1px solid var(--edge); padding:10px; border-radius:8px; white-space:pre-wrap; word-break:break-word; max-height:130px; overflow:auto; color:#b1dce7; }
     @media(max-width:390px){ .shell{padding:8px 8px calc(12px + env(safe-area-inset-bottom))} .heading{margin-bottom:5px} .choice{border-radius:8px} .hud{padding:8px} .board{height:clamp(230px,calc(100dvh - 328px),535px)} .status{font-size:11px} }
     @media(prefers-reduced-motion:reduce){ .choice{transition:none} }
@@ -94,7 +110,7 @@
   <main class="shell">
     <div class="heading">
       <h1>Circuit Climb <span style="color:#7dd3f1">2.0</span></h1>
-      <span class="phase">CC2-04 · REVIEW</span>
+      <span class="phase">CC2-05A · TUNING LAB</span>
     </div>
     <p class="disclaimer"><strong>Playtest candidate</strong> · Earn Pulse, climb and review verified results</p>
     <section class="hud" aria-label="Mathematics and progress">
@@ -131,9 +147,95 @@
         <label>Mode<select id="mode"><option value="climb" selected>Climb</option><option value="practice">Practice</option><option value="challenge">Challenge</option></select></label>
         <label>Mathematics<select id="curriculum"><option value="makeTarget20" selected>Make target (10, 12 … 20)</option><option value="skip2to10">Skip count by 2 to 10</option><option value="add20">Running addition to 20</option></select></label>
         <label>Seed<input id="seed" value="cc2-02a-demo" spellcheck="false"></label>
-        <label>World framing<select id="framing"><option>80</option><option>90</option><option selected>100</option><option>110</option><option>120</option></select></label>
+        <label>Physical world framing (changes routes)<select id="framing"><option>80</option><option>90</option><option selected>100</option><option>110</option><option>120</option></select></label>
         <label>Movement<select id="movement"><option value="circuit">Circuit</option><option value="hop">Hop</option></select></label>
       </div>
+    </details>
+    <details class="dev-controls" id="tuningPanel">
+      <summary>Developer Laboratory · Camera / Spark / Pursuer</summary>
+      <p class="lab-hint">
+        Camera zoom is visual only and changes live. All other movement and
+        AI parameters take effect when you select <strong>Apply tuning &amp; new run</strong>.
+        A new run is essential for repeatable, fair comparison.
+        <span class="preview-key">Dim rows = structural previews, not generated math questions</span>
+      </p>
+      <fieldset class="lab-group">
+        <legend>Viewport · purely visual</legend>
+        <div class="lab-grid">
+          <label>Camera zoom <output id="zoomValue" for="cameraZoom">70%</output>
+            <input id="cameraZoom" type="range" min="0.60" max="1" step="0.05" value="0.70">
+          </label>
+          <label>Follow smoothing (0.05–0.50)
+            <input id="cameraFollow" type="number" min="0.05" max="0.50" step="0.01" value="0.13">
+          </label>
+        </div>
+      </fieldset>
+      <fieldset class="lab-group">
+        <legend>Spark · movement and travel</legend>
+        <div class="lab-grid">
+          <label>Circuit speed / tick (1–50)
+            <input id="circuitSpeedPerTick" type="number" min="1" max="50" step="1" value="16">
+          </label>
+          <label>Hop duration / ticks (6–90)
+            <input id="hopTicks" type="number" min="6" max="90" step="1" value="18">
+          </label>
+          <label>Return duration / ticks (6–90)
+            <input id="returnTicks" type="number" min="6" max="90" step="1" value="14">
+          </label>
+          <label>Circuit route turns
+            <select id="routeTurns"><option value="6">6</option><option value="8" selected>8</option><option value="10">10</option><option value="12">12</option></select>
+          </label>
+          <label>Landing grace / ticks (0–120)
+            <input id="landingGraceTicks" type="number" min="0" max="120" step="1" value="15">
+          </label>
+          <label class="lab-check"><input id="transitShield" type="checkbox" checked>
+            Shield Spark during automatic travel
+          </label>
+        </div>
+        <p class="lab-hint">The mathematics and destination remain source-owned. Faster or slower motion changes the Pursuer's opportunity to catch Spark, not the answer.</p>
+      </fieldset>
+      <fieldset class="lab-group">
+        <legend>Pursuer · intelligence and physical motion</legend>
+        <div class="lab-grid">
+          <label>Near sensing radius (50–500)
+            <input id="nearSenseRadius" type="number" min="50" max="500" step="10" value="260">
+          </label>
+          <label>Clear sight radius (50–600)
+            <input id="clearSightRadius" type="number" min="50" max="600" step="10" value="420">
+          </label>
+          <label>Trail sensing radius (0–260)
+            <input id="trailSenseRadius" type="number" min="0" max="260" step="5" value="110">
+          </label>
+          <label>Trail lifetime / ticks (0–1200)
+            <input id="trailLifetimeTicks" type="number" min="0" max="1200" step="10" value="240">
+          </label>
+          <label>Stale contact memory / ticks (0–120)
+            <input id="staleContactTicks" type="number" min="0" max="120" step="1" value="30">
+          </label>
+          <label>Search speed / tick (0.1–10)
+            <input id="speedSearch" type="number" min="0.1" max="10" step="0.1" value="2.6">
+          </label>
+          <label>Pursuit speed / tick (0.1–12)
+            <input id="speedPursuit" type="number" min="0.1" max="12" step="0.1" value="3.7">
+          </label>
+          <label>Bot radius / Spark radius (0.25–0.70)
+            <input id="actorRadiusRatio" type="number" min="0.25" max="0.70" step="0.01" value="0.52">
+          </label>
+          <label>Spawn rows below Spark (1–4)
+            <input id="spawnRowsBelow" type="number" min="1" max="4" step="1" value="2">
+          </label>
+        </div>
+        <p class="lab-hint">Real bot still uses finite observation, memory and collision-safe graph navigation. Controls alter parameter values—not the arithmetic or hidden sensor knowledge.</p>
+      </fieldset>
+      <div class="lab-action-row">
+        <button class="action" id="applyTuning" type="button">Apply tuning &amp; new run</button>
+        <button class="action" id="resetTuning" type="button">Reset lab defaults</button>
+        <button class="action" id="exportPreset" type="button">Export preset JSON</button>
+        <button class="action" id="importPreset" type="button">Import preset JSON</button>
+      </div>
+      <label for="presetData">Reusable, versioned tuning preset</label>
+      <textarea id="presetData" spellcheck="false" aria-label="Tuning preset JSON"></textarea>
+      <div id="labStatus" class="lab-status" role="status" aria-live="polite">Camera zoom: 70%. Tuning controls use the current run until applied.</div>
     </details>
     <details>
       <summary>Developer: deterministic events and configuration</summary>
