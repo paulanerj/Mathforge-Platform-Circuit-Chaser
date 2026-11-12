@@ -11,6 +11,7 @@ import {
 import { CircuitClimbChaseCore } from '../pursuer/CircuitClimbChaseCore';
 import type { PursuerSnapshot } from '../pursuer/pursuerController';
 import type { FeatureSnapshotV1, FeatureEventV1 } from '../features/progression';
+import type { RunSummaryV1 } from '../progression/runSummary';
 import { RunConfigV1, defaultRunConfig } from '../config/runConfig';
 import { getRow, findPlatform } from '../world/world';
 
@@ -33,6 +34,19 @@ const pulseButton = document.querySelector<HTMLButtonElement>('#pulse');
 const energy = document.querySelector<HTMLElement>('#energy');
 const rowKind = document.querySelector<HTMLElement>('#rowKind');
 const cellProgress = document.querySelector<HTMLElement>('#cellProgress');
+const modeSelect = document.querySelector<HTMLSelectElement>('#mode');
+const modeBadge = document.querySelector<HTMLElement>('#modeBadge');
+const summaryPanel = document.querySelector<HTMLElement>('#summaryPanel');
+const summaryTitle = document.querySelector<HTMLElement>('#summaryTitle');
+const summaryOutcome = document.querySelector<HTMLElement>('#summaryOutcome');
+const summaryStats = document.querySelector<HTMLElement>('#summaryStats');
+const summaryBadges = document.querySelector<HTMLElement>('#summaryBadges');
+const summaryEquations = document.querySelector<HTMLElement>('#summaryEquations');
+const summaryClose = document.querySelector<HTMLButtonElement>('#summaryClose');
+const summaryRestart = document.querySelector<HTMLButtonElement>('#summaryRestart');
+const reviewSummary = document.querySelector<HTMLButtonElement>('#reviewSummary');
+const endRunButton = document.querySelector<HTMLButtonElement>('#endRun');
+const achievementToast = document.querySelector<HTMLElement>('#achievementToast');
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const context = canvas.getContext('2d')!;
 /**
@@ -52,9 +66,12 @@ interface SurfaceEngine {
   features():FeatureSnapshotV1|null;
   featureEvents():FeatureEventV1[];
   pulse():{ok:boolean;affected?:boolean;reason?:string};
+  quit():void;
+  summary():RunSummaryV1|null;
 }
 const botEnabled=document.body.dataset.pursuer==='on';
 const featuresEnabled=document.body.dataset.features==='on';
+const summaryEnabled=document.body.dataset.summary==='on';
 const manualQA=featuresEnabled && new URLSearchParams(location.search).get('manual')==='1';
 const graphDebug=new URLSearchParams(location.search).get('graph')==='1';
 function makeSurfaceEngine(seed:string,config:RunConfigV1=defaultRunConfig()):SurfaceEngine{
@@ -73,6 +90,8 @@ function makeSurfaceEngine(seed:string,config:RunConfigV1=defaultRunConfig()):Su
       features:()=>game.featureSnapshot(),
       featureEvents:()=>game.featureEventLog(),
       pulse:()=>game.activatePulse(),
+      quit:()=>game.quit(),
+      summary:()=>game.runSummary(),
     };
   }
   const game=new CircuitClimbCore(seed,config);
@@ -89,6 +108,8 @@ function makeSurfaceEngine(seed:string,config:RunConfigV1=defaultRunConfig()):Su
     features:()=>null,
     featureEvents:()=>[],
     pulse:()=>({ok:false,reason:'PURSUER_OFF'}),
+    quit:()=>game.quit(),
+    summary:()=>null,
   };
 }
 let engine:SurfaceEngine=makeSurfaceEngine(seedInput.value);
@@ -100,6 +121,8 @@ let currentProblemId = '';
 let previousEventCount = 0;
 let previousFeatureEventCount = 0;
 let featureNoticeUntil = 0;
+let toastUntil=0;
+const seenAchievements=new Set<string>();
 let buttons: HTMLButtonElement[] = [];
 let canvasResizes = 0;
 let workingUntil = 0;
@@ -113,6 +136,7 @@ function renderFeedback(): void {
   const now = performance.now();
   mathWorking.hidden = !(workingUntil === Infinity || now < workingUntil);
   cellNotice.hidden = !(now < noticeUntil);
+  if(achievementToast)achievementToast.hidden=!(now<toastUntil);
 }
 
 function worldY(y: number): number { return y - cameraY; }
@@ -120,6 +144,7 @@ function worldY(y: number): number { return y - cameraY; }
 function configFromControls(): RunConfigV1 {
   return {
     ...defaultRunConfig(),
+    mode:(modeSelect?.value as RunConfigV1['mode'])??defaultRunConfig().mode,
     framingPercent: Number(framingSelect.value) as RunConfigV1['framingPercent'],
     movement: movementSelect.value as RunConfigV1['movement'],
   };
@@ -190,12 +215,85 @@ function updateMessage(): void {
     `T${item.tick} ${item.type} ${JSON.stringify(item.detail)}`).join('\n');
   renderFeedback();
   updateFeatureEvents();
+  updateAchievements();
+  if(newEvents.some(e=>e.type==='RUN_ENDED'))showSummary();
 }
 
 /**
  * Feature events are independently sourced and keep the math ledger intact.
  * A Relay is a visual-only wave; no feedback may reveal answer identity.
  */
+
+/** Newly earned badges come only from source ledgers; no score shortcuts. */
+function updateAchievements():void{
+  if(!summaryEnabled)return;
+  const report=engine.summary();
+  if(!report)return;
+  const fresh=report.achievements.filter(a=>!seenAchievements.has(a.id));
+  if(!fresh.length)return;
+  for(const earned of fresh)seenAchievements.add(earned.id);
+  if(achievementToast){
+    achievementToast.textContent='UNLOCKED · '+fresh.map(a=>a.title).join(' · ');
+    toastUntil=performance.now()+1900;
+    renderFeedback();
+  }
+}
+
+/** Exact solved-only, run-scoped, read-only result from the core authority. */
+function showSummary():void{
+  if(!summaryEnabled||!summaryPanel)return;
+  const report=engine.summary();
+  if(!report?.ended)return;
+  if(summaryTitle)summaryTitle.textContent='Circuit Climb · Run Summary';
+  if(summaryOutcome)summaryOutcome.textContent=report.outcome;
+  if(summaryStats){
+    summaryStats.replaceChildren();
+    const metrics=[
+      ['Height',report.rowsSolved+' solved rows'],
+      ['Power cells',String(report.powerCells)],
+      ['Score',String(report.score)],
+      ['Accepted choices',String(report.attempts)],
+      ['Correct choices',String(report.correctAttempts)],
+      ['Wrong choices',String(report.wrongAttempts)],
+      ['Choice accuracy',report.accuracyPercent===null?'—':report.accuracyPercent+'%'],
+      ['Simulated time',report.simulatedSeconds.toFixed(1)+'s'],
+    ];
+    for(const [key,value] of metrics){
+      const line=document.createElement('div');
+      line.className='summary-metric';
+      const keyEl=document.createElement('span');keyEl.textContent=key;
+      const valueEl=document.createElement('strong');valueEl.textContent=value;
+      line.append(keyEl,valueEl);summaryStats.append(line);
+    }
+  }
+  if(summaryBadges){
+    summaryBadges.replaceChildren();
+    if(!report.achievements.length){
+      summaryBadges.textContent='No achievements unlocked in this run.';
+    }else for(const badge of report.achievements){
+      const chip=document.createElement('span');
+      chip.className='summary-achievement';
+      chip.textContent=badge.title;chip.title=badge.description;
+      summaryBadges.append(chip);
+    }
+  }
+  if(summaryEquations){
+    summaryEquations.replaceChildren();
+    if(!report.equations.length){
+      const empty=document.createElement('li');
+      empty.textContent='No completed equations in this run.';
+      summaryEquations.append(empty);
+    }else for(const eq of report.equations){
+      const li=document.createElement('li');
+      li.textContent='Row '+eq.row+' · '+eq.equation;
+      summaryEquations.append(li);
+    }
+  }
+  summaryPanel.hidden=false;
+  if(reviewSummary)reviewSummary.disabled=false;
+  summaryClose?.focus({preventScroll:true});
+}
+
 function updateFeatureEvents():void{
   if(!featuresEnabled)return;
   const all=engine.featureEvents();
@@ -581,8 +679,11 @@ function draw(): void {
   else renderFeedback();
   // A timer-based ability can expire without any new math/core event.
   // Observe the independently sourced feature ledger as well.
-  if(featuresEnabled && engine.featureEvents().length!==previousFeatureEventCount)
+  if(featuresEnabled && engine.featureEvents().length!==previousFeatureEventCount){
     updateFeatureEvents();
+    updateAchievements();
+  }
+  if(modeBadge)modeBadge.textContent=(modeSelect?.value??'climb').toUpperCase();
 }
 
 function beginNewRun(): void {
@@ -591,6 +692,10 @@ function beginNewRun(): void {
   previousEventCount = 0;
   previousFeatureEventCount = 0;
   featureNoticeUntil = 0;
+  toastUntil=0;
+  seenAchievements.clear();
+  if(summaryPanel)summaryPanel.hidden=true;
+  if(reviewSummary)reviewSummary.disabled=true;
   workingUntil = 0;
   noticeUntil = 0;
   cameraY = engine.snapshot().spark.y - logicalHeight * 0.72;
@@ -612,14 +717,20 @@ pause.onclick = () => {
   updateMessage();
 };
 restart.onclick = beginNewRun;
+if(modeSelect)modeSelect.onchange=beginNewRun;
 framingSelect.onchange = beginNewRun;
 movementSelect.onchange = beginNewRun;
+if(summaryClose)summaryClose.onclick=()=>{if(summaryPanel)summaryPanel.hidden=true;};
+if(summaryRestart)summaryRestart.onclick=beginNewRun;
+if(reviewSummary)reviewSummary.onclick=showSummary;
+if(endRunButton)endRunButton.onclick=()=>{engine.quit();updateMessage();};
 exportButton.onclick = () => {
   const output = JSON.stringify({
     replay: engine.replayExport(),
     stateDigest: engine.stateDigest(),
     events: engine.eventLog(),
     finalState: engine.snapshot(),
+    runSummary: engine.summary(),
   }, null, 2);
   const url = URL.createObjectURL(new Blob([output], { type: 'application/json' }));
   const link = document.createElement('a');
@@ -631,6 +742,10 @@ exportButton.onclick = () => {
 
 window.addEventListener('keydown', event => {
   if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
+  if(summaryPanel && !summaryPanel.hidden){
+    if(event.key==='Escape')summaryClose?.click();
+    return;
+  }
   if (event.key === ' ') { event.preventDefault(); pause.click(); return; }
   if ((event.key==='p'||event.key==='P') && pulseButton){
     event.preventDefault();if(!pulseButton.disabled)pulseButton.click();return;
@@ -656,6 +771,7 @@ document.addEventListener('visibilitychange', () => {
   pursuer: () => engine.bot(),
   features: () => engine.features(),
   featureEvents: () => engine.featureEvents(),
+  summary: () => engine.summary(),
   pulse: () => {const outcome=engine.pulse();updateFeatureEvents();return outcome;},
   advanceForQA: (ticks:number) => {
     if(!manualQA)throw new Error('QA_MANUAL_MODE_REQUIRED');
