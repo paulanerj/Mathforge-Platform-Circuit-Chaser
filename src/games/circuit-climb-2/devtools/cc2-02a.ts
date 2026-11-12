@@ -63,6 +63,7 @@ const cameraFollowInput=document.querySelector<HTMLInputElement>('#cameraFollow'
 const zoomValue=document.querySelector<HTMLOutputElement>('#zoomValue');
 const labStatus=document.querySelector<HTMLElement>('#labStatus');
 const presetData=document.querySelector<HTMLTextAreaElement>('#presetData');
+const botReadout=document.querySelector<HTMLElement>('#botReadout');
 const applyTuning=document.querySelector<HTMLButtonElement>('#applyTuning');
 const resetTuning=document.querySelector<HTMLButtonElement>('#resetTuning');
 const exportPreset=document.querySelector<HTMLButtonElement>('#exportPreset');
@@ -797,6 +798,22 @@ function draw(): void {
         ? `MAKE TARGET · ${state.currentProblem.targetValue}`
         : 'RUNNING ADDITION · TO 20');
   const botHud=engine.bot();
+  if(botReadout && botHud && state.tick%15===0) {
+    const report=[
+      'MODE: '+botHud.belief.mode+' · '+botHud.belief.reason,
+      'SENSOR: '+(botHud.sensed?'LIVE ':'NO LIVE ')+botHud.lastSensorSource,
+      'PURSUER: X '+botHud.body.x.toFixed(1)+
+        ' · Y '+botHud.body.y.toFixed(1),
+      'GOAL: '+botHud.belief.goalId+' · NODE: '+botHud.body.nodeId,
+      'ACQUISITIONS: '+botHud.belief.acquisitions+
+        ' · REACQUISITIONS: '+botHud.belief.reacquisitions,
+      'GRAPH NODES: '+botHud.graphNodeCount+
+        ' · ROUTE FAILURES: '+botHud.routeFailures,
+      'TRAIL SAMPLES: '+botHud.wakeCount+
+        ' · SENSED TICKS: '+botHud.activeSensedTicks,
+    ].join('\n');
+    if(botReadout.textContent!==report)botReadout.textContent=report;
+  }
   if(featuresEnabled){
     const feature=engine.features();
     if(feature){
