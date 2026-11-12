@@ -24,7 +24,28 @@ if(!script||script.length<1000)throw Error('CC2_PORTABLE_BUNDLE_EMPTY');
 const target='<script type="module" src="./cc2-02a.ts"></script>';
 if(!template.includes(target))throw Error('CC2_PORTABLE_SCRIPT_TAG_CHANGED');
 const safe=script.replace(/<\/script/gi,'<\\/script');
-const html=template.replace(target,
+// A replacement STRING interprets const html=template.replace(target,
+  '<script>\n/* CC2-04 offline game bundle */\n'+safe+'\n</script>');, 
+// The exact original external entrypoint occurs ONCE and is replaced.
+// Never parse minified inline JS as HTML: string literals can contain
+// apparent <script src=... patterns without making network requests.
+// The offline Chromium test below independently blocks all HTTP requests.
+if(template.split(target).length!==2)
+  throw Error('CC2_PORTABLE_ENTRYPOINT_NOT_UNIQUE');
+if(!html.includes('/* CC2-04 offline game bundle */'))
+  throw Error('CC2_PORTABLE_INLINE_SCRIPT_MISSING');
+const complete=html.replace('<head>',
+  '<head>\n  <meta name="cc2-bundle-version" content="cc2-04-offline-v1">');
+await mkdir(dirname(out),{recursive:true});
+await writeFile(out,complete,'utf8');
+const bytes=Buffer.byteLength(complete,'utf8');
+if(bytes<10000||bytes>4000000)throw Error('CC2_PORTABLE_UNEXPECTED_SIZE');
+console.log(JSON.stringify({file:out,bytes,
+  javascriptBytes:Buffer.byteLength(script),standalone:true}));
+ and $\` tokens from esbuild's
+// minified JS as interpolation directives, inserting source HTML into the
+// executable script. Use a CALLBACK to treat every bundled byte literally.
+const html=template.replace(target,()=>
   '<script>\n/* CC2-04 offline game bundle */\n'+safe+'\n</script>');
 // The exact original external entrypoint occurs ONCE and is replaced.
 // Never parse minified inline JS as HTML: string literals can contain
