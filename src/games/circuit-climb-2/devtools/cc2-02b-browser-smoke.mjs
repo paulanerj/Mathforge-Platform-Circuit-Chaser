@@ -80,7 +80,7 @@ try{
   await page.close();
 
   const base=await browser.newPage({viewport:{width:390,height:844}});
-  await base.goto(new URL('src/games/circuit-climb-2/devtools/cc2-02a.html',server.url));
+  await base.goto(new URL('src/games/circuit-climb-2/devtools/cc2-02a.html',server.url).toString());
   await base.waitForFunction(()=>Boolean(window.__CC2_02A__));
   check(await base.evaluate(()=>window.__CC2_02A__.pursuer()===null),
     'non-chase 02A/Q1 board retains NO pursuer');
