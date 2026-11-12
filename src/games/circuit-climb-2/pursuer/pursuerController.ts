@@ -78,13 +78,15 @@ export class PursuerController {
     return [min,max,world.geometry.rowGap,world.rows.length,
       world.rows[0]?.index,world.rows.at(-1)?.index].join(':');
   }
-  private ensureGraph(world:WorldV1,learner:Point){
+  private ensureGraph(world:WorldV1){
     const h=world.geometry.rowGap;
     const observedRow=Math.floor(-this.body.y/h);
     const min=Math.min(-this.preset.spawnRowsBelow,
       observedRow-2,(world.rows[0]?.index??0)-2);
-    const max=Math.max(3,Math.ceil(-learner.y/h)+2,
-      (world.rows.at(-1)?.index??0)+2);
+    // CRITICAL: the pursuit graph may extend only from generated PUBLIC
+    // tower topology and the bot's own location. Using the hidden Spark's
+    // actual Y here would leak its unseen row through navigation geometry.
+    const max=Math.max(3,(world.rows.at(-1)?.index??0)+2);
     const key=this.makeKey(world,min,max);
     if(this.graphKey!==key){
       this.graph=buildPursuitGraph(world,this.radius,min,max);
@@ -97,7 +99,7 @@ export class PursuerController {
   step(world:WorldV1,actualSpark:Point,tick:number):PursuerSnapshot{
     if(!Number.isInteger(tick)||tick<=this.tickCount)
       throw Error('PURSUER_TICK_NOT_MONOTONIC');
-    this.ensureGraph(world,actualSpark);
+    this.ensureGraph(world);
     // Keep ONLY historical actual positions, not selected future routes.
     if(this.lastSpark&&Math.hypot(actualSpark.x-this.lastSpark.x,
       actualSpark.y-this.lastSpark.y)>3){
