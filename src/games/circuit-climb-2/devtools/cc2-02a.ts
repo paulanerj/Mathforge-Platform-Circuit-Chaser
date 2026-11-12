@@ -429,6 +429,7 @@ function updateAchievements():void{
   const fresh=report.achievements.filter(a=>!seenAchievements.has(a.id));
   if(!fresh.length)return;
   for(const earned of fresh)seenAchievements.add(earned.id);
+  emitCue('achievement');
   if(achievementToast){
     achievementToast.textContent='UNLOCKED · '+fresh.map(a=>a.title).join(' · ');
     toastUntil=performance.now()+1900;
@@ -846,7 +847,12 @@ function draw(): void {
     // All bot coordinates and its sensing flag come from the real sim state.
     context.save();
     context.shadowBlur=18;
-    context.shadowColor=bot.sensed?'#ff6d8d':'#c54b75';
+    const moodColor=bot.emotion==='FRUSTRATED'?'#ff736e'
+      :bot.emotion==='NOTICE'?'#ffc4d4'
+      :bot.emotion==='HESITATING'?'#ffa878'
+      :bot.emotion==='CURIOUS'?'#d69cff'
+      :bot.sensed?'#ff6d8d':'#c54b75';
+    context.shadowColor=moodColor;
     context.fillStyle=bot.sensed?'#a52e59':'#61263f';
     context.strokeStyle=bot.sensed?'#ffd0da':'#ff8bab';
     context.lineWidth=2.5;
@@ -857,7 +863,24 @@ function draw(): void {
     context.font='bold 12px system-ui';
     context.textAlign='center';
     context.textBaseline='middle';
-    context.fillText('◆',bot.body.x,worldY(bot.body.y));
+    const face=bot.emotion==='NOTICE'?'!'
+      :bot.emotion==='FRUSTRATED'?'×'
+      :bot.emotion==='HESITATING'?'…'
+      :bot.emotion==='CURIOUS'?'?':'◆';
+    context.fillText(face,bot.body.x,worldY(bot.body.y));
+    if(!reducedMotion && currentFeedback.vfxEnabled &&
+       currentFeedback.vfxIntensity>0){
+      // A subtle source-owned emotional oscillation: no movement or physics.
+      const pulse=Math.sin(state.tick*(bot.emotion==='FRUSTRATED'?.23:.105));
+      const alpha=(.17+.09*pulse)*currentFeedback.vfxIntensity;
+      context.beginPath();
+      context.strokeStyle=moodColor;
+      context.globalAlpha=Math.max(.05,alpha);
+      context.lineWidth=2;
+      context.arc(bot.body.x,worldY(bot.body.y),
+        bot.radius+8+4*pulse,0,Math.PI*2);
+      context.stroke();
+    }
     context.restore();
   }
 
