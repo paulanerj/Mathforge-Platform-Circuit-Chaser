@@ -99,6 +99,11 @@
       padding:10px;border:1px solid #4c7792;border-radius:8px;background:#0a1e2e;
       font:12px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;}
     #cameraZoom {accent-color:#a1e3f3;}
+    .view-readout{font-size:11px;color:#bce9eb;padding:4px 10px;background:#0f2a3a;border:1px solid #355a71;}
+    .cue-notice{position:absolute;z-index:6;left:50%;bottom:10px;transform:translateX(-50%);pointer-events:none;color:#dbfbff;background:#142c40de;border:1px solid #42758b;border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;}
+    .cue-notice[hidden]{display:none;}
+    .audio-control{background:#1a4254!important;}
+
     .preview-key {display:inline-block;padding:2px 6px;border:1px solid #55758a;border-radius:6px;color:#bcd9e5;}
 
     pre { background:#0c1c29; border:1px solid var(--edge); padding:10px; border-radius:8px; white-space:pre-wrap; word-break:break-word; max-height:130px; overflow:auto; color:#b1dce7; }
@@ -110,7 +115,7 @@
   <main class="shell">
     <div class="heading">
       <h1>Circuit Climb <span style="color:#7dd3f1">2.0</span></h1>
-      <span class="phase">CC2-05A · TUNING LAB</span>
+      <span class="phase">CC2-05B · LIVING PURSUER</span>
     </div>
     <p class="disclaimer"><strong>Playtest candidate</strong> · Earn Pulse, climb and review verified results</p>
     <section class="hud" aria-label="Mathematics and progress">
@@ -124,9 +129,11 @@
     </section>
     <section class="board" id="board" aria-label="Numbered three-platform climbing board">
       <canvas id="worldCanvas" aria-hidden="true"></canvas>
+      <div id="cueNotice" class="cue-notice" hidden></div>
       <div id="mathWorking" class="math-working" role="status" aria-live="polite" hidden></div>
       <div class="choices" id="choices" aria-label="Choose a numbered destination"></div>
     </section>
+    <div class="view-readout" id="viewReadout" role="status">Camera auto-fit: 3 rows above + 3 below · Spark centered</div>
     <div class="status-wrap">
       <div id="status" class="status" role="status" aria-live="polite">Choose the number that completes the sum.</div>
       <div id="cellNotice" class="cell-notice" role="status" aria-live="polite" hidden></div>
@@ -136,6 +143,7 @@
       <button class="action" id="pulse" type="button" title="Earn from correct landings. Press P to activate." disabled>Pulse 0/4</button>
       <button class="action" id="pause" type="button">Pause</button>
       <button class="action" id="restart" type="button">New run</button>
+      <button class="action audio-control" id="soundToggle" type="button" aria-pressed="true">Sound: On</button>
     </div>
     <details class="dev-controls">
       <summary>Developer settings · seed, framing and movement</summary>
@@ -154,7 +162,7 @@
     <details class="dev-tuning" id="tuningPanel">
       <summary>Developer Laboratory · Camera / Spark / Pursuer</summary>
       <p class="lab-hint">
-        Camera zoom is visual only and changes live. All other movement and
+        The viewport always auto-fits at least 3 row positions above and below Spark (including unnumbered scaffolding), even on small screens. The zoom value is a maximum; it may auto-reduce to preserve visibility. Camera zoom is visual only and changes live. All other movement and
         AI parameters take effect when you select <strong>Apply tuning &amp; new run</strong>.
         A new run is essential for repeatable, fair comparison.
         <span class="preview-key">Dim rows = structural previews, not generated math questions</span>
@@ -162,8 +170,8 @@
       <fieldset class="lab-group">
         <legend>Viewport · purely visual</legend>
         <div class="lab-grid">
-          <label>Camera zoom <output id="zoomValue" for="cameraZoom">70%</output>
-            <input id="cameraZoom" type="range" min="0.60" max="1" step="0.05" value="0.70">
+          <label>Maximum zoom <output id="zoomValue" for="cameraZoom">70%</output>
+            <input id="cameraZoom" type="range" min="0.25" max="1" step="0.05" value="0.70">
           </label>
           <label>Follow smoothing (0.05–0.50)
             <input id="cameraFollow" type="number" min="0.05" max="0.50" step="0.01" value="0.13">
@@ -195,7 +203,7 @@
         <p class="lab-hint">The mathematics and destination remain source-owned. Faster or slower motion changes the Pursuer's opportunity to catch Spark, not the answer.</p>
       </fieldset>
       <fieldset class="lab-group">
-        <legend>Pursuer · intelligence and physical motion</legend>
+        <legend>Pursuer · finite sensing and physical motion</legend>
         <div class="lab-grid">
           <label>Near sensing radius (50–500)
             <input id="nearSenseRadius" type="number" min="50" max="500" step="10" value="260">
@@ -228,6 +236,55 @@
         <p class="lab-hint">Real bot still uses finite observation, memory and collision-safe graph navigation. Controls alter parameter values—not the arithmetic or hidden sensor knowledge.</p>
         <label for="botReadout">Live physical Pursuer diagnostics (developer-only)</label>
         <pre id="botReadout" aria-live="off">No chase observations yet.</pre>
+      </fieldset>
+      <fieldset class="lab-group">
+        <legend>Pursuer personality · bounded intelligent behavior</legend>
+        <div class="lab-grid">
+          <label>Personality profile<select id="personalityStyle">
+            <option value="curious" selected>Curious / beginner</option>
+            <option value="relentless">Relentless / classic</option>
+          </select></label>
+          <label>Hesitation probability / minute (0–0.8)
+            <input id="hesitationChance" type="number" min="0" max="0.8" step="0.01" value="0.22">
+          </label>
+          <label>Minimum hesitation / ticks
+            <input id="hesitationMinTicks" type="number" min="0" max="180" step="1" value="18">
+          </label>
+          <label>Maximum hesitation / ticks
+            <input id="hesitationMaxTicks" type="number" min="0" max="180" step="1" value="45">
+          </label>
+          <label>Cooldown / ticks
+            <input id="hesitationCooldownTicks" type="number" min="30" max="1200" step="1" value="130">
+          </label>
+          <label>Surprise reaction / ticks
+            <input id="noticeTicks" type="number" min="0" max="90" step="1" value="18">
+          </label>
+          <label>Side-route curiosity chance
+            <input id="detourChance" type="number" min="0" max="0.75" step="0.01" value="0.15">
+          </label>
+          <label>Side-route maximum / ticks
+            <input id="detourTicks" type="number" min="0" max="180" step="1" value="48">
+          </label>
+          <label>Frustration display / ticks
+            <input id="frustrationTicks" type="number" min="0" max="180" step="1" value="42">
+          </label>
+        </div>
+        <p class="lab-hint">All choices are seed-deterministic, strictly time-limited, and restricted to public, physically reachable graph edges. The bot cannot become permanently stalled by personality decisions.</p>
+      </fieldset>
+      <fieldset class="lab-group">
+        <legend>Event sound and electric visual feedback</legend>
+        <div class="lab-grid">
+          <label class="lab-check"><input id="feedbackEnabled" type="checkbox" checked> Event audio enabled</label>
+          <label>Audio volume (0–1)
+            <input id="feedbackVolume" type="number" min="0" max="1" step="0.05" value="0.24">
+          </label>
+          <label class="lab-check"><input id="vfxEnabled" type="checkbox" checked> Electric response effects</label>
+          <label>Visual intensity (0–1)
+            <input id="vfxIntensity" type="number" min="0" max="1" step="0.05" value="0.70">
+          </label>
+        </div>
+        <p class="lab-hint">Sound starts after your first button press. All tones are short, original Web Audio synthesis. Important game and Pursuer events have matching configurable audio and visual responses; silent and reduced-motion play remains complete.</p>
+        <button class="action" type="button" id="testSound">Play sample sound and effect</button>
       </fieldset>
       <div class="lab-action-row">
         <button class="action" id="applyTuning" type="button">Apply tuning &amp; new run</button>
