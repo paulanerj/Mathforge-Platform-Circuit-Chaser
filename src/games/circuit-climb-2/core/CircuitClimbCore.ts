@@ -20,6 +20,7 @@ import {
   pointAlongRoute, pointOnHop, retainRecentRows, WorldV1,
 } from '../world/world';
 import { RoutePoint } from '../world/legacyLearnerRouting';
+import {defaultLearnerMotionPreset,validateLearnerMotionPreset,type LearnerMotionPresetV1} from '../config/learnerMotionPreset';
 
 export type TurnPhaseV1 = 'ready' | 'outbound' | 'return' | 'ended';
 export type EndReasonV1 =
@@ -114,6 +115,8 @@ export type ReplayV1 = {
   seed: string;
   config: RunConfigV1;
   configHash: string;
+  /** Optional for previously exported V1 replays; absent means historical defaults. */
+  learnerMotion?: LearnerMotionPresetV1;
   commands: ReplayCommandV1[];
   finalTick: number;
 };
@@ -130,12 +133,9 @@ export function digestState(value: unknown): string {
 }
 
 const clone = <T>(value: T): T => structuredClone(value);
-const CIRCUIT_SPEED_PER_TICK = 16;
-const HOP_TICKS = 18;
-const RETURN_TICKS = 14;
-
 export class CircuitClimbCore {
   readonly config: RunConfigV1;
+  readonly learnerMotion: LearnerMotionPresetV1;
   readonly seed: string;
 
   private state: EngineStateV1;
@@ -145,12 +145,14 @@ export class CircuitClimbCore {
   private events: GameEventV1[] = [];
   private commands: ReplayCommandV1[] = [];
 
-  constructor(seed: string, config: RunConfigV1 = defaultRunConfig()) {
+  constructor(seed: string, config: RunConfigV1 = defaultRunConfig(),
+    learnerMotion: LearnerMotionPresetV1 = defaultLearnerMotionPreset()) {
     if (typeof seed !== 'string' || seed.length === 0 || seed.length > 256) {
       throw new Error('INVALID_RUN_SEED');
     }
     this.seed = seed;
     this.config = Object.freeze(validateRunConfig(config));
+    this.learnerMotion = Object.freeze(validateLearnerMotionPreset(learnerMotion));
     this.mathRng = makeRandomStreams(seed).math;
     this.state = this.newRunState();
   }
@@ -236,6 +238,7 @@ export class CircuitClimbCore {
       seed: this.seed,
       config: clone(this.config),
       configHash: configHash(this.config),
+      learnerMotion: clone(this.learnerMotion),
       commands: clone(this.commands),
       finalTick: this.state.tick,
     };
@@ -327,12 +330,13 @@ export class CircuitClimbCore {
       if (!travel) continue;
 
       if (travel.movement === 'circuit') {
-        travel.distance = Math.min(travel.total, travel.distance + CIRCUIT_SPEED_PER_TICK);
+        travel.distance = Math.min(travel.total, travel.distance + this.learnerMotion.circuitSpeedPerTick);
         const point = pointAlongRoute(travel.points, travel.distance);
         this.state.spark.x = point.x;
         this.state.spark.y = point.y;
       } else {
-        const stepSize = travel.kind === 'return' ? 1 / RETURN_TICKS : 1 / HOP_TICKS;
+        const stepSize = travel.kind === 'return'
+          ? 1 / this.learnerMotion.returnTicks : 1 / this.learnerMotion.hopTicks;
         travel.distance = Math.min(1, travel.distance + stepSize);
         const point = pointOnHop(travel.from, travel.to, travel.distance);
         this.state.spark.x = point.x;
@@ -521,7 +525,8 @@ export function replayCore(trace: ReplayV1): CircuitClimbCore {
   if (configHash(validateRunConfig(trace.config)) !== trace.configHash) {
     throw new Error('REPLAY_CONFIG_DIGEST_MISMATCH');
   }
-  const core = new CircuitClimbCore(trace.seed, trace.config);
+  const core = new CircuitClimbCore(trace.seed, trace.config,
+    trace.learnerMotion ?? defaultLearnerMotionPreset());
   let lastOrdinal = 0;
   for (const item of trace.commands) {
     if (item.ordinal <= lastOrdinal || item.tick < core.snapshot().tick) {

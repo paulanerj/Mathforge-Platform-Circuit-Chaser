@@ -13,6 +13,14 @@ import type { PursuerSnapshot } from '../pursuer/pursuerController';
 import type { FeatureSnapshotV1, FeatureEventV1 } from '../features/progression';
 import type { RunSummaryV1 } from '../progression/runSummary';
 import { RunConfigV1, defaultRunConfig } from '../config/runConfig';
+import {defaultPursuerPreset,type PursuerPresetV1} from '../pursuer/pursuerPreset';
+import {defaultFeatureConfig} from '../features/progression';
+import {defaultLearnerMotionPreset,type LearnerMotionPresetV1} from '../config/learnerMotionPreset';
+import {
+  defaultDevLabPreset,validateCameraView,validateDevLabPreset,
+  exportDevLabPreset,importDevLabPreset,projectCameraPoint,
+  type DevLabPresetV1,type CameraViewPresetV1,
+} from '../config/devLabPreset';
 import { getRow, findPlatform } from '../world/world';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#worldCanvas')!;
@@ -49,6 +57,17 @@ const summaryRestart = document.querySelector<HTMLButtonElement>('#summaryRestar
 const reviewSummary = document.querySelector<HTMLButtonElement>('#reviewSummary');
 const endRunButton = document.querySelector<HTMLButtonElement>('#endRun');
 const achievementToast = document.querySelector<HTMLElement>('#achievementToast');
+const tuningPanel=document.querySelector<HTMLDetailsElement>('#tuningPanel');
+const cameraZoomInput=document.querySelector<HTMLInputElement>('#cameraZoom');
+const cameraFollowInput=document.querySelector<HTMLInputElement>('#cameraFollow');
+const zoomValue=document.querySelector<HTMLOutputElement>('#zoomValue');
+const labStatus=document.querySelector<HTMLElement>('#labStatus');
+const presetData=document.querySelector<HTMLTextAreaElement>('#presetData');
+const botReadout=document.querySelector<HTMLElement>('#botReadout');
+const applyTuning=document.querySelector<HTMLButtonElement>('#applyTuning');
+const resetTuning=document.querySelector<HTMLButtonElement>('#resetTuning');
+const exportPreset=document.querySelector<HTMLButtonElement>('#exportPreset');
+const importPreset=document.querySelector<HTMLButtonElement>('#importPreset');
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const context = canvas.getContext('2d')!;
 /**
@@ -76,9 +95,14 @@ const featuresEnabled=document.body.dataset.features==='on';
 const summaryEnabled=document.body.dataset.summary==='on';
 const manualQA=featuresEnabled && new URLSearchParams(location.search).get('manual')==='1';
 const graphDebug=new URLSearchParams(location.search).get('graph')==='1';
-function makeSurfaceEngine(seed:string,config:RunConfigV1=defaultRunConfig()):SurfaceEngine{
+function makeSurfaceEngine(
+  seed:string,config:RunConfigV1=defaultRunConfig(),
+  learnerMotion:LearnerMotionPresetV1=defaultLearnerMotionPreset(),
+  pursuerPreset:PursuerPresetV1=defaultPursuerPreset(),
+):SurfaceEngine{
   if(botEnabled){
-    const game=new CircuitClimbChaseCore(seed,config);
+    const game=new CircuitClimbChaseCore(seed,config,pursuerPreset,
+      defaultFeatureConfig(),learnerMotion);
     return {
       snapshot:()=>game.learnerSnapshot(),
       eventLog:()=>game.eventLog(),
@@ -96,7 +120,7 @@ function makeSurfaceEngine(seed:string,config:RunConfigV1=defaultRunConfig()):Su
       summary:()=>game.runSummary(),
     };
   }
-  const game=new CircuitClimbCore(seed,config);
+  const game=new CircuitClimbCore(seed,config,learnerMotion);
   return {
     snapshot:()=>game.snapshot(),
     eventLog:()=>game.eventLog(),
@@ -115,7 +139,10 @@ function makeSurfaceEngine(seed:string,config:RunConfigV1=defaultRunConfig()):Su
   };
 }
 let engine:SurfaceEngine=makeSurfaceEngine(seedInput.value);
+let cameraView:CameraViewPresetV1={...defaultDevLabPreset().camera};
+let appliedLabPreset:DevLabPresetV1=defaultDevLabPreset();
 let cameraY = 0;
+let previewRowsRendered=0;
 let logicalHeight = 800;
 let lastTime = 0;
 let accumulator = 0;
@@ -143,14 +170,94 @@ function renderFeedback(): void {
 
 function worldY(y: number): number { return y - cameraY; }
 
-function configFromControls(): RunConfigV1 {
+/**
+ * Developer input is read ONLY at explicit new-run boundaries.
+ * The complete preset is validated before any new runtime is created.
+ */
+function numericControl(id:string):number {
+  const element=document.querySelector<HTMLInputElement>('#'+id);
+  if(!element || element.value.trim()==='')throw Error('TUNING_MISSING_'+id);
+  return Number(element.value);
+}
+function boolControl(id:string):boolean {
+  const element=document.querySelector<HTMLInputElement>('#'+id);
+  if(!element)throw Error('TUNING_MISSING_'+id);
+  return element.checked;
+}
+function configFromControls():RunConfigV1 {
   return {
     ...defaultRunConfig(),
     mode:(modeSelect?.value as RunConfigV1['mode'])??defaultRunConfig().mode,
     curriculum:(curriculumSelect?.value as RunConfigV1['curriculum'])??defaultRunConfig().curriculum,
-    framingPercent: Number(framingSelect.value) as RunConfigV1['framingPercent'],
-    movement: movementSelect.value as RunConfigV1['movement'],
+    framingPercent:Number(framingSelect.value),
+    movement:movementSelect.value as RunConfigV1['movement'],
+    routeTurns:numericControl('routeTurns') as RunConfigV1['routeTurns'],
+    transitShield:boolControl('transitShield'),
+    landingGraceTicks:numericControl('landingGraceTicks'),
   };
+}
+function collectLabPreset():DevLabPresetV1 {
+  const learnerMotion:LearnerMotionPresetV1={
+    ...defaultLearnerMotionPreset(),
+    circuitSpeedPerTick:numericControl('circuitSpeedPerTick'),
+    hopTicks:numericControl('hopTicks'),
+    returnTicks:numericControl('returnTicks'),
+  };
+  const pursuerPreset:PursuerPresetV1={...defaultPursuerPreset()};
+  for(const field of [
+    'nearSenseRadius','clearSightRadius','trailSenseRadius',
+    'trailLifetimeTicks','staleContactTicks','speedSearch','speedPursuit',
+    'actorRadiusRatio','spawnRowsBelow',
+  ] as const) {
+    pursuerPreset[field]=numericControl(field);
+  }
+  const camera:CameraViewPresetV1={
+    zoom:numericControl('cameraZoom'),
+    follow:numericControl('cameraFollow'),
+  };
+  return validateDevLabPreset({
+    schemaVersion:'cc2-dev-lab/v1',
+    run:configFromControls(),learner:learnerMotion,
+    pursuer:pursuerPreset,camera,
+  });
+}
+function loadLabPreset(preset:DevLabPresetV1):void {
+  const p=validateDevLabPreset(preset);
+  const fields:Record<string,number>={
+    framing:p.run.framingPercent,routeTurns:p.run.routeTurns,
+    landingGraceTicks:p.run.landingGraceTicks,
+    ...{
+      circuitSpeedPerTick:p.learner.circuitSpeedPerTick,
+      hopTicks:p.learner.hopTicks,
+      returnTicks:p.learner.returnTicks,
+    },
+    nearSenseRadius:p.pursuer.nearSenseRadius,
+    clearSightRadius:p.pursuer.clearSightRadius,
+    trailSenseRadius:p.pursuer.trailSenseRadius,
+    trailLifetimeTicks:p.pursuer.trailLifetimeTicks,
+    staleContactTicks:p.pursuer.staleContactTicks,
+    speedSearch:p.pursuer.speedSearch,
+    speedPursuit:p.pursuer.speedPursuit,
+    actorRadiusRatio:p.pursuer.actorRadiusRatio,
+    spawnRowsBelow:p.pursuer.spawnRowsBelow,
+    cameraZoom:p.camera.zoom,cameraFollow:p.camera.follow,
+  };
+  for(const [id,value] of Object.entries(fields)){
+    const element=document.querySelector<HTMLInputElement|HTMLSelectElement>('#'+id);
+    if(element)element.value=String(value);
+  }
+  const shield=document.querySelector<HTMLInputElement>('#transitShield');
+  if(shield)shield.checked=p.run.transitShield;
+  if(modeSelect)modeSelect.value=p.run.mode;
+  if(curriculumSelect)curriculumSelect.value=p.run.curriculum;
+  movementSelect.value=p.run.movement;
+  cameraView=p.camera;
+  if(zoomValue)zoomValue.textContent=Math.round(100*p.camera.zoom)+'%';
+}
+function labMessage(message:string,error=false):void {
+  if(!labStatus)return;
+  labStatus.textContent=message;
+  labStatus.dataset.error=error?'yes':'no';
 }
 
 function updateMessage(): void {
@@ -361,14 +468,17 @@ function updateChoices(): void {
   for (const button of buttons) {
     const platform = findPlatform(state.world, button.dataset.platformId!);
     if (!platform) continue;
-    const scale = canvas.clientWidth / state.world.geometry.logicalWidth;
-    // World geometry stays fixed; only the DOM's finger hit area expands.
-    // At 320px width an unexpanded tile would be only ~31px tall.
-    const width = Math.max(52, platform.width * scale);
-    const height = Math.max(44, platform.height * scale);
-    const y = worldY(platform.y + platform.height / 2) * scale - height / 2;
-    button.style.left = `${100 * platform.x / state.world.geometry.logicalWidth}%`;
-    button.style.top = `${y}px`;
+    const scale=canvas.clientWidth/state.world.geometry.logicalWidth*cameraView.zoom;
+    // DOM hit zones and Canvas share EXACTLY the same render-only projector.
+    // Keep a >=52x44px real touch target on compact screens.
+    const width=Math.max(52,platform.width*scale);
+    const height=Math.max(44,platform.height*scale);
+    const centre=projectCameraPoint(platform.x,
+      platform.y+platform.height/2,cameraY,canvas.clientWidth,
+      state.world.geometry.logicalWidth,cameraView.zoom);
+    const y=centre.y-height/2;
+    button.style.left=`${centre.x}px`;
+    button.style.top=`${y}px`;
     button.style.width = `${width}px`;
     button.style.height = `${height}px`;
     button.disabled = state.phase !== 'ready' || state.paused || platform.dead;
@@ -404,16 +514,23 @@ function draw(): void {
   const g = state.world.geometry;
   const features = featuresEnabled ? engine.features() : null;
   fitCanvas();
-  const targetCamera = state.spark.y - logicalHeight * 0.72;
-  cameraY += (targetCamera - cameraY) * 0.13;
-  const h = logicalHeight;
+  const zoom=cameraView.zoom;
+  const targetCamera=state.spark.y-logicalHeight*0.72/zoom;
+  cameraY+=(targetCamera-cameraY)*cameraView.follow;
+  const h=logicalHeight/zoom;
 
-  const background = context.createLinearGradient(0, 0, 0, h);
+  // Paint the entire physical viewport BEFORE applying world-only zoom.
+  // Neither hitboxes nor physics coordinate space are modified.
+  const background = context.createLinearGradient(0, 0, 0, logicalHeight);
   background.addColorStop(0, '#07131f');
   background.addColorStop(0.6, '#10283a');
   background.addColorStop(1, '#08111b');
   context.fillStyle = background;
-  context.fillRect(0, 0, 600, h);
+  context.fillRect(0, 0, 600, logicalHeight);
+  context.save();
+  context.translate(300,0);
+  context.scale(zoom,zoom);
+  context.translate(-300,0);
 
   // Three vertical architectural lanes establish strong visual continuity.
   for (const x of g.columns) {
@@ -425,6 +542,28 @@ function draw(): void {
     context.moveTo(x, 0);
     context.lineTo(x, h);
     context.stroke();
+  }
+
+  // This lab preview deliberately does not generate future equations or
+  // publish future platform IDs. The silhouettes are noninteractive
+  // architectural scaffolding only; current math stays hidden until READY.
+  previewRowsRendered=0;
+  for(let offset=1;offset<=4;offset++){
+    const futureIndex=state.currentProblem.rowIndex+offset;
+    if(state.world.rows.some(row=>row.index===futureIndex))continue;
+    const y=worldY(-futureIndex*g.rowGap);
+    if(y>h+g.platformHeight||y<-g.platformHeight)continue;
+    previewRowsRendered++;
+    context.save();
+    context.setLineDash([6,7]);
+    context.strokeStyle='rgba(113,168,195,.20)';
+    context.fillStyle='rgba(39,70,96,.10)';
+    context.lineWidth=1.5;
+    for(const x of g.columns){
+      roundedRect(x-g.platformWidth/2,y,g.platformWidth,g.platformHeight,10);
+      context.fill();context.stroke();
+    }
+    context.restore();
   }
 
   for (const row of state.world.rows) {
@@ -648,6 +787,7 @@ function draw(): void {
       context.fillText((state.currentProblem.operation === 'skip-count-by-2' ? '→' : '+') + option.value, x, y);
     }
   }
+  context.restore(); // Close render-only camera transform before any DOM work.
 
   equation.textContent = state.currentProblem.operation === 'skip-count-by-2'
     ? `Count by 2: ${state.currentProblem.incomingValue} → ?`
@@ -658,6 +798,22 @@ function draw(): void {
         ? `MAKE TARGET · ${state.currentProblem.targetValue}`
         : 'RUNNING ADDITION · TO 20');
   const botHud=engine.bot();
+  if(botReadout && botHud && state.tick%15===0) {
+    const report=[
+      'MODE: '+botHud.belief.mode+' · '+botHud.belief.reason,
+      'SENSOR: '+(botHud.sensed?'LIVE ':'NO LIVE ')+botHud.lastSensorSource,
+      'PURSUER: X '+botHud.body.x.toFixed(1)+
+        ' · Y '+botHud.body.y.toFixed(1),
+      'GOAL: '+botHud.belief.goalId+' · NODE: '+botHud.body.nodeId,
+      'ACQUISITIONS: '+botHud.belief.acquisitions+
+        ' · REACQUISITIONS: '+botHud.belief.reacquisitions,
+      'GRAPH NODES: '+botHud.graphNodeCount+
+        ' · ROUTE FAILURES: '+botHud.routeFailures,
+      'TRAIL SAMPLES: '+botHud.wakeCount+
+        ' · SENSED TICKS: '+botHud.activeSensedTicks,
+    ].join('\n');
+    if(botReadout.textContent!==report)botReadout.textContent=report;
+  }
   if(featuresEnabled){
     const feature=engine.features();
     if(feature){
@@ -710,7 +866,23 @@ function draw(): void {
 }
 
 function beginNewRun(): void {
-  engine = makeSurfaceEngine(seedInput.value.trim() || 'cc2-02a-demo', configFromControls());
+  // A new engine is constructed only after COMPLETE validation succeeds.
+  // An invalid imported/edited field leaves the existing run untouched.
+  let next:DevLabPresetV1;
+  try {
+    next=collectLabPreset();
+  }catch(error){
+    labMessage('Invalid tuning: '+String(error instanceof Error?error.message:error),true);
+    return;
+  }
+  const nextEngine=makeSurfaceEngine(
+    seedInput.value.trim()||'cc2-02a-demo',
+    next.run,next.learner,next.pursuer,
+  );
+  engine=nextEngine;
+  cameraView=next.camera;
+  appliedLabPreset=next;
+  if(zoomValue)zoomValue.textContent=Math.round(next.camera.zoom*100)+'%';
   currentProblemId = '';
   previousEventCount = 0;
   previousFeatureEventCount = 0;
@@ -721,12 +893,71 @@ function beginNewRun(): void {
   if(reviewSummary)reviewSummary.disabled=true;
   workingUntil = 0;
   noticeUntil = 0;
-  cameraY = engine.snapshot().spark.y - logicalHeight * 0.72;
+  cameraY=engine.snapshot().spark.y-logicalHeight*0.72/cameraView.zoom;
   accumulator = 0;
   lastTime = performance.now();
   updateMessage();
   draw();
 }
+
+function liveCameraChange():void {
+  try {
+    if(!cameraZoomInput||!cameraFollowInput)return;
+    const next=validateCameraView({
+      zoom:Number(cameraZoomInput.value),
+      follow:Number(cameraFollowInput.value),
+    });
+    cameraView=next;
+    if(zoomValue)zoomValue.textContent=Math.round(100*next.zoom)+'%';
+    cameraY=engine.snapshot().spark.y-logicalHeight*0.72/next.zoom;
+    labMessage('Visual zoom '+Math.round(next.zoom*100)+
+      '% applied live; simulation and mathematical state unchanged.');
+    draw();
+  }catch(error){
+    labMessage('Camera setting rejected: '+
+      String(error instanceof Error?error.message:error),true);
+  }
+}
+if(cameraZoomInput)cameraZoomInput.oninput=liveCameraChange;
+if(cameraFollowInput)cameraFollowInput.onchange=liveCameraChange;
+if(applyTuning)applyTuning.onclick=()=>{
+  const prior=engine;
+  beginNewRun();
+  if(engine!==prior)labMessage('Validated tuning applied. New run started; replay includes source-owned learner and pursuer presets.');
+};
+if(resetTuning)resetTuning.onclick=()=>{
+  const base=defaultDevLabPreset();
+  loadLabPreset({...base,run:{...base.run,curriculum:'makeTarget20'}});
+  beginNewRun();
+  labMessage('Lab defaults restored. New Make Target run started.');
+};
+if(exportPreset)exportPreset.onclick=()=>{
+  try{
+    const payload=exportDevLabPreset(collectLabPreset());
+    if(presetData)presetData.value=payload;
+    const url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
+    const link=document.createElement('a');
+    link.href=url;link.download='cc2-05a-behavior-preset.json';link.click();
+    URL.revokeObjectURL(url);
+    labMessage('Validated versioned tuning preset exported. Paste its JSON here to restore.');
+  }catch(error){
+    labMessage('Preset export rejected: '+
+      String(error instanceof Error?error.message:error),true);
+  }
+};
+if(importPreset)importPreset.onclick=()=>{
+  try{
+    if(!presetData)throw Error('PRESET_TEXTAREA_MISSING');
+    const next=importDevLabPreset(presetData.value);
+    // Validation is complete before ANY control or engine is modified.
+    loadLabPreset(next);
+    beginNewRun();
+    labMessage('Preset imported and applied. New run started from the same seed.');
+  }catch(error){
+    labMessage('Preset import rejected: '+
+      String(error instanceof Error?error.message:error),true);
+  }
+};
 
 if(pulseButton)pulseButton.onclick=()=>{
   const result=engine.pulse();
@@ -751,6 +982,7 @@ if(endRunButton)endRunButton.onclick=()=>{engine.quit();updateMessage();};
 exportButton.onclick = () => {
   const output = JSON.stringify({
     replay: engine.replayExport(),
+    appliedLabPreset: {...appliedLabPreset,camera:cameraView},
     stateDigest: engine.stateDigest(),
     events: engine.eventLog(),
     finalState: engine.snapshot(),
@@ -791,7 +1023,9 @@ document.addEventListener('visibilitychange', () => {
   snapshot: () => engine.snapshot(),
   events: () => engine.eventLog(),
   replay: () => engine.replayExport(),
-  rendererStats: () => ({ canvasResizes }),
+  rendererStats: () => ({canvasResizes,zoom:cameraView.zoom,
+    follow:cameraView.follow,previewRowsRendered,cameraY,
+    framingPercent:engine.snapshot().world.geometry.rowGap}),
   pursuer: () => engine.bot(),
   features: () => engine.features(),
   featureEvents: () => engine.featureEvents(),
