@@ -143,6 +143,9 @@ let cameraView:CameraViewPresetV1={...defaultDevLabPreset().camera};
 let appliedLabPreset:DevLabPresetV1=defaultDevLabPreset();
 let cameraY = 0;
 let previewRowsRendered=0;
+let effectiveCameraZoom=0.70;
+let cameraRowGap=205;
+let viewportCoverage={above:0,below:0};
 let logicalHeight = 800;
 let lastTime = 0;
 let accumulator = 0;
@@ -468,14 +471,14 @@ function updateChoices(): void {
   for (const button of buttons) {
     const platform = findPlatform(state.world, button.dataset.platformId!);
     if (!platform) continue;
-    const scale=canvas.clientWidth/state.world.geometry.logicalWidth*cameraView.zoom;
+    const scale=canvas.clientWidth/state.world.geometry.logicalWidth*effectiveCameraZoom;
     // DOM hit zones and Canvas share EXACTLY the same render-only projector.
     // Keep a >=52x44px real touch target on compact screens.
     const width=Math.max(52,platform.width*scale);
     const height=Math.max(44,platform.height*scale);
     const centre=projectCameraPoint(platform.x,
       platform.y+platform.height/2,cameraY,canvas.clientWidth,
-      state.world.geometry.logicalWidth,cameraView.zoom);
+      state.world.geometry.logicalWidth,effectiveCameraZoom);
     const y=centre.y-height/2;
     button.style.left=`${centre.x}px`;
     button.style.top=`${y}px`;
@@ -514,10 +517,25 @@ function draw(): void {
   const g = state.world.geometry;
   const features = featuresEnabled ? engine.features() : null;
   fitCanvas();
-  const zoom=cameraView.zoom;
-  const targetCamera=state.spark.y-logicalHeight*0.72/zoom;
+  // Camera is a presentation-only viewport. To reveal at least three
+  // FULL platform rows above and three below the player we calculate a
+  // resolution-specific maximum zoom. Physics, pursuer and math are not scaled.
+  // Include vertical card heights + canvas padding so 3-row reach is not
+  // marginally clipped on narrow phones.
+  cameraRowGap=g.rowGap;
+  const totalWorldSpan=6*g.rowGap+g.platformHeight+54;
+  const fitZoom=logicalHeight/totalWorldSpan;
+  const zoom=Math.max(0.15,Math.min(cameraView.zoom,fitZoom));
+  effectiveCameraZoom=zoom;
+  const targetCamera=state.spark.y-logicalHeight/(2*zoom);
+  // Follow smoothing is retained only inside the free margin and cannot
+  // push one of the six guaranteed rows outside the visible viewport.
+  const spare=Math.max(0,(logicalHeight/zoom-totalWorldSpan)/2);
   cameraY+=(targetCamera-cameraY)*cameraView.follow;
+  cameraY=Math.max(targetCamera-spare,Math.min(targetCamera+spare,cameraY));
   const h=logicalHeight/zoom;
+  viewportCoverage={above:(state.spark.y-cameraY)/g.rowGap,
+    below:(cameraY+h-state.spark.y)/g.rowGap};
 
   // Paint the entire physical viewport BEFORE applying world-only zoom.
   // Neither hitboxes nor physics coordinate space are modified.
@@ -548,9 +566,16 @@ function draw(): void {
   // publish future platform IDs. The silhouettes are noninteractive
   // architectural scaffolding only; current math stays hidden until READY.
   previewRowsRendered=0;
-  for(let offset=1;offset<=4;offset++){
-    const futureIndex=state.currentProblem.rowIndex+offset;
-    if(state.world.rows.some(row=>row.index===futureIndex))continue;
+  const sparkIndex=state.spark.row;
+  // Render future and past *structural* scaffolding with NO numbers,
+  // no problem IDs, no correct answers, and no interactive hit targets.
+  // Keep the closest 3 rows in each direction visible even at row zero.
+  const previewIndices=[];
+  for(let index=sparkIndex-3;index<=sparkIndex+4;index++){
+    if(index===sparkIndex || state.world.rows.some(row=>row.index===index))continue;
+    previewIndices.push(index);
+  }
+  for(const futureIndex of previewIndices){
     const y=worldY(-futureIndex*g.rowGap);
     if(y>h+g.platformHeight||y<-g.platformHeight)continue;
     previewRowsRendered++;
@@ -895,7 +920,8 @@ function beginNewRun(): void {
   if(reviewSummary)reviewSummary.disabled=true;
   workingUntil = 0;
   noticeUntil = 0;
-  cameraY=engine.snapshot().spark.y-logicalHeight*0.72/cameraView.zoom;
+  fitCanvas();
+  cameraY=engine.snapshot().spark.y-logicalHeight/(2*effectiveCameraZoom);
   accumulator = 0;
   lastTime = performance.now();
   updateMessage();
@@ -911,7 +937,9 @@ function liveCameraChange():void {
     });
     cameraView=next;
     if(zoomValue)zoomValue.textContent=Math.round(100*next.zoom)+'%';
-    cameraY=engine.snapshot().spark.y-logicalHeight*0.72/next.zoom;
+    // Camera framing is resolved inside draw() against the real viewport.
+    // A control change has no engine/ledger side effects.
+    cameraY=engine.snapshot().spark.y-logicalHeight/(2*effectiveCameraZoom);
     labMessage('Visual zoom '+Math.round(next.zoom*100)+
       '% applied live; simulation and mathematical state unchanged.');
     draw();
@@ -1026,7 +1054,8 @@ document.addEventListener('visibilitychange', () => {
   events: () => engine.eventLog(),
   replay: () => engine.replayExport(),
   rendererStats: () => ({canvasResizes,zoom:cameraView.zoom,
-    follow:cameraView.follow,previewRowsRendered,cameraY,
+    effectiveZoom:effectiveCameraZoom,follow:cameraView.follow,
+    previewRowsRendered,cameraY,viewportCoverage,cameraRowGap,
     framingPercent:engine.snapshot().world.geometry.rowGap}),
   pursuer: () => engine.bot(),
   features: () => engine.features(),
