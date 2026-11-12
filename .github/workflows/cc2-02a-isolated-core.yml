@@ -1,0 +1,45 @@
+name: CC2-02A isolated math world learner core
+on:
+  push:
+    branches:
+      - feature/cc2-02a-core-world-math
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Protect inherited SOT-02 game files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor fe3f88c629548ce0f21540ef3fc5a748b16000c8 HEAD
+          protected=c8838c30947c2a561bfc8322a6159e4f28fef61a
+          while IFS= read -r file; do
+            actual="$(git rev-parse "HEAD:$file")"
+            expected="$(git rev-parse "$protected:$file")"
+            test "$actual" = "$expected"
+          done < <(git ls-tree -r --name-only "$protected" src/games/circuit-climb)
+          echo "Protected Circuit Climb source: unchanged."
+      - run: npm ci
+      - name: TypeScript project validation
+        run: npm run lint
+      - name: Source-backed new CC2-02A core tests
+        run: npx vitest run src/games/circuit-climb-2/tests
+      - name: Retained original unit suite
+        run: npm test
+      - name: Production build remains intact
+        run: npm run build
+      - name: Retained original playable browser smoke
+        run: npm run test:circuit-climb:browser
