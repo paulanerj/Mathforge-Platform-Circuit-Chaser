@@ -82,7 +82,7 @@ export class PursuerController {
     const h=world.geometry.rowGap;
     const observedRow=Math.floor(-this.body.y/h);
     const min=Math.min(-this.preset.spawnRowsBelow,
-      observedRow-2,world.rows[0]?.index-2??-2);
+      observedRow-2,(world.rows[0]?.index??0)-2);
     const max=Math.max(3,Math.ceil(-learner.y/h)+2,
       (world.rows.at(-1)?.index??0)+2);
     const key=this.makeKey(world,min,max);
