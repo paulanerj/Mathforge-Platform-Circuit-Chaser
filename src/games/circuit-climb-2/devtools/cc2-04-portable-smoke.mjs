@@ -29,7 +29,18 @@ try{
     await page.route('http://**/*',route=>route.abort());
     await page.route('https://**/*',route=>route.abort());
     await page.goto(url,{waitUntil:'domcontentloaded'});
-    await page.waitForFunction(()=>Boolean(window.__CC2_02A__?.results?.()));
+    await page.waitForTimeout(300);
+    const diagnostics=await page.evaluate(()=>({
+      loaded:document.readyState,
+      title:document.title,
+      bundled:document.querySelector('meta[name="cc2-bundle-version"]')?.getAttribute('content'),
+      hasRuntime:Boolean(window.__CC2_02A__),
+      scripts:document.querySelectorAll('script').length,
+      inlineScriptBytes:document.querySelector('script')?.textContent?.length??0,
+    }));
+    console.log('CC2 OFFLINE STARTUP DIAGNOSTICS',JSON.stringify({diagnostics,errors,external}));
+    if(errors.length)throw Error('CC2_OFFLINE_SCRIPT_ERROR: '+errors.join('; '));
+    await page.waitForFunction(()=>Boolean(window.__CC2_02A__?.results?.()),null,{timeout:8000});
     assert(await page.locator('.choice').count()===3,
       viewport.width+'px file://: real mathematical choices');
     assert(await page.locator('#pulse').count()===1,
