@@ -8,7 +8,7 @@
 export interface RunConfigV1 {
   schemaVersion: 'cc2-run-config/v1';
   mode: 'practice' | 'climb' | 'challenge';
-  curriculum: 'add20';
+  curriculum: 'add20' | 'makeTarget20' | 'skip2to10';
   movement: 'circuit' | 'hop';
   framingPercent: number; // all integer percentages from 80 through 120
   routeTurns: 6 | 8 | 10 | 12;
@@ -39,7 +39,7 @@ export function validateRunConfig(value: unknown): RunConfigV1 {
   }
   if (input.schemaVersion !== 'cc2-run-config/v1') throw new Error('CONFIG_UNSUPPORTED_VERSION');
   if (!['practice', 'climb', 'challenge'].includes(String(input.mode))) throw new Error('CONFIG_INVALID_MODE');
-  if (input.curriculum !== 'add20') throw new Error('CONFIG_UNSUPPORTED_CURRICULUM');
+  if (!['add20', 'makeTarget20', 'skip2to10'].includes(String(input.curriculum))) throw new Error('CONFIG_UNSUPPORTED_CURRICULUM');
   if (!['circuit', 'hop'].includes(String(input.movement))) throw new Error('CONFIG_INVALID_MOVEMENT');
   if (!Number.isInteger(input.framingPercent) ||
       (input.framingPercent as number) < 80 ||
