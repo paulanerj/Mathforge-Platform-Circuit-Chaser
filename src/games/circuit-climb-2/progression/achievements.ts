@@ -99,8 +99,10 @@ export function deriveAchievements(
       award('CIRCUIT_PULSE_USED',event.tick,
         completedRowsAtTick(core,event.tick),event.id);
   }
-  return [...unlocked.values()].sort((a,b)=>
-    a.tick-b.tick||a.id.localeCompare(b.id));
+  // Modern JS sorting is stable: preserve original source event order for
+  // same-tick achievements (CELL_COMPLETED precedes RUN_ENDED). This is more
+  // meaningful than reordering simultaneous rewards alphabetically.
+  return [...unlocked.values()].sort((a,b)=>a.tick-b.tick);
 }
 /** Exact completed-row count at the ability's simulation tick. */
 function completedRowsAtTick(core:readonly GameEventV1[],tick:number):number{
