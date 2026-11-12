@@ -117,12 +117,18 @@ try{
     'four landed rows advance to next cell and reset its visible indicators');
   await shot(page,'four-landings-pulse-ready-390');
   const prior=await read(page);
+  const rangeLabel=prior.features.targetInRange?'IN RANGE':'OUT OF RANGE';
+  check((await page.locator('#pulse').innerText()).includes(rangeLabel),
+    'Pulse button previews physical target range before spending charge');
+  check((await page.locator('#energy').innerText()).includes('BOT '+rangeLabel),
+    'energy HUD shows whether the pursuer is within configured Pulse radius');
   const pulse=await page.locator('#pulse').click();
   const after=await read(page);
   check(after.features.charge===0,'Pulse spends all four earned units');
   const activated=after.features.events.findLast(e=>e.type==='ABILITY_ACTIVATED');
-  check(Boolean(activated && activated.detail.affected===false),
-    'the out-of-range default bot is NOT falsely marked slowed');
+  check(Boolean(activated &&
+      activated.detail.affected===prior.features.targetInRange),
+    'activation truth exactly matches the pre-spend physical range indicator');
   check((await page.locator('#pulse').innerText()).includes('active'),
     'Pulse control exposes effect duration after activation');
   check(after.features.events.some(x=>x.type==='ABILITY_ACTIVATED'),
