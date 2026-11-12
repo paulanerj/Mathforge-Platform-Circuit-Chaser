@@ -32,6 +32,8 @@ const log = document.querySelector<HTMLElement>('#events')!;
 const pulseButton = document.querySelector<HTMLButtonElement>('#pulse');
 const energy = document.querySelector<HTMLElement>('#energy');
 const rowKind = document.querySelector<HTMLElement>('#rowKind');
+const cellProgress = document.querySelector<HTMLElement>('#cellProgress');
+const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const context = canvas.getContext('2d')!;
 /**
  * One presentation port for two actual authoritative engines. Without the
@@ -283,6 +285,7 @@ function roundedRect(x: number, y: number, width: number, height: number, radius
 function draw(): void {
   const state = engine.snapshot();
   const g = state.world.geometry;
+  const features = featuresEnabled ? engine.features() : null;
   fitCanvas();
   const targetCamera = state.spark.y - logicalHeight * 0.72;
   cameraY += (targetCamera - cameraY) * 0.13;
@@ -332,6 +335,53 @@ function draw(): void {
         context.font = 'bold 15px system-ui';
         context.fillText('✓', p.x, y + p.height * .58);
       }
+    }
+  }
+
+  // A row modifier is a WHOLE-ROW attribute. Never mark only the correct
+  // numbered platform: doing so would leak mathematical correctness.
+  if(features && features.nextModifier!=='NORMAL' && state.phase!=='ended'){
+    const activeRow=state.world.rows.find(row=>row.index===state.currentProblem.rowIndex);
+    if(activeRow){
+      const y=worldY(activeRow.y);
+      if(y>=-130 && y<=h+100){
+        context.save();
+        context.fillStyle=features.nextModifier==='CAPACITOR'?'#e4c785':'#ace8f0';
+        context.textAlign='center';
+        context.textBaseline='middle';
+        context.font='bold 16px system-ui';
+        context.fillText(
+          features.nextModifier==='CAPACITOR'?'CAPACITOR · +2 CHARGE':'RELAY · POWER CHAIN',
+          300,y-28);
+        context.restore();
+      }
+    }
+  }
+
+  // A Relay completion illuminates ALL actual solved platforms in the
+  // retained world. The deterministic event tick drives the pulse;
+  // nothing is allowed to create fictional solved math evidence.
+  if(features){
+    const relay=features.events.filter(event=>event.type==='RELAY_CHAIN').at(-1);
+    if(relay && state.tick>=relay.tick && state.tick-relay.tick<70){
+      const age=state.tick-relay.tick;
+      const level=reducedMotion?0.32:0.65*(1-age/70);
+      context.save();
+      context.strokeStyle=`rgba(151,238,250,${Math.max(0,level).toFixed(3)})`;
+      context.shadowColor='#9be8ec';
+      context.shadowBlur=reducedMotion?0:15;
+      context.lineWidth=5;
+      for(const row of state.world.rows){
+        if(row.index===0||row.index>Number(relay.detail.row))continue;
+        const powered=row.platforms.find(card=>card.powered);
+        if(!powered)continue;
+        const y=worldY(powered.y);
+        context.beginPath();
+        context.roundRect(powered.x-powered.width/2-7,y-7,
+          powered.width+14,powered.height+14,12);
+        context.stroke();
+      }
+      context.restore();
     }
   }
 
@@ -387,6 +437,30 @@ function draw(): void {
     context.lineTo(travel.to.x, worldY(travel.to.y));
     context.stroke();
     context.restore();
+  }
+
+  // Circuit Pulse is rendered from a source-owned ABILITY_ACTIVATED event.
+  // It can MISS a distant pursuer; the wave never implies that an out-of-
+  // range target was affected. Reduced motion shows a static bounded ring.
+  if(features){
+    const active=features.events.filter(event=>event.type==='ABILITY_ACTIVATED').at(-1);
+    if(active && state.tick>=active.tick && state.tick-active.tick<50){
+      const age=state.tick-active.tick;
+      const progress=reducedMotion?1:Math.min(1,age/48);
+      const ringRadius=34+(featuresEnabled?220:0)*progress;
+      context.save();
+      context.strokeStyle=active.detail.affected===true
+        ?`rgba(122,236,221,${(0.85*(1-age/50)).toFixed(3)})`
+        :`rgba(255,211,156,${(0.7*(1-age/50)).toFixed(3)})`;
+      context.lineWidth=reducedMotion?3:5;
+      context.shadowBlur=reducedMotion?0:18;
+      context.shadowColor='#90f9e7';
+      context.beginPath();
+      context.arc(state.spark.x,worldY(state.spark.y),
+        ringRadius,0,Math.PI*2);
+      context.stroke();
+      context.restore();
+    }
   }
 
   // Developer-only geometry mode: the physics network is not invented by
@@ -468,8 +542,20 @@ function draw(): void {
           ? ' · ACTIVE '+Math.ceil((feature.pulseUntilTick-state.tick)/60)+'s':'');
       if(rowKind)rowKind.textContent='STAGE '+feature.stage+
         ' · '+feature.nextModifier+' ROW';
+      if(cellProgress){
+        const withinCell=state.completedRows%4;
+        const cellNumber=Math.floor(state.completedRows/4)+1;
+        const filled='●'.repeat(withinCell)+'○'.repeat(4-withinCell);
+        const label='CELL '+cellNumber+' · '+filled+
+          ' · '+withinCell+'/4 powered';
+        if(cellProgress.textContent!==label)cellProgress.textContent=label;
+        cellProgress.setAttribute('aria-label',
+          'Power cell '+cellNumber+': '+withinCell+' of four rows completed');
+      }
       if(pulseButton){
-        pulseButton.textContent='Pulse '+feature.charge+'/'+feature.capacity;
+        pulseButton.textContent=feature.pulseUntilTick>state.tick
+          ? 'Pulse active · '+Math.ceil((feature.pulseUntilTick-state.tick)/60)+'s'
+          : 'Pulse '+feature.charge+'/'+feature.capacity;
         pulseButton.disabled=!feature.pulseAvailable;
         pulseButton.setAttribute('aria-label',feature.pulseAvailable
           ? 'Activate charged Circuit Pulse to slow nearby pursuer'
@@ -532,6 +618,9 @@ exportButton.onclick = () => {
 window.addEventListener('keydown', event => {
   if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
   if (event.key === ' ') { event.preventDefault(); pause.click(); return; }
+  if ((event.key==='p'||event.key==='P') && pulseButton){
+    event.preventDefault();if(!pulseButton.disabled)pulseButton.click();return;
+  }
   if (!['1','2','3'].includes(event.key)) return;
   const option = engine.snapshot().currentProblem.options[Number(event.key) - 1];
   if (option) {

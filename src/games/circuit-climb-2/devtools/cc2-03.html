@@ -28,6 +28,8 @@
     .choice[data-modifier="RELAY"] { border-color:#8ccde1; box-shadow:inset 0 0 0 1px #4b94ad,0 2px 12px #56bfd430; }
     .row-kind {font-size:10px;color:#dbbf86;font-weight:800;letter-spacing:.09em;padding-top:2px;}
     .energy {font-size:12px;color:#b2f3e2;font-weight:800;font-variant-numeric:tabular-nums;}
+    .cell-progress {font-size:11px;color:#d9e8f6;font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:.035em;}
+    @media(prefers-reduced-motion:reduce){ .choice{transition:none;} }
     #pulse { background:#154c50;color:#ecfffc;border-color:#65b9ac; }
     #pulse:disabled { opacity:.52; }
     .math-working { position:absolute; z-index:3; pointer-events:none; top:9px; left:9px; right:9px; display:flex; justify-content:center; text-align:center; padding:9px 12px; min-height:40px; border-radius:9px; font-size:clamp(14px,4vw,19px); font-weight:800; letter-spacing:.01em; font-variant-numeric:tabular-nums; color:#f1fdff; background:rgba(12,40,59,.96); border:1px solid #538ba8; box-shadow:0 3px 14px #0007; }
@@ -62,6 +64,7 @@
     <section class="hud" aria-label="Mathematics and progress">
       <div><div id="equation" role="status" aria-live="polite">Loading…</div>
         <div id="rowKind" class="row-kind">STAGE 1 · NORMAL ROW</div>
+        <div id="cellProgress" class="cell-progress" aria-label="Power cell 1: zero of four rows completed">CELL 1 · ○○○○ · 0/4 powered</div>
         <div id="energy" class="energy" role="status" aria-live="polite">PULSE 0/4</div></div>
       <div id="height">ROW 0<br>0 attempts</div>
     </section>
@@ -75,7 +78,7 @@
       <div id="cellNotice" class="cell-notice" role="status" aria-live="polite" hidden></div>
     </div>
     <div class="controls">
-      <button class="action" id="pulse" type="button" disabled>Pulse 0/4</button>
+      <button class="action" id="pulse" type="button" title="Earn from correct landings. Press P to activate." disabled>Pulse 0/4</button>
       <button class="action" id="pause" type="button">Pause</button>
       <button class="action" id="restart" type="button">New run</button>
     </div>
