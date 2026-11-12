@@ -19,7 +19,7 @@ export interface ProblemV1 {
   rowIndex: number;
   cellIndex: number;
   rowInCell: 0 | 1 | 2 | 3;
-  operation: 'add';
+  operation: 'add' | 'skip-count-by-2';
   incomingValue: number;
   targetValue: number;
   options: readonly ProblemOptionV1[];
@@ -76,6 +76,7 @@ export function generateAdd20Problem(
 }
 
 export function validateAdd20Problem(problem: ProblemV1): void {
+  if (problem.operation !== 'add') throw new Error('MATH_WRONG_OPERATION');
   if (problem.options.length !== 3) throw new Error('MATH_OPTIONS_NOT_THREE');
   if (new Set(problem.options.map(option => option.value)).size !== 3) {
     throw new Error('MATH_DUPLICATE_VALUES');
