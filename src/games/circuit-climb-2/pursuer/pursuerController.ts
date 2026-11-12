@@ -14,6 +14,9 @@ import {
 } from './pursuitGraph';
 import { observePursuer,type WakePoint,type PursuerObservation } from './perception';
 import { freshBelief,choosePursuitGoal,type PursuerBelief } from './brain';
+import {SeededRandom} from '../config/prng';
+import {defaultPursuerPersonality,validatePursuerPersonality,
+  type PursuerPersonalityV1,type PursuerEmotionV1} from './personality';
 import { makeBody,stepChassis,type PursuerBody } from './chassis';
 import {
   defaultPursuerPreset,validatePursuerPreset,type PursuerPresetV1,
@@ -30,6 +33,8 @@ export interface PursuerDiagnostic {
   node:string;
   moved:number;
   routeFailure:string|null;
+  emotion:PursuerEmotionV1;
+  hesitation:boolean;
 }
 export interface PursuerSnapshot {
   body:PursuerBody;
@@ -45,10 +50,15 @@ export interface PursuerSnapshot {
   distanceClosedWhileSensed:number;
   routeFailures:number;
   probeReason:string|null;
+  emotion:PursuerEmotionV1;
+  hesitation:boolean;
+  personalityDetours:number;
+  personalityHesitations:number;
 }
 const clone=<T>(x:T):T=>structuredClone(x);
 export class PursuerController {
   readonly preset:PursuerPresetV1;
+  readonly personality:PursuerPersonalityV1;
   readonly radius:number;
   private graph:PursuitGraph;
   private graphKey='';
@@ -64,9 +74,23 @@ export class PursuerController {
   private distanceClosed=0;
   private failures=0;
   private lastFailure:string|null=null;
+  private personaRng:SeededRandom;
+  private emotion:PursuerEmotionV1='SEARCHING';
+  private pauseUntil=0;
+  private nextPauseEligible=0;
+  private noticeUntil=0;
+  private frustratedUntil=0;
+  private detourUntil=0;
+  private detourGoal:string|null=null;
+  private detours=0;
+  private hesitations=0;
 
-  constructor(world:WorldV1,preset:PursuerPresetV1=defaultPursuerPreset()){
+  constructor(world:WorldV1,preset:PursuerPresetV1=defaultPursuerPreset(),
+    personality:PursuerPersonalityV1=defaultPursuerPersonality(),
+    seed='default-pursuer-personality'){
     this.preset=Object.freeze(validatePursuerPreset(preset));
+    this.personality=Object.freeze(validatePursuerPersonality(personality));
+    this.personaRng=new SeededRandom(seed+':pursuer-personality:v1');
     this.radius=world.geometry.playerRadius*this.preset.actorRadiusRatio;
     this.graph=buildPursuitGraph(world,this.radius,-this.preset.spawnRowsBelow,3);
     this.graphKey=this.makeKey(world,-this.preset.spawnRowsBelow,3);
@@ -119,12 +143,63 @@ export class PursuerController {
     const decision=choosePursuitGoal(before,observation,this.graph,
       this.body.nodeId,arrived,Boolean(this.lastFailure),this.preset.staleContactTicks);
     this.belief=decision.belief;
+    // A new legitimate contact causes a short visible surprise.
+    // The bot never receives a future answer or the unseen exact location.
+    if(observation.live && !this.sensed && this.personality.noticeTicks>0)
+      this.noticeUntil=tick+this.personality.noticeTicks;
+    if(!observation.live && this.sensed && this.personality.frustrationTicks>0)
+      this.frustratedUntil=tick+this.personality.frustrationTicks;
+
+    // Ticks are the ONLY clock; all random choices are seeded independently
+    // from world, math, particles and the historical Pursuer search policy.
+    if(this.personality.style==='curious' && tick>=this.nextPauseEligible &&
+       tick%60===0 && !observation.live &&
+       this.personaRng.next()<this.personality.hesitationChance){
+      const duration=this.personaRng.integer(
+        this.personality.hesitationMinTicks,
+        this.personality.hesitationMaxTicks,
+      );
+      if(duration>0){
+        this.pauseUntil=tick+duration;
+        this.hesitations++;
+      }
+      this.nextPauseEligible=tick+this.personality.hesitationCooldownTicks;
+    }
+    if(this.personality.style==='curious' && tick>=this.detourUntil &&
+       tick>=this.nextPauseEligible && tick%90===0 &&
+       this.personaRng.next()<this.personality.detourChance){
+      // Side route is selected ONLY from public graph edges at the physical
+      // current node. The original Brain resumes search after a bounded delay.
+      const options=this.graph.edges.filter(edge=>
+        edge.a===this.body.nodeId||edge.b===this.body.nodeId)
+        .map(edge=>edge.a===this.body.nodeId?edge.b:edge.a)
+        .filter(id=>id!==decision.targetId);
+      if(options.length>0){
+        this.detourGoal=options[this.personaRng.integer(0,options.length-1)];
+        this.detourUntil=tick+this.personality.detourTicks;
+        this.detours++;
+        this.nextPauseEligible=tick+this.personality.hesitationCooldownTicks;
+      }
+    }
     const startDistance=observation.live?
       Math.hypot(actualSpark.x-this.body.x,actualSpark.y-this.body.y):0;
     const speed=this.belief.mode==='PURSUIT'?
       this.preset.speedPursuit:this.preset.speedSearch;
-    const result=stepChassis(this.body,this.graph,world,decision.targetId,speed*speedMultiplier);
+    const hesitant=tick<this.pauseUntil || tick<this.noticeUntil;
+    const goal=this.detourGoal && tick<this.detourUntil
+      ? this.detourGoal:decision.targetId;
+    if(tick>=this.detourUntil)this.detourGoal=null;
+    // Zero speed never reaches stepChassis, whose strict speed validator
+    // and blocked-route accounting must remain intact.
+    const result=hesitant
+      ? {body:this.body,moved:0,failedRoute:false,failureReason:undefined}
+      : stepChassis(this.body,this.graph,world,goal,speed*speedMultiplier);
     this.body=result.body;
+    this.emotion=tick<this.noticeUntil?'NOTICE'
+      : tick<this.pauseUntil?'HESITATING'
+      : tick<this.frustratedUntil?'FRUSTRATED'
+      : this.detourGoal?'CURIOUS'
+      : observation.live?'FOCUSED':'SEARCHING';
     this.lastFailure=result.failureReason??null;
     if(result.failedRoute)this.failures++;
     if(observation.live){
@@ -140,6 +215,7 @@ export class PursuerController {
       reason:this.belief.reason,live:this.sensed,seenSource:this.sensorSource,
       goal:decision.targetId,node:this.body.nodeId,moved:result.moved,
       routeFailure:this.lastFailure,
+      emotion:this.emotion,hesitation:hesitant,
     });
     this.trace=this.trace.slice(-700);
     return this.snapshot();
@@ -154,6 +230,9 @@ export class PursuerController {
       ticks:this.tickCount,activeSensedTicks:this.totalSensedTicks,
       distanceClosedWhileSensed:this.distanceClosed,
       routeFailures:this.failures,probeReason:this.lastFailure,
+      emotion:this.emotion,hesitation:this.pauseUntil>this.tickCount||
+        this.noticeUntil>this.tickCount,
+      personalityDetours:this.detours,personalityHesitations:this.hesitations,
     };
   }
   diagnostics():PursuerDiagnostic[]{return clone(this.trace);}

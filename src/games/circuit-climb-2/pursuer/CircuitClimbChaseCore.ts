@@ -26,6 +26,8 @@ import {
   type FeatureConfigV1,type FeatureSnapshotV1,type FeatureEventV1,
 } from '../features/progression';
 import {buildRunSummary,type RunSummaryV1} from '../progression/runSummary';
+import {defaultPursuerPersonality,validatePursuerPersonality,
+  type PursuerPersonalityV1} from './personality';
 import {defaultLearnerMotionPreset,validateLearnerMotionPreset,type LearnerMotionPresetV1} from '../config/learnerMotionPreset';
 
 export interface ChaseSnapshotV1 {
@@ -48,6 +50,7 @@ export interface ChaseReplayV1 {
   featureConfig?:FeatureConfigV1;
   /** Optional for backwards-compatible replay loading; default preserves old motion. */
   learnerMotion?:LearnerMotionPresetV1;
+  personality?:PursuerPersonalityV1;
   commands:ChaseCommandV1[];
   finalTick:number;
 }
@@ -59,6 +62,7 @@ export class CircuitClimbChaseCore {
   readonly pursuerPreset:PursuerPresetV1;
   readonly featureConfig:FeatureConfigV1;
   readonly learnerMotion:LearnerMotionPresetV1;
+  readonly personality:PursuerPersonalityV1;
   private core:CircuitClimbCore;
   private pursuer:PursuerController;
   private features:FeatureProgression;
@@ -67,14 +71,17 @@ export class CircuitClimbChaseCore {
   constructor(seed:string,config:RunConfigV1=defaultRunConfig(),
     preset:PursuerPresetV1=defaultPursuerPreset(),
     featureConfig:FeatureConfigV1=defaultFeatureConfig(),
-    learnerMotion:LearnerMotionPresetV1=defaultLearnerMotionPreset()){
+    learnerMotion:LearnerMotionPresetV1=defaultLearnerMotionPreset(),
+    personality:PursuerPersonalityV1=defaultPursuerPersonality()){
     this.seed=seed;
     this.config=Object.freeze(validateRunConfig(config));
     this.pursuerPreset=Object.freeze(validatePursuerPreset(preset));
     this.featureConfig=Object.freeze(validateFeatureConfig(featureConfig));
     this.learnerMotion=Object.freeze(validateLearnerMotionPreset(learnerMotion));
+    this.personality=Object.freeze(validatePursuerPersonality(personality));
     this.core=new CircuitClimbCore(seed,this.config,this.learnerMotion);
-    this.pursuer=new PursuerController(this.core.snapshot().world,this.pursuerPreset);
+    this.pursuer=new PursuerController(this.core.snapshot().world,
+      this.pursuerPreset,this.personality,this.seed);
     this.features=new FeatureProgression(this.featureConfig);
     this.features.consume(this.core.eventLog());
   }
@@ -118,7 +125,8 @@ export class CircuitClimbChaseCore {
   restart():void{
     this.record('RESTART');
     this.core.restart();
-    this.pursuer=new PursuerController(this.core.snapshot().world,this.pursuerPreset);
+    this.pursuer=new PursuerController(this.core.snapshot().world,
+      this.pursuerPreset,this.personality,this.seed);
     // Ignore old-run rows, but consume the new RUN_STARTED event.
     const ledger=this.core.eventLog();
     this.features=new FeatureProgression(this.featureConfig,ledger.length-1);
@@ -176,6 +184,7 @@ export class CircuitClimbChaseCore {
       config:clone(this.config),pursuerPreset:clone(this.pursuerPreset),
       featureConfig:clone(this.featureConfig),
       learnerMotion:clone(this.learnerMotion),
+      personality:clone(this.personality),
       commands:clone(this.commands),finalTick:this.core.snapshot().tick,
     };
   }
@@ -185,7 +194,8 @@ export function replayChase(trace:ChaseReplayV1):CircuitClimbChaseCore{
   if(trace.schema!=='cc2-chase-replay/v1')throw Error('CHASE_REPLAY_VERSION');
   const game=new CircuitClimbChaseCore(trace.seed,trace.config,trace.pursuerPreset,
     trace.featureConfig??defaultFeatureConfig(),
-    trace.learnerMotion??defaultLearnerMotionPreset());
+    trace.learnerMotion??defaultLearnerMotionPreset(),
+    trace.personality??defaultPursuerPersonality());
   let lastOrdinal=0;
   for(const cmd of trace.commands){
     if(!Number.isInteger(cmd.tick)||!Number.isInteger(cmd.ordinal)||

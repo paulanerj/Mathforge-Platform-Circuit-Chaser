@@ -17,11 +17,20 @@ import {defaultPursuerPreset,type PursuerPresetV1} from '../pursuer/pursuerPrese
 import {defaultFeatureConfig} from '../features/progression';
 import {defaultLearnerMotionPreset,type LearnerMotionPresetV1} from '../config/learnerMotionPreset';
 import {
-  defaultDevLabPreset,validateCameraView,validateDevLabPreset,
+  defaultDevLabPreset,intermediateDevLabPreset,
+  validateCameraView,validateDevLabPreset,
   exportDevLabPreset,importDevLabPreset,projectCameraPoint,
   type DevLabPresetV1,type CameraViewPresetV1,
 } from '../config/devLabPreset';
 import { getRow, findPlatform } from '../world/world';
+import {defaultPursuerPersonality,validatePursuerPersonality,
+  type PursuerPersonalityV1,type PursuerEmotionV1} from '../pursuer/personality';
+import {
+  defaultFeedbackPreset,validateFeedbackPreset,
+  CUE_CATALOG,CORE_CUES,FEATURE_CUES,
+  type FeedbackPresetV1,type FeedbackCueId,
+} from '../presentation/feedback';
+import {CircuitClimbFeedbackAudio} from './feedbackAudio';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#worldCanvas')!;
 const board = document.querySelector<HTMLElement>('#board')!;
@@ -68,7 +77,12 @@ const applyTuning=document.querySelector<HTMLButtonElement>('#applyTuning');
 const resetTuning=document.querySelector<HTMLButtonElement>('#resetTuning');
 const exportPreset=document.querySelector<HTMLButtonElement>('#exportPreset');
 const importPreset=document.querySelector<HTMLButtonElement>('#importPreset');
+const viewReadout=document.querySelector<HTMLElement>('#viewReadout');
+const cueNotice=document.querySelector<HTMLElement>('#cueNotice');
+const soundToggle=document.querySelector<HTMLButtonElement>('#soundToggle');
+const testSound=document.querySelector<HTMLButtonElement>('#testSound');
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const audio=new CircuitClimbFeedbackAudio();
 const context = canvas.getContext('2d')!;
 /**
  * One presentation port for two actual authoritative engines. Without the
@@ -99,10 +113,11 @@ function makeSurfaceEngine(
   seed:string,config:RunConfigV1=defaultRunConfig(),
   learnerMotion:LearnerMotionPresetV1=defaultLearnerMotionPreset(),
   pursuerPreset:PursuerPresetV1=defaultPursuerPreset(),
+  personality:PursuerPersonalityV1=defaultPursuerPersonality(),
 ):SurfaceEngine{
   if(botEnabled){
     const game=new CircuitClimbChaseCore(seed,config,pursuerPreset,
-      defaultFeatureConfig(),learnerMotion);
+      defaultFeatureConfig(),learnerMotion,personality);
     return {
       snapshot:()=>game.learnerSnapshot(),
       eventLog:()=>game.eventLog(),
@@ -139,10 +154,16 @@ function makeSurfaceEngine(
   };
 }
 let engine:SurfaceEngine=makeSurfaceEngine(seedInput.value);
-let cameraView:CameraViewPresetV1={...defaultDevLabPreset().camera};
-let appliedLabPreset:DevLabPresetV1=defaultDevLabPreset();
+let cameraView:CameraViewPresetV1={...intermediateDevLabPreset().camera};
+let appliedLabPreset:DevLabPresetV1=intermediateDevLabPreset();
+let currentFeedback:FeedbackPresetV1=defaultFeedbackPreset();
+let activeCue:{id:FeedbackCueId;until:number;started:number}|null=null;
+let previousBotEmotion:PursuerEmotionV1|null=null;
 let cameraY = 0;
 let previewRowsRendered=0;
+let effectiveCameraZoom=0.70;
+let cameraRowGap=205;
+let viewportCoverage={above:0,below:0};
 let logicalHeight = 800;
 let lastTime = 0;
 let accumulator = 0;
@@ -219,6 +240,25 @@ function collectLabPreset():DevLabPresetV1 {
     schemaVersion:'cc2-dev-lab/v1',
     run:configFromControls(),learner:learnerMotion,
     pursuer:pursuerPreset,camera,
+    personality:{
+      ...defaultPursuerPersonality(),
+      style:(document.querySelector<HTMLSelectElement>('#personalityStyle')?.value??'curious') as 'curious'|'relentless',
+      hesitationChance:numericControl('hesitationChance'),
+      hesitationMinTicks:numericControl('hesitationMinTicks'),
+      hesitationMaxTicks:numericControl('hesitationMaxTicks'),
+      hesitationCooldownTicks:numericControl('hesitationCooldownTicks'),
+      noticeTicks:numericControl('noticeTicks'),
+      detourChance:numericControl('detourChance'),
+      detourTicks:numericControl('detourTicks'),
+      frustrationTicks:numericControl('frustrationTicks'),
+    },
+    feedback:{
+      ...defaultFeedbackPreset(),
+      enabled:boolControl('feedbackEnabled'),
+      volume:numericControl('feedbackVolume'),
+      vfxEnabled:boolControl('vfxEnabled'),
+      vfxIntensity:numericControl('vfxIntensity'),
+    },
   });
 }
 function loadLabPreset(preset:DevLabPresetV1):void {
@@ -241,6 +281,15 @@ function loadLabPreset(preset:DevLabPresetV1):void {
     actorRadiusRatio:p.pursuer.actorRadiusRatio,
     spawnRowsBelow:p.pursuer.spawnRowsBelow,
     cameraZoom:p.camera.zoom,cameraFollow:p.camera.follow,
+    hesitationChance:p.personality!.hesitationChance,
+    hesitationMinTicks:p.personality!.hesitationMinTicks,
+    hesitationMaxTicks:p.personality!.hesitationMaxTicks,
+    hesitationCooldownTicks:p.personality!.hesitationCooldownTicks,
+    noticeTicks:p.personality!.noticeTicks,
+    detourChance:p.personality!.detourChance,
+    detourTicks:p.personality!.detourTicks,
+    frustrationTicks:p.personality!.frustrationTicks,
+    feedbackVolume:p.feedback!.volume,vfxIntensity:p.feedback!.vfxIntensity,
   };
   for(const [id,value] of Object.entries(fields)){
     const element=document.querySelector<HTMLInputElement|HTMLSelectElement>('#'+id);
@@ -248,10 +297,22 @@ function loadLabPreset(preset:DevLabPresetV1):void {
   }
   const shield=document.querySelector<HTMLInputElement>('#transitShield');
   if(shield)shield.checked=p.run.transitShield;
+  const persona=document.querySelector<HTMLSelectElement>('#personalityStyle');
+  if(persona)persona.value=p.personality!.style;
+  const feedbackCheckbox=document.querySelector<HTMLInputElement>('#feedbackEnabled');
+  const vfxCheckbox=document.querySelector<HTMLInputElement>('#vfxEnabled');
+  if(feedbackCheckbox)feedbackCheckbox.checked=p.feedback!.enabled;
+  if(vfxCheckbox)vfxCheckbox.checked=p.feedback!.vfxEnabled;
   if(modeSelect)modeSelect.value=p.run.mode;
   if(curriculumSelect)curriculumSelect.value=p.run.curriculum;
   movementSelect.value=p.run.movement;
   cameraView=p.camera;
+  currentFeedback=p.feedback!;
+  audio.configure(currentFeedback);
+  if(soundToggle){
+    soundToggle.textContent=currentFeedback.enabled?'Sound: On':'Sound: Off';
+    soundToggle.setAttribute('aria-pressed',String(currentFeedback.enabled));
+  }
   if(zoomValue)zoomValue.textContent=Math.round(100*p.camera.zoom)+'%';
 }
 function labMessage(message:string,error=false):void {
@@ -260,6 +321,17 @@ function labMessage(message:string,error=false):void {
   labStatus.dataset.error=error?'yes':'no';
 }
 
+function emitCue(id:FeedbackCueId):void {
+  audio.cue(id);
+  if(!currentFeedback.vfxEnabled)return;
+  const now=performance.now();
+  activeCue={id,started:now,until:now+(reducedMotion?550:850)};
+  if(cueNotice){
+    cueNotice.textContent=CUE_CATALOG[id].label;
+    cueNotice.hidden=false;
+    cueNotice.style.borderColor=CUE_CATALOG[id].color;
+  }
+}
 function updateMessage(): void {
   const events = engine.eventLog();
   // ROW_COMPLETED and VOLTAGE_REBASE can occur in the same simulation tick.
@@ -279,6 +351,10 @@ function updateMessage(): void {
     RUN_ENDED: 'Run ended. Choose New run to restart.',
   };
   for (const event of newEvents) {
+    const cue=event.type==='RUN_ENDED'
+      ? event.detail.reason==='CAPTURED'?'capture':'quit'
+      : CORE_CUES[event.type];
+    if(cue)emitCue(cue);
     status.textContent = event.type==='RUN_ENDED' && event.detail.reason==='CAPTURED'
       ? 'The red pursuer reached the grounded Spark. Capture is physical and terminal.'
       : messages[event.type] ?? status.textContent;
@@ -353,6 +429,7 @@ function updateAchievements():void{
   const fresh=report.achievements.filter(a=>!seenAchievements.has(a.id));
   if(!fresh.length)return;
   for(const earned of fresh)seenAchievements.add(earned.id);
+  emitCue('achievement');
   if(achievementToast){
     achievementToast.textContent='UNLOCKED · '+fresh.map(a=>a.title).join(' · ');
     toastUntil=performance.now()+1900;
@@ -419,6 +496,10 @@ function updateFeatureEvents():void{
   if(!featuresEnabled)return;
   const all=engine.featureEvents();
   for(const event of all.slice(previousFeatureEventCount)){
+    const cue=event.type==='ABILITY_ACTIVATED'
+      ? event.detail.affected===true?'pulse':'pulseMiss'
+      : FEATURE_CUES[event.type];
+    if(cue)emitCue(cue);
     if(event.type==='ABILITY_ACTIVATED'){
       const affected=event.detail.affected===true;
       status.textContent=affected
@@ -468,16 +549,26 @@ function updateChoices(): void {
   for (const button of buttons) {
     const platform = findPlatform(state.world, button.dataset.platformId!);
     if (!platform) continue;
-    const scale=canvas.clientWidth/state.world.geometry.logicalWidth*cameraView.zoom;
-    // DOM hit zones and Canvas share EXACTLY the same render-only projector.
-    // Keep a >=52x44px real touch target on compact screens.
+    const scale=canvas.clientWidth/state.world.geometry.logicalWidth*effectiveCameraZoom;
+    // Physical destinations and canvas still use EXACTLY one projection.
+    // On narrow screens the three lanes can project only 36px apart.
+    // Magnify/spread ACTIVE BUTTONS (not physics/platform position) when
+    // necessary; otherwise >=52px hit targets would overlap and mis-tap.
+    // Their ordinal ordering remains the actual source-owned option ordering.
     const width=Math.max(52,platform.width*scale);
     const height=Math.max(44,platform.height*scale);
     const centre=projectCameraPoint(platform.x,
       platform.y+platform.height/2,cameraY,canvas.clientWidth,
-      state.world.geometry.logicalWidth,cameraView.zoom);
+      state.world.geometry.logicalWidth,effectiveCameraZoom);
     const y=centre.y-height/2;
-    button.style.left=`${centre.x}px`;
+    const laneSpacing=(state.world.geometry.columns[1]-
+      state.world.geometry.columns[0])*scale;
+    const needsSpread=laneSpacing<width+9;
+    const screenX=needsSpread
+      ? canvas.clientWidth*(0.20+platform.column*0.30)
+      : centre.x;
+    button.style.left=`${screenX}px`;
+    button.dataset.magnified=needsSpread?'true':'false';
     button.style.top=`${y}px`;
     button.style.width = `${width}px`;
     button.style.height = `${height}px`;
@@ -514,10 +605,25 @@ function draw(): void {
   const g = state.world.geometry;
   const features = featuresEnabled ? engine.features() : null;
   fitCanvas();
-  const zoom=cameraView.zoom;
-  const targetCamera=state.spark.y-logicalHeight*0.72/zoom;
+  // Camera is a presentation-only viewport. To reveal at least three
+  // FULL platform rows above and three below the player we calculate a
+  // resolution-specific maximum zoom. Physics, pursuer and math are not scaled.
+  // Include vertical card heights + canvas padding so 3-row reach is not
+  // marginally clipped on narrow phones.
+  cameraRowGap=g.rowGap;
+  const totalWorldSpan=6*g.rowGap+g.platformHeight+140;
+  const fitZoom=logicalHeight/totalWorldSpan;
+  const zoom=Math.max(0.15,Math.min(cameraView.zoom,fitZoom));
+  effectiveCameraZoom=zoom;
+  const targetCamera=state.spark.y-logicalHeight/(2*zoom);
+  // Follow smoothing is retained only inside the free margin and cannot
+  // push one of the six guaranteed rows outside the visible viewport.
+  const spare=Math.max(0,(logicalHeight/zoom-totalWorldSpan)/2);
   cameraY+=(targetCamera-cameraY)*cameraView.follow;
+  cameraY=Math.max(targetCamera-spare,Math.min(targetCamera+spare,cameraY));
   const h=logicalHeight/zoom;
+  viewportCoverage={above:(state.spark.y-cameraY)/g.rowGap,
+    below:(cameraY+h-state.spark.y)/g.rowGap};
 
   // Paint the entire physical viewport BEFORE applying world-only zoom.
   // Neither hitboxes nor physics coordinate space are modified.
@@ -548,9 +654,16 @@ function draw(): void {
   // publish future platform IDs. The silhouettes are noninteractive
   // architectural scaffolding only; current math stays hidden until READY.
   previewRowsRendered=0;
-  for(let offset=1;offset<=4;offset++){
-    const futureIndex=state.currentProblem.rowIndex+offset;
-    if(state.world.rows.some(row=>row.index===futureIndex))continue;
+  const sparkIndex=state.spark.row;
+  // Render future and past *structural* scaffolding with NO numbers,
+  // no problem IDs, no correct answers, and no interactive hit targets.
+  // Keep the closest 3 rows in each direction visible even at row zero.
+  const previewIndices=[];
+  for(let index=sparkIndex-3;index<=sparkIndex+4;index++){
+    if(index===sparkIndex || state.world.rows.some(row=>row.index===index))continue;
+    previewIndices.push(index);
+  }
+  for(const futureIndex of previewIndices){
     const y=worldY(-futureIndex*g.rowGap);
     if(y>h+g.platformHeight||y<-g.platformHeight)continue;
     previewRowsRendered++;
@@ -740,22 +853,50 @@ function draw(): void {
       context.restore();
     }
   }
+  // Keep readable actors and number glyphs even when seven rows must fit
+  // on a short 320px screen. This is purely VISUAL enlargement, never the
+  // collision radius supplied to the learner core or Pursuer chassis.
+  const pixelToWorld=600/(Math.max(1,canvas.clientWidth)*effectiveCameraZoom);
+  const sparkVisualRadius=Math.max(g.playerRadius,13*pixelToWorld);
+  const botVisualRadius=bot?Math.max(bot.radius,11*pixelToWorld):0;
   if(bot){
     // All bot coordinates and its sensing flag come from the real sim state.
     context.save();
     context.shadowBlur=18;
-    context.shadowColor=bot.sensed?'#ff6d8d':'#c54b75';
+    const moodColor=bot.emotion==='FRUSTRATED'?'#ff736e'
+      :bot.emotion==='NOTICE'?'#ffc4d4'
+      :bot.emotion==='HESITATING'?'#ffa878'
+      :bot.emotion==='CURIOUS'?'#d69cff'
+      :bot.sensed?'#ff6d8d':'#c54b75';
+    context.shadowColor=moodColor;
     context.fillStyle=bot.sensed?'#a52e59':'#61263f';
     context.strokeStyle=bot.sensed?'#ffd0da':'#ff8bab';
     context.lineWidth=2.5;
     context.beginPath();
-    context.arc(bot.body.x,worldY(bot.body.y),bot.radius,0,2*Math.PI);
+    context.arc(bot.body.x,worldY(bot.body.y),botVisualRadius,0,2*Math.PI);
     context.fill();context.stroke();
     context.fillStyle='#fff0f6';
-    context.font='bold 12px system-ui';
+    context.font='bold '+Math.max(12,13*pixelToWorld)+'px system-ui';
     context.textAlign='center';
     context.textBaseline='middle';
-    context.fillText('◆',bot.body.x,worldY(bot.body.y));
+    const face=bot.emotion==='NOTICE'?'!'
+      :bot.emotion==='FRUSTRATED'?'×'
+      :bot.emotion==='HESITATING'?'…'
+      :bot.emotion==='CURIOUS'?'?':'◆';
+    context.fillText(face,bot.body.x,worldY(bot.body.y));
+    if(!reducedMotion && currentFeedback.vfxEnabled &&
+       currentFeedback.vfxIntensity>0){
+      // A subtle source-owned emotional oscillation: no movement or physics.
+      const pulse=Math.sin(state.tick*(bot.emotion==='FRUSTRATED'?.23:.105));
+      const alpha=(.17+.09*pulse)*currentFeedback.vfxIntensity;
+      context.beginPath();
+      context.strokeStyle=moodColor;
+      context.globalAlpha=Math.max(.05,alpha);
+      context.lineWidth=2;
+      context.arc(bot.body.x,worldY(bot.body.y),
+        botVisualRadius+8+4*pulse,0,Math.PI*2);
+      context.stroke();
+    }
     context.restore();
   }
 
@@ -766,12 +907,12 @@ function draw(): void {
   context.strokeStyle = '#a4edff';
   context.lineWidth = 3;
   context.beginPath();
-  context.arc(state.spark.x, worldY(state.spark.y), g.playerRadius, 0, Math.PI * 2);
+  context.arc(state.spark.x, worldY(state.spark.y), sparkVisualRadius, 0, Math.PI * 2);
   context.fill();
   context.stroke();
   context.restore();
   context.fillStyle = '#ffffff';
-  context.font = 'bold 19px system-ui';
+  context.font = 'bold '+Math.max(19,14*pixelToWorld)+'px system-ui';
   context.textBaseline = 'middle';
   context.textAlign = 'center';
   context.fillText(String(state.spark.value), state.spark.x, worldY(state.spark.y));
@@ -780,13 +921,41 @@ function draw(): void {
     if (option?.value !== null && option?.value !== undefined) {
       // The selected addend accompanies the blue Spark and reinforces why
       // the new result will only be carried after a correct landing.
-      const x = state.spark.x + g.playerRadius + 13;
-      const y = worldY(state.spark.y) - g.playerRadius - 4;
-      context.font = 'bold 17px system-ui';
+      const x = state.spark.x + sparkVisualRadius + 13;
+      const y = worldY(state.spark.y) - sparkVisualRadius - 4;
+      context.font = 'bold '+Math.max(17,12*pixelToWorld)+'px system-ui';
       context.textBaseline = 'middle';
       context.textAlign = 'center';
       context.fillStyle = '#e6fcff';
       context.fillText((state.currentProblem.operation === 'skip-count-by-2' ? '→' : '+') + option.value, x, y);
+    }
+  }
+  // Every important event can play an ORIGINAL cue and generate a matching,
+  // optional electrical response. These rings do not alter core physics.
+  if(activeCue && currentFeedback.vfxEnabled){
+    const now=performance.now();
+    if(now<=activeCue.until){
+      const cue=CUE_CATALOG[activeCue.id];
+      const fade=Math.max(0,1-(now-activeCue.started)/
+        Math.max(1,activeCue.until-activeCue.started));
+      const point=cue.target==='pursuer'?engine.bot()?.body:state.spark;
+      if(point){
+        const r=cue.target==='pursuer'?botVisualRadius:sparkVisualRadius;
+        const extra=reducedMotion?5:(1-fade)*28*currentFeedback.vfxIntensity;
+        context.save();
+        context.globalAlpha=fade*currentFeedback.vfxIntensity*0.85;
+        context.strokeStyle=cue.color;
+        context.lineWidth=3.5;
+        context.shadowColor=cue.color;
+        context.shadowBlur=reducedMotion?0:16;
+        context.beginPath();
+        context.arc(point.x,worldY(point.y),r+11+extra,0,Math.PI*2);
+        context.stroke();
+        context.restore();
+      }
+    }else{
+      activeCue=null;
+      if(cueNotice)cueNotice.hidden=true;
     }
   }
   context.restore(); // Close render-only camera transform before any DOM work.
@@ -794,15 +963,33 @@ function draw(): void {
   equation.textContent = state.currentProblem.operation === 'skip-count-by-2'
     ? `Count by 2: ${state.currentProblem.incomingValue} → ?`
     : `${state.currentProblem.incomingValue} + ? = ${state.currentProblem.targetValue}`;
+  if(viewReadout){
+    viewReadout.textContent='3 rows ABOVE + 3 BELOW Spark · camera auto-fit '+
+      Math.round(effectiveCameraZoom*100)+'% · user maximum '+
+      Math.round(cameraView.zoom*100)+'%';
+  }
   if(curriculumBadge)curriculumBadge.textContent =
     state.currentProblem.operation === 'skip-count-by-2' ? 'SKIP COUNT · TO 10'
     : (curriculumSelect?.value === 'makeTarget20'
         ? `MAKE TARGET · ${state.currentProblem.targetValue}`
         : 'RUNNING ADDITION · TO 20');
   const botHud=engine.bot();
+  if(botHud && botHud.emotion!==previousBotEmotion){
+    const personalityCue:Partial<Record<PursuerEmotionV1,FeedbackCueId>>={
+      NOTICE:'notice',HESITATING:'hesitate',
+      FRUSTRATED:'frustrated',CURIOUS:'curious',
+      FOCUSED:'focus',
+    };
+    const id=personalityCue[botHud.emotion];
+    if(id && previousBotEmotion!==null)emitCue(id);
+    previousBotEmotion=botHud.emotion;
+  }
   if(botReadout && botHud && state.tick%15===0) {
     const report=[
       'MODE: '+botHud.belief.mode+' · '+botHud.belief.reason,
+      'EMOTION: '+botHud.emotion+
+        ' · HESITATIONS: '+botHud.personalityHesitations+
+        ' · DETOURS: '+botHud.personalityDetours,
       'SENSOR: '+(botHud.sensed?'LIVE ':'NO LIVE ')+botHud.lastSensorSource,
       'PURSUER: X '+botHud.body.x.toFixed(1)+
         ' · Y '+botHud.body.y.toFixed(1),
@@ -879,15 +1066,23 @@ function beginNewRun(): void {
   }
   const nextEngine=makeSurfaceEngine(
     seedInput.value.trim()||'cc2-02a-demo',
-    next.run,next.learner,next.pursuer,
+    next.run,next.learner,next.pursuer,next.personality,
   );
   engine=nextEngine;
   cameraView=next.camera;
   appliedLabPreset=next;
+  currentFeedback=next.feedback!;
+  audio.configure(currentFeedback);
+  if(soundToggle){
+    soundToggle.textContent=currentFeedback.enabled?'Sound: On':'Sound: Off';
+    soundToggle.setAttribute('aria-pressed',String(currentFeedback.enabled));
+  }
   if(zoomValue)zoomValue.textContent=Math.round(next.camera.zoom*100)+'%';
   currentProblemId = '';
   previousEventCount = 0;
   previousFeatureEventCount = 0;
+  previousBotEmotion=null;
+  activeCue=null;
   featureNoticeUntil = 0;
   toastUntil=0;
   seenAchievements.clear();
@@ -895,7 +1090,8 @@ function beginNewRun(): void {
   if(reviewSummary)reviewSummary.disabled=true;
   workingUntil = 0;
   noticeUntil = 0;
-  cameraY=engine.snapshot().spark.y-logicalHeight*0.72/cameraView.zoom;
+  fitCanvas();
+  cameraY=engine.snapshot().spark.y-logicalHeight/(2*effectiveCameraZoom);
   accumulator = 0;
   lastTime = performance.now();
   updateMessage();
@@ -911,7 +1107,9 @@ function liveCameraChange():void {
     });
     cameraView=next;
     if(zoomValue)zoomValue.textContent=Math.round(100*next.zoom)+'%';
-    cameraY=engine.snapshot().spark.y-logicalHeight*0.72/next.zoom;
+    // Camera framing is resolved inside draw() against the real viewport.
+    // A control change has no engine/ledger side effects.
+    cameraY=engine.snapshot().spark.y-logicalHeight/(2*effectiveCameraZoom);
     labMessage('Visual zoom '+Math.round(next.zoom*100)+
       '% applied live; simulation and mathematical state unchanged.');
     draw();
@@ -928,10 +1126,10 @@ if(applyTuning)applyTuning.onclick=()=>{
   if(engine!==prior)labMessage('Validated tuning applied. New run started; replay includes source-owned learner and pursuer presets.');
 };
 if(resetTuning)resetTuning.onclick=()=>{
-  const base=defaultDevLabPreset();
-  loadLabPreset({...base,run:{...base.run,curriculum:'makeTarget20'}});
+  const base=intermediateDevLabPreset();
+  loadLabPreset(base);
   beginNewRun();
-  labMessage('Lab defaults restored. New Make Target run started.');
+  labMessage('Intermediate curious Pursuer restored (search 1.44, pursuit 2.28).');
 };
 if(exportPreset)exportPreset.onclick=()=>{
   try{
@@ -939,7 +1137,7 @@ if(exportPreset)exportPreset.onclick=()=>{
     if(presetData)presetData.value=payload;
     const url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
     const link=document.createElement('a');
-    link.href=url;link.download='cc2-05a-behavior-preset.json';link.click();
+    link.href=url;link.download='cc2-05b-living-pursuer-preset.json';link.click();
     URL.revokeObjectURL(url);
     labMessage('Validated versioned tuning preset exported. Paste its JSON here to restore.');
   }catch(error){
@@ -960,6 +1158,25 @@ if(importPreset)importPreset.onclick=()=>{
       String(error instanceof Error?error.message:error),true);
   }
 };
+
+// Browsers require a gesture to unlock Web Audio. Never unlock from the
+// simulation tick, startup, a test assertion or an animation effect.
+document.addEventListener('pointerdown',()=>audio.unlock(),{capture:true});
+document.addEventListener('keydown',()=>audio.unlock(),{capture:true});
+if(soundToggle)soundToggle.onclick=()=>{
+  currentFeedback=validateFeedbackPreset({
+    ...currentFeedback,enabled:!currentFeedback.enabled,
+  });
+  audio.configure(currentFeedback);
+  if(soundToggle){
+    soundToggle.textContent=currentFeedback.enabled?'Sound: On':'Sound: Off';
+    soundToggle.setAttribute('aria-pressed',String(currentFeedback.enabled));
+  }
+  const box=document.querySelector<HTMLInputElement>('#feedbackEnabled');
+  if(box)box.checked=currentFeedback.enabled;
+  if(currentFeedback.enabled)emitCue('resume');
+};
+if(testSound)testSound.onclick=()=>emitCue('achievement');
 
 if(pulseButton)pulseButton.onclick=()=>{
   const result=engine.pulse();
@@ -985,6 +1202,7 @@ exportButton.onclick = () => {
   const output = JSON.stringify({
     replay: engine.replayExport(),
     appliedLabPreset: {...appliedLabPreset,camera:cameraView},
+    feedbackCuesPlayed:audio.history(),
     stateDigest: engine.stateDigest(),
     events: engine.eventLog(),
     finalState: engine.snapshot(),
@@ -1026,12 +1244,16 @@ document.addEventListener('visibilitychange', () => {
   events: () => engine.eventLog(),
   replay: () => engine.replayExport(),
   rendererStats: () => ({canvasResizes,zoom:cameraView.zoom,
-    follow:cameraView.follow,previewRowsRendered,cameraY,
+    effectiveZoom:effectiveCameraZoom,follow:cameraView.follow,
+    previewRowsRendered,cameraY,viewportCoverage,cameraRowGap,
     framingPercent:engine.snapshot().world.geometry.rowGap}),
   pursuer: () => engine.bot(),
   features: () => engine.features(),
   featureEvents: () => engine.featureEvents(),
   summary: () => engine.summary(),
+  feedbackHistory:()=>audio.history(),
+  feedbackSettings:()=>({...currentFeedback}),
+  activePreset:()=>({...appliedLabPreset}),
   pulse: () => {const outcome=engine.pulse();updateFeatureEvents();return outcome;},
   advanceForQA: (ticks:number) => {
     if(!manualQA)throw new Error('QA_MANUAL_MODE_REQUIRED');
@@ -1056,5 +1278,6 @@ function frame(time: number): void {
   requestAnimationFrame(frame);
 }
 
+loadLabPreset(intermediateDevLabPreset());
 beginNewRun();
 requestAnimationFrame(frame);
