@@ -279,12 +279,17 @@ export class CircuitClimbCore {
     this.emit('ATTEMPT_EVALUATED', {
       attemptId,
       problemId: problem.problemId,
+      rowIndex: problem.rowIndex,
       platformId,
+      operation: problem.operation,
       incomingValue: problem.incomingValue,
       selectedValue: platform.value!,
       targetValue: problem.targetValue,
+      correctValue: problem.correctValue,
       correct,
-      supported: false,
+      correctness: correct ? 'correct' : 'incorrect',
+      supportUsed: false,
+      acceptedAtTick: this.state.tick,
     });
     this.emit('TRAVEL_STARTED', { attemptId, platformId, movement: this.config.movement });
     return { ok: true, attemptId, correct };
