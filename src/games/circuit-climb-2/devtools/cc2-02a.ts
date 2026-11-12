@@ -139,6 +139,7 @@ function makeSurfaceEngine(
 }
 let engine:SurfaceEngine=makeSurfaceEngine(seedInput.value);
 let cameraView:CameraViewPresetV1={...defaultDevLabPreset().camera};
+let appliedLabPreset:DevLabPresetV1=defaultDevLabPreset();
 let cameraY = 0;
 let previewRowsRendered=0;
 let logicalHeight = 800;
@@ -848,7 +849,23 @@ function draw(): void {
 }
 
 function beginNewRun(): void {
-  engine = makeSurfaceEngine(seedInput.value.trim() || 'cc2-02a-demo', configFromControls());
+  // A new engine is constructed only after COMPLETE validation succeeds.
+  // An invalid imported/edited field leaves the existing run untouched.
+  let next:DevLabPresetV1;
+  try {
+    next=collectLabPreset();
+  }catch(error){
+    labMessage('Invalid tuning: '+String(error instanceof Error?error.message:error),true);
+    return;
+  }
+  const nextEngine=makeSurfaceEngine(
+    seedInput.value.trim()||'cc2-02a-demo',
+    next.run,next.learner,next.pursuer,
+  );
+  engine=nextEngine;
+  cameraView=next.camera;
+  appliedLabPreset=next;
+  if(zoomValue)zoomValue.textContent=Math.round(next.camera.zoom*100)+'%';
   currentProblemId = '';
   previousEventCount = 0;
   previousFeatureEventCount = 0;
@@ -865,6 +882,65 @@ function beginNewRun(): void {
   updateMessage();
   draw();
 }
+
+function liveCameraChange():void {
+  try {
+    if(!cameraZoomInput||!cameraFollowInput)return;
+    const next=validateCameraView({
+      zoom:Number(cameraZoomInput.value),
+      follow:Number(cameraFollowInput.value),
+    });
+    cameraView=next;
+    if(zoomValue)zoomValue.textContent=Math.round(100*next.zoom)+'%';
+    cameraY=engine.snapshot().spark.y-logicalHeight*0.72/next.zoom;
+    labMessage('Visual zoom '+Math.round(next.zoom*100)+
+      '% applied live; simulation and mathematical state unchanged.');
+    draw();
+  }catch(error){
+    labMessage('Camera setting rejected: '+
+      String(error instanceof Error?error.message:error),true);
+  }
+}
+if(cameraZoomInput)cameraZoomInput.oninput=liveCameraChange;
+if(cameraFollowInput)cameraFollowInput.onchange=liveCameraChange;
+if(applyTuning)applyTuning.onclick=()=>{
+  const prior=engine;
+  beginNewRun();
+  if(engine!==prior)labMessage('Validated tuning applied. New run started; replay includes source-owned learner and pursuer presets.');
+};
+if(resetTuning)resetTuning.onclick=()=>{
+  const base=defaultDevLabPreset();
+  loadLabPreset({...base,run:{...base.run,curriculum:'makeTarget20'}});
+  beginNewRun();
+  labMessage('Lab defaults restored. New Make Target run started.');
+};
+if(exportPreset)exportPreset.onclick=()=>{
+  try{
+    const payload=exportDevLabPreset(collectLabPreset());
+    if(presetData)presetData.value=payload;
+    const url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
+    const link=document.createElement('a');
+    link.href=url;link.download='cc2-05a-behavior-preset.json';link.click();
+    URL.revokeObjectURL(url);
+    labMessage('Validated versioned tuning preset exported. Paste its JSON here to restore.');
+  }catch(error){
+    labMessage('Preset export rejected: '+
+      String(error instanceof Error?error.message:error),true);
+  }
+};
+if(importPreset)importPreset.onclick=()=>{
+  try{
+    if(!presetData)throw Error('PRESET_TEXTAREA_MISSING');
+    const next=importDevLabPreset(presetData.value);
+    // Validation is complete before ANY control or engine is modified.
+    loadLabPreset(next);
+    beginNewRun();
+    labMessage('Preset imported and applied. New run started from the same seed.');
+  }catch(error){
+    labMessage('Preset import rejected: '+
+      String(error instanceof Error?error.message:error),true);
+  }
+};
 
 if(pulseButton)pulseButton.onclick=()=>{
   const result=engine.pulse();
@@ -889,6 +965,7 @@ if(endRunButton)endRunButton.onclick=()=>{engine.quit();updateMessage();};
 exportButton.onclick = () => {
   const output = JSON.stringify({
     replay: engine.replayExport(),
+    appliedLabPreset: {...appliedLabPreset,camera:cameraView},
     stateDigest: engine.stateDigest(),
     events: engine.eventLog(),
     finalState: engine.snapshot(),
