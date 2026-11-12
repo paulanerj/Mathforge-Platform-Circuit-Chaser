@@ -75,5 +75,15 @@ jobs:
           path: cc2-04-screenshots/
           if-no-files-found: warn
           retention-days: 30
+      - name: Bundle truly standalone CC2-04 HTML
+        run: node src/games/circuit-climb-2/devtools/buildPortable.mjs
+      - name: Test bundled HTML on file protocol with network blocked
+        run: node src/games/circuit-climb-2/devtools/cc2-04-portable-smoke.mjs
+      - name: Retain playable offline one-file game
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-04-Standalone-Playable-HTML
+          path: cc2-standalone/CC2-04-Playable.html
+          retention-days: 30
       - name: Original SOT-02 Chromium browser smoke
         run: npm run test:circuit-climb:browser
