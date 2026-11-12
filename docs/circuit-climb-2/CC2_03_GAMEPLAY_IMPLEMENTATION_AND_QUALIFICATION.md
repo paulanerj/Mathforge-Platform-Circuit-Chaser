@@ -55,7 +55,14 @@ CC2-03 is source-owned and runs against the exact CC2-02B deterministic Learner 
 
 **Subsequent refinements:** no-overlap and terminal capture/quit, four-step HUD, event-based Pulse/Relay VFX, visible out-of-range warning, 12-landed-row Stage 2 browser run, and adversarial `featureFairness` tests.
 
-**Final executable SHA and CI:** verify the latest workflow at [Actions branch CC2-03](https://github.com/paulanerj/Mathforge-Platform-Circuit-Chaser/actions/workflows/cc2-03-gameplay.yml) before merging/promoting. Earlier green results do not automatically qualify the newest branch HEAD. Once fully green, preserve the source SHA, all screenshots and exact assertion counts in the PR.
+**Final executable CI: PASS.** [GitHub Actions run 43161009165](https://github.com/paulanerj/Mathforge-Platform-Circuit-Chaser/actions/runs/43161009165) at runtime SHA `33d03e6b4157548b15d804a9077301de35fcbeb6` verifies:
+- **53/53** CC2-specific tests including the 100/100 physically sourced F08 loss/reacquisition suite.
+- **259/259** complete original-plus-new Vitest tests across 30 test files.
+- **68/68** CC2-03 browser assertions, including real 12-row Stage 2 progression, 320×568 viewport controls, Pulse in/out-of-range truth, Capacitor and Relay all-choice parity.
+- **28/28** live chase browser assertions, plus successful original CC2-02A/Q1 browser suites and original SOT-02 Chromium regression.
+- TypeScript, production build, original file custody and screenshot artifact uploads: **PASS**.
+
+The subsequent documentation-only report commit modifies no executable source. This branch remains a review candidate, not a production release.
 
 ## 5. Browser playback (local test candidate)
 
