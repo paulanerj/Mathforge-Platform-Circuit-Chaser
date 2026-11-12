@@ -81,11 +81,21 @@ try{
       spec.width+'px: all three choices share the same modifier');
     check((await page.locator('#energy').innerText()).includes('0/4'),
       spec.width+'px: source-owned charge displayed');
+    check((await page.locator('#cellProgress').innerText()).includes('0/4 powered'),
+      spec.width+'px: visible four-row progress indicator');
+    check(await page.locator('#rowKind').innerText()==='STAGE 1 · NORMAL ROW',
+      spec.width+'px: initial stage and modifier clearly labelled');
     const size=await page.locator('#pulse').boundingBox();
     check(Boolean(size&&size.height>=43.9&&size.width>=70),
       spec.width+'px: pulse touch control is finger-sized');
     const width=await page.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
     check(width<=1,spec.width+'px: no horizontal overflow');
+    const controls=await page.locator('#pause').boundingBox();
+    console.log('CC2-03 LAYOUT',JSON.stringify({
+      viewport:spec,controlBottom:controls?controls.y+controls.height:null,
+    }));
+    check(Boolean(controls&&controls.y+controls.height<=spec.height+1),
+      spec.width+'px: game actions inside first viewport');
     await shot(page,'start-'+spec.width);
     check(pageErrors.length===0,spec.width+'px: no uncaught exceptions');
     await page.close();
@@ -102,11 +112,19 @@ try{
   }
   check(await page.locator('#pulse').isEnabled(),
     'Pulse becomes available at exactly four correct landings');
+  const cell=await page.locator('#cellProgress').innerText();
+  check(cell.includes('CELL 2')&&cell.includes('0/4 powered'),
+    'four landed rows advance to next cell and reset its visible indicators');
   await shot(page,'four-landings-pulse-ready-390');
   const prior=await read(page);
   const pulse=await page.locator('#pulse').click();
   const after=await read(page);
   check(after.features.charge===0,'Pulse spends all four earned units');
+  const activated=after.features.events.findLast(e=>e.type==='ABILITY_ACTIVATED');
+  check(Boolean(activated && activated.detail.affected===false),
+    'the out-of-range default bot is NOT falsely marked slowed');
+  check((await page.locator('#pulse').innerText()).includes('active'),
+    'Pulse control exposes effect duration after activation');
   check(after.features.events.some(x=>x.type==='ABILITY_ACTIVATED'),
     'source-owned Pulse activation event emitted');
   check(after.state.attempts===prior.state.attempts,
@@ -136,6 +154,8 @@ try{
   const relay=await read(page);
   check(relay.features.events.some(e=>e.type==='RELAY_CHAIN'&&e.detail.row===8),
     'Relay emits an explicit visual-only milestone');
+  check((await page.locator('#cellProgress').innerText()).includes('CELL 3'),
+    'two completed four-row cells visibly advance cell number');
   check(errors.length===0,'real gameplay rendered without browser exception');
   console.log('CC2-03 BROWSER PASS — '+assertions+' assertions');
   await page.close();
