@@ -21,7 +21,7 @@ describe('CC2-05A: versioned, independent tuning and camera authority',()=>{
     const copy=importDevLabPreset(exportDevLabPreset(preset));
     expect(copy).toEqual(preset);
     expect(()=>validateDevLabPreset({...preset,mathHack:true})).toThrow('CC2_DEV_PRESET_VERSION_OR_KEYS');
-    expect(()=>validateDevLabPreset({...preset,camera:{zoom:0.3,follow:0.13}})).toThrow('CC2_CAMERA_INVALID');
+    expect(()=>validateDevLabPreset({...preset,camera:{zoom:0.15,follow:0.13}})).toThrow('CC2_CAMERA_INVALID');
     expect(()=>validateDevLabPreset({...preset,pursuer:{
       ...preset.pursuer,speedPursuit:-2,
     }})).toThrow();
