@@ -111,7 +111,7 @@ function updateMessage(): void {
     }
     if (event.type === 'VOLTAGE_REBASE') {
       const d = event.detail;
-      cellNotice.textContent = `POWER CELL ${d.completedCell} CHARGED · Voltage reset ${d.oldValue} → ${d.newValue}. New start, not another equation.`;
+      cellNotice.textContent = `CELL ${d.completedCell} RECHARGED · ${d.oldValue} → ${d.newValue} (new start)`;
       noticeUntil = performance.now() + 2600;
     }
   }
