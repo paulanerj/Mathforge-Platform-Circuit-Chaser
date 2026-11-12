@@ -1,7 +1,7 @@
 name: CC2-06A production visual UI, two-row sightline and math/pursuer parity qualification
 on:
   push:
-    branches: [feature/cc2-06a-seven-row-personality-audio]
+    branches: [feature/cc2-06a-production-visual-pass]
   workflow_dispatch:
 
 permissions:
@@ -55,7 +55,7 @@ jobs:
       - name: Protected original Chromium gameplay regression
         run: npm run test:circuit-climb:browser
       - name: Bundle complete updated game into ONE offline HTML
-        run: node src/games/circuit-climb-2/devtools/buildPortable05B.mjs
+        run: node src/games/circuit-climb-2/devtools/buildPortable06A.mjs
       - name: Actual file-protocol play with all HTTP blocked
         run: node src/games/circuit-climb-2/devtools/cc2-06a-portable-smoke.mjs
       - name: Deliver playable single-file offline build
