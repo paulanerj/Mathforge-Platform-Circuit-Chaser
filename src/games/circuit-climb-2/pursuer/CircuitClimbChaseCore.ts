@@ -25,6 +25,7 @@ import {
   FeatureProgression,defaultFeatureConfig,validateFeatureConfig,
   type FeatureConfigV1,type FeatureSnapshotV1,type FeatureEventV1,
 } from '../features/progression';
+import {deriveRunResult,type RunResultV1} from '../results/runResult';
 
 export interface ChaseSnapshotV1 {
   learner:EngineStateV1;
@@ -137,6 +138,11 @@ export class CircuitClimbChaseCore {
   learnerSnapshot():EngineStateV1{return this.core.snapshot();}
   eventLog():GameEventV1[]{return this.core.eventLog();}
   featureEventLog():FeatureEventV1[]{return this.features.eventLog();}
+  /** Source-owned product summary. No host recalculation or fake solves. */
+  runResult():RunResultV1{
+    return deriveRunResult(this.core.snapshot(),
+      this.core.eventLog(),this.features.eventLog());
+  }
   featureSnapshot():FeatureSnapshotV1{
     const state=this.core.snapshot();
     return this.features.snapshot(state.tick,this.config.mode,state.phase,state.paused);
