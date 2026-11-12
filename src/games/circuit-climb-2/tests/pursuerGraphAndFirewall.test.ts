@@ -13,6 +13,7 @@ import {
 import { observePursuer,hasClearSight } from '../pursuer/perception';
 import { defaultPursuerPreset } from '../pursuer/pursuerPreset';
 import {makeBody,stepChassis} from '../pursuer/chassis';
+import {PursuerController} from '../pursuer/pursuerController';
 
 function worldAt(framingPercent:number){
   const world=createWorld({...defaultRunConfig(),framingPercent});
@@ -88,6 +89,19 @@ describe('CC2-02B finite perception firewall',()=>{
     const seen=observePursuer(world,{x:210,y:-40},{x:300,y:-40},[],8,config);
     expect(seen.live).toEqual({x:300,y:-40,tick:8,source:'NEAR'});
     expect(Object.keys(seen).sort()).toEqual(['live','pursuer','tick','wake']);
+  });
+  it('never expands graph topology from an unseen Spark exact altitude',()=>{
+    const world=worldAt(100);
+    const farBelow=new PursuerController(world);
+    const farAbove=new PursuerController(world);
+    const a=farBelow.step(world,{x:80,y:-8500},1);
+    const b=farAbove.step(world,{x:500,y:-13000},1);
+    expect(a.sensed).toBe(false);
+    expect(b.sensed).toBe(false);
+    expect(a.graphNodeCount).toBe(b.graphNodeCount);
+    expect(a.body.x).toBe(b.body.x);
+    expect(a.body.y).toBe(b.body.y);
+    expect(a.belief.goalId).toBe(b.belief.goalId);
   });
   it('only admits physical past wake, within finite range and lifetime',()=>{
     const world=worldAt(100),config=defaultPursuerPreset();
