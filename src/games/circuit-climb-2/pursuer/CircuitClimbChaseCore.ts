@@ -21,15 +21,20 @@ import {
 import {
   defaultPursuerPreset,validatePursuerPreset,type PursuerPresetV1,
 } from './pursuerPreset';
+import {
+  FeatureProgression,defaultFeatureConfig,validateFeatureConfig,
+  type FeatureConfigV1,type FeatureSnapshotV1,type FeatureEventV1,
+} from '../features/progression';
 
 export interface ChaseSnapshotV1 {
   learner:EngineStateV1;
   pursuer:PursuerSnapshot;
+  features:FeatureSnapshotV1;
 }
 export type ChaseCommandV1={
   tick:number;
   ordinal:number;
-  type:'SELECT'|'PAUSE'|'RESUME'|'RESTART'|'QUIT';
+  type:'SELECT'|'PAUSE'|'RESUME'|'RESTART'|'QUIT'|'PULSE';
   platformId?:string;
 };
 export interface ChaseReplayV1 {
@@ -37,6 +42,8 @@ export interface ChaseReplayV1 {
   seed:string;
   config:RunConfigV1;
   pursuerPreset:PursuerPresetV1;
+  /** Optional for backwards-compatible 02B replay loading. */
+  featureConfig?:FeatureConfigV1;
   commands:ChaseCommandV1[];
   finalTick:number;
 }
@@ -46,17 +53,23 @@ export class CircuitClimbChaseCore {
   readonly seed:string;
   readonly config:RunConfigV1;
   readonly pursuerPreset:PursuerPresetV1;
+  readonly featureConfig:FeatureConfigV1;
   private core:CircuitClimbCore;
   private pursuer:PursuerController;
+  private features:FeatureProgression;
   private commands:ChaseCommandV1[]=[];
 
   constructor(seed:string,config:RunConfigV1=defaultRunConfig(),
-    preset:PursuerPresetV1=defaultPursuerPreset()){
+    preset:PursuerPresetV1=defaultPursuerPreset(),
+    featureConfig:FeatureConfigV1=defaultFeatureConfig()){
     this.seed=seed;
     this.config=Object.freeze(validateRunConfig(config));
     this.pursuerPreset=Object.freeze(validatePursuerPreset(preset));
+    this.featureConfig=Object.freeze(validateFeatureConfig(featureConfig));
     this.core=new CircuitClimbCore(seed,this.config);
     this.pursuer=new PursuerController(this.core.snapshot().world,this.pursuerPreset);
+    this.features=new FeatureProgression(this.featureConfig);
+    this.features.consume(this.core.eventLog());
   }
   private record(type:ChaseCommandV1['type'],platformId?:string){
     this.commands.push({tick:this.core.snapshot().tick,
@@ -73,6 +86,18 @@ export class CircuitClimbChaseCore {
     if(this.adjudicate())return {ok:false,reason:'CAPTURED'};
     return this.core.selectPlatform(platformId);
   }
+  /** Earned Pulse is available only at a grounded READY state. */
+  activatePulse():{ok:true;affected:boolean}|{ok:false;reason:string}{
+    this.record('PULSE');
+    // Preserve physical capture precedence: no last-second ability can
+    // reverse overlap already present when the player taps the control.
+    if(this.adjudicate())return {ok:false,reason:'CAPTURED'};
+    const state=this.core.snapshot();
+    const bot=this.pursuer.snapshot();
+    const distance=Math.hypot(state.spark.x-bot.body.x,state.spark.y-bot.body.y);
+    return this.features.activate(state.tick,this.config.mode,
+      state.phase,state.paused,distance);
+  }
   pause():void{this.record('PAUSE');this.core.pause();}
   resume():void{this.record('RESUME');this.core.resume();}
   quit():void{this.record('QUIT');this.core.quit();}
@@ -80,6 +105,10 @@ export class CircuitClimbChaseCore {
     this.record('RESTART');
     this.core.restart();
     this.pursuer=new PursuerController(this.core.snapshot().world,this.pursuerPreset);
+    // Ignore old-run rows, but consume the new RUN_STARTED event.
+    const ledger=this.core.eventLog();
+    this.features=new FeatureProgression(this.featureConfig,ledger.length-1);
+    this.features.consume(ledger);
   }
   /** The same world remains paused/terminal without hidden chase advances. */
   advanceTicks(ticks:number):void{
@@ -90,17 +119,28 @@ export class CircuitClimbChaseCore {
       if(this.adjudicate())return;
       this.core.advanceTicks(1);
       const after=this.core.snapshot();
+      this.features.consume(this.core.eventLog());
+      this.features.advance(after.tick);
       if(after.phase==='ended')return; // authored practice/challenge goal won
-      this.pursuer.step(after.world,after.spark,after.tick);
-      this.adjudicate(); // physically grounded contact only
+      this.pursuer.step(after.world,after.spark,after.tick,
+        this.features.speedMultiplier(after.tick));
+      if(this.adjudicate())this.features.consume(this.core.eventLog());
+      // Physical contact is authoritative; ability never edits the Spark.
     }
   }
   snapshot():ChaseSnapshotV1{
-    return {learner:this.core.snapshot(),pursuer:this.pursuer.snapshot()};
+    const state=this.core.snapshot();
+    return {learner:state,pursuer:this.pursuer.snapshot(),
+      features:this.features.snapshot(state.tick,this.config.mode,state.phase,state.paused)};
   }
   /** Compatibility for the CC2 learner board's existing source API. */
   learnerSnapshot():EngineStateV1{return this.core.snapshot();}
   eventLog():GameEventV1[]{return this.core.eventLog();}
+  featureEventLog():FeatureEventV1[]{return this.features.eventLog();}
+  featureSnapshot():FeatureSnapshotV1{
+    const state=this.core.snapshot();
+    return this.features.snapshot(state.tick,this.config.mode,state.phase,state.paused);
+  }
   diagnostics():PursuerDiagnostic[]{return this.pursuer.diagnostics();}
   devGraph(){return this.pursuer.devGraph();}
   stateDigest():string{return digestState(this.snapshot());}
@@ -108,6 +148,7 @@ export class CircuitClimbChaseCore {
     return {
       schema:'cc2-chase-replay/v1',seed:this.seed,
       config:clone(this.config),pursuerPreset:clone(this.pursuerPreset),
+      featureConfig:clone(this.featureConfig),
       commands:clone(this.commands),finalTick:this.core.snapshot().tick,
     };
   }
@@ -115,7 +156,8 @@ export class CircuitClimbChaseCore {
 /** Deterministic independent reconstruction of the integrated chase. */
 export function replayChase(trace:ChaseReplayV1):CircuitClimbChaseCore{
   if(trace.schema!=='cc2-chase-replay/v1')throw Error('CHASE_REPLAY_VERSION');
-  const game=new CircuitClimbChaseCore(trace.seed,trace.config,trace.pursuerPreset);
+  const game=new CircuitClimbChaseCore(trace.seed,trace.config,trace.pursuerPreset,
+    trace.featureConfig??defaultFeatureConfig());
   let lastOrdinal=0;
   for(const cmd of trace.commands){
     if(!Number.isInteger(cmd.tick)||!Number.isInteger(cmd.ordinal)||
@@ -127,6 +169,7 @@ export function replayChase(trace:ChaseReplayV1):CircuitClimbChaseCore{
     else if(cmd.type==='RESUME')game.resume();
     else if(cmd.type==='RESTART')game.restart();
     else if(cmd.type==='QUIT')game.quit();
+    else if(cmd.type==='PULSE')game.activatePulse();
   }
   if(!Number.isInteger(trace.finalTick)||trace.finalTick<game.learnerSnapshot().tick)
     throw Error('CHASE_REPLAY_FINAL_TICK');
