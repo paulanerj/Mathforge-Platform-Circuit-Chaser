@@ -96,7 +96,11 @@ export class PursuerController {
     }
   }
   /** One world step; called exactly once per 60Hz core tick. */
-  step(world:WorldV1,actualSpark:Point,tick:number):PursuerSnapshot{
+  step(world:WorldV1,actualSpark:Point,tick:number,speedMultiplier=1):PursuerSnapshot{
+    // This is a PHYSICAL movement modifier, not a sensor/Brain disable.
+    // Pursuit perception and memory advance normally during Circuit Pulse.
+    if(!Number.isFinite(speedMultiplier)||speedMultiplier<=0||speedMultiplier>1)
+      throw Error('PURSUER_SPEED_MULTIPLIER_INVALID');
     if(!Number.isInteger(tick)||tick<=this.tickCount)
       throw Error('PURSUER_TICK_NOT_MONOTONIC');
     this.ensureGraph(world);
@@ -119,7 +123,7 @@ export class PursuerController {
       Math.hypot(actualSpark.x-this.body.x,actualSpark.y-this.body.y):0;
     const speed=this.belief.mode==='PURSUIT'?
       this.preset.speedPursuit:this.preset.speedSearch;
-    const result=stepChassis(this.body,this.graph,world,decision.targetId,speed);
+    const result=stepChassis(this.body,this.graph,world,decision.targetId,speed*speedMultiplier);
     this.body=result.body;
     this.lastFailure=result.failureReason??null;
     if(result.failedRoute)this.failures++;
