@@ -105,12 +105,35 @@ export class PursuerController {
   private ensureGraph(world:WorldV1){
     const h=world.geometry.rowGap;
     const observedRow=Math.floor(-this.body.y/h);
-    const min=Math.min(-this.preset.spawnRowsBelow,
+    let min=Math.min(-this.preset.spawnRowsBelow,
       observedRow-2,(world.rows[0]?.index??0)-2);
     // CRITICAL: the pursuit graph may extend only from generated PUBLIC
     // tower topology and the bot's own location. Using the hidden Spark's
     // actual Y here would leak its unseen row through navigation geometry.
-    const max=Math.max(3,(world.rows.at(-1)?.index??0)+2);
+    let max=Math.max(3,(world.rows.at(-1)?.index??0)+2);
+    // CC2-07E: previously, long climbs eventually exceeded the 140-tier
+    // constructor limit (and exploded shortest-path work), because the
+    // oldest spawn node remained pinned forever. Once >60 tiers are needed,
+    // switch to a bot-centered local physical graph. Never use the secret
+    // actual Spark coordinates or future selected math here.
+    if(max-min>60){
+      const rowOf=(id:string):number=>{
+        const colon=id.indexOf(':');
+        const row=Number(id.slice(1,colon));
+        if(!id.startsWith('R')||colon<2||!Number.isInteger(row))
+          throw Error('PURSUER_BAD_NODE_ROW');
+        return row;
+      };
+      const fromRow=rowOf(this.body.nodeId);
+      const edgeRow=this.body.edgeTo?rowOf(this.body.edgeTo):fromRow;
+      const low=Math.min(fromRow,edgeRow,observedRow);
+      const high=Math.max(fromRow,edgeRow,observedRow);
+      min=low-4;
+      max=Math.min(max,Math.max(3,high+28));
+      // Both the current source node and mid-edge destination are retained.
+      // Capping only the public look-ahead cannot erase an occupied edge.
+      if(max-min>60)max=min+60;
+    }
     const key=this.makeKey(world,min,max);
     if(this.graphKey!==key){
       this.graph=buildPursuitGraph(world,this.radius,min,max);

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>MathForge Circuit Climb — CC2-07A Energetic Chase</title>
+  <title>MathForge Circuit Climb — CC2-07E Chase Lab</title>
   <style>
     :root { color-scheme:dark; font: 14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; --ink:#e9f6fd; --muted:#a0b7c9; --edge:rgba(132,197,232,.25); background:#08131f; }
     * { box-sizing:border-box; }
@@ -363,6 +363,49 @@
       .pace-label{min-width:100%}
       .pace-apply{width:100%}
     }
+
+    /* ── CC2-07D: real physical proximity and real source-owned emotion ── */
+    .threat-radar{display:grid;grid-template-columns:auto minmax(40px,1fr) auto;
+      align-items:center;gap:12px;padding:8px 13px;
+      background:linear-gradient(110deg,#172a3a,#0e2433);
+      border:1px solid #51768980;border-top:none;
+      color:#adc4d0;font-size:10px;min-height:34px;}
+    .threat-head{display:flex;align-items:center;gap:7px;
+      font-weight:800;letter-spacing:.09em;min-width:155px;white-space:nowrap;}
+    .threat-symbol{color:#e899af;text-shadow:0 0 10px #ff628577}
+    .threat-rail{height:5px;border-radius:10px;background:#243748;
+      overflow:hidden;box-shadow:inset 0 1px 2px #06131a;}
+    #threatRadarFill{height:100%;width:0%;
+      background:linear-gradient(90deg,#4c95aa,#b5c9c0);
+      border-radius:inherit;transition:width .18s linear;}
+    .threat-radar[data-threat-level="approaching"] #threatRadarFill{
+      background:linear-gradient(90deg,#d4b889,#e8a28e);}
+    .threat-radar[data-threat-level="near"] #threatRadarFill,
+    .threat-radar[data-threat-level="critical"] #threatRadarFill{
+      background:linear-gradient(90deg,#db8a91,#f06887);}
+    .threat-radar[data-threat-level="critical"] .threat-head{color:#ffd0d7}
+    .threat-range{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;
+      letter-spacing:.035em;color:#b7ced3;font-size:10px;}
+    .pace-export{min-height:40px;border-radius:9px;
+      background:#1b3242;border:1px solid #648ca087;color:#cbecf1;
+      font-weight:700;font-size:11px;padding:8px 12px;cursor:pointer;}
+    .pace-export:focus-visible{outline:3px solid #c7efda}
+    @media(max-width:650px){
+      .threat-radar{grid-template-columns:minmax(0,1fr) auto;
+        row-gap:5px;padding:7px 10px;font-size:9px;}
+      /* The longer SEARCH / LOCKED label gets its own readable row on
+         narrow screens. Do not allow the true distance text to overlap. */
+      .threat-head{grid-row:1;grid-column:1 / -1;min-width:0;
+        white-space:normal}
+      .threat-range{grid-row:2;grid-column:1 / -1;
+        text-align:left;font-size:9px;white-space:normal}
+      .threat-rail{grid-row:3;grid-column:1 / -1}
+      .pace-export{flex:1}
+    }
+    @media(max-width:350px){.threat-range{font-size:8px}}
+    @media(prefers-reduced-motion:reduce){
+      #threatRadarFill{transition:none}
+    }
   </style>
 </head>
 <body data-pursuer="on" data-features="on" data-summary="on">
@@ -373,7 +416,7 @@
         <div class="brand-type"><div class="brand-eyebrow">MATHFORGE <span> / WORLD 03</span></div>
           <h1>Circuit <em>Climb</em></h1></div>
       </div>
-      <span class="phase">CC2-07B · PLAYTEST PACE LAB</span>
+      <span class="phase">CC2-07E · CHASE LAB</span>
     </div>
     <p class="disclaimer"><span class="live-indicator" aria-hidden="true"></span> EXPANDED TOWER · THREE TEST PACES · ASCENDING PURSUER <span class="tagline-note">· Choose the correct path. Stay ahead.</span></p>
     <section class="hud" aria-label="Mathematics and progress">
@@ -386,6 +429,12 @@
         <div id="cellProgress" class="cell-progress" aria-label="Power cell 1: zero of four rows completed">CELL 1 · ○○○○ · 0/4 powered</div>
         <div id="energy" class="energy" role="status" aria-live="polite">PULSE 0/4</div>
       </div>
+    </section>
+    <section class="threat-radar" data-threat-level="far" aria-label="Real Pursuer proximity">
+      <div class="threat-head"><span class="threat-symbol" aria-hidden="true">◆</span>
+        <span id="threatRadarLabel">PURSUER DISTANT</span></div>
+      <div class="threat-rail" aria-hidden="true"><div id="threatRadarFill"></div></div>
+      <span id="threatRadarDistance" class="threat-range" aria-live="off">CALCULATING DISTANCE</span>
     </section>
     <section class="board" id="board" aria-label="Numbered three-platform climbing board">
       <canvas id="worldCanvas" aria-hidden="true"></canvas>
@@ -420,6 +469,7 @@
           </select>
         </label>
         <button id="applyPace" type="button" class="pace-apply">Start pace test</button>
+        <button id="downloadPlaytest" type="button" class="pace-export" title="Save real game replay, positions, timing and AI route evidence">Download playtest report</button>
       </div>
       <p id="paceDescription" class="pace-description" role="status">Energetic · Spark 24 / bot SEARCH 4.8 / CHASE 6.0 · 2-row spawn</p>
     </section>
