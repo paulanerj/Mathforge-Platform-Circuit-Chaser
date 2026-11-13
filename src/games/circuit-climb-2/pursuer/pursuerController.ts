@@ -118,9 +118,11 @@ export class PursuerController {
     // actual Spark coordinates or future selected math here.
     if(max-min>60){
       const rowOf=(id:string):number=>{
-        const match=/^R(-?\\d+):/.exec(id);
-        if(!match)throw Error('PURSUER_BAD_NODE_ROW');
-        return Number(match[1]);
+        const colon=id.indexOf(':');
+        const row=Number(id.slice(1,colon));
+        if(!id.startsWith('R')||colon<2||!Number.isInteger(row))
+          throw Error('PURSUER_BAD_NODE_ROW');
+        return row;
       };
       const fromRow=rowOf(this.body.nodeId);
       const edgeRow=this.body.edgeTo?rowOf(this.body.edgeTo):fromRow;
