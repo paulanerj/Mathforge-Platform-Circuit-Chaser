@@ -44,6 +44,8 @@ export function choosePursuitGoal(
   before:PursuerBelief,observation:PursuerObservation,graph:PursuitGraph,
   currentNodeId:string,arrivedGoal:boolean,routeBlocked:boolean,
   staleTicks:number,
+  searchStrategy:'frontier'|'ascending'='frontier',
+  highestPublicRow=0,
 ):BrainDecision{
   const b:PursuerBelief={...before,visitedIds:[...before.visitedIds]};
   const tick=observation.tick;
@@ -104,6 +106,42 @@ export function choosePursuitGoal(
       const candidates=searchFrontier(graph,b.lastSearchAnchor);
       if(!b.visitedIds.includes(before.goalId))b.visitedIds.push(before.goalId);
       b.goalId=candidates.find(id=>!b.visitedIds.includes(id)&&id!==currentNodeId)??currentNodeId;
+    }
+  }
+  // CC2-07A: a physically present, public tower grows upward. An energetic
+  // patrol explores that geometry rather than repeatedly revisiting the
+  // original basement. Only the generated tower's public top is passed here;
+  // there is NO Spark position, answer, future route, or hidden row signal.
+  // Live sensor / stale contact / wake evidence ALWAYS take precedence.
+  if(searchStrategy==='ascending' && b.mode==='SEARCH' &&
+     b.reason==='INITIAL_PATROL'){
+    const publicTop=Math.min(graph.maxRow,
+      Math.max(0,Math.floor(highestPublicRow)));
+    const anchor=nodeId(publicTop,'B');
+    const at=graph.byId.get(currentNodeId);
+    if(at && graph.byId.has(anchor)){
+      if(at.row<publicTop){
+        b.goalId=anchor;
+        b.lastSearchAnchor=anchor;
+        b.visitedIds=[];
+      }else{
+        // Once at the newest publicly constructed tier, inspect nearby
+        // horizontal lanes and no more than one floor below. Graph edges
+        // determine reachability; this cannot jump through platforms.
+        const candidates=searchFrontier(graph,anchor).filter(id=>
+          (graph.byId.get(id)?.row??-Infinity)>=publicTop-1);
+        if(arrivedGoal||routeBlocked){
+          if(!b.visitedIds.includes(before.goalId))
+            b.visitedIds.push(before.goalId);
+        }
+        let next=candidates.find(id=>
+          !b.visitedIds.includes(id)&&id!==currentNodeId);
+        if(!next){
+          b.visitedIds=[currentNodeId];
+          next=candidates.find(id=>id!==currentNodeId);
+        }
+        if(next)b.goalId=next;
+      }
     }
   }
   if(!graph.byId.has(b.goalId))b.goalId=nearestNode(graph,observation.pursuer).id;
