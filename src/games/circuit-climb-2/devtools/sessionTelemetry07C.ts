@@ -43,7 +43,7 @@ export class SessionTelemetry07C {
   private rowsCompleted=0;
   private endReason:EngineStateV1['endReason']=null;
 
-  observe(s:EngineStateV1,bot:PursuerSnapshot|null):void{
+  observe(s:EngineStateV1,bot:PursuerSnapshot|null,forceSample=false):void{
     if(s.tick<=this.lastTick)return;
     this.lastTick=s.tick;
     this.rowsCompleted=s.completedRows;
@@ -59,7 +59,7 @@ export class SessionTelemetry07C {
         if(this.firstSensed===null)this.firstSensed=s.tick;
       }
     }
-    if(s.tick%TELEMETRY_INTERVAL_TICKS!==0 &&
+    if(!forceSample && s.tick%TELEMETRY_INTERVAL_TICKS!==0 &&
        s.phase!=='ended' && s.tick!==0)return;
     this.points.push({
       tick:s.tick,
