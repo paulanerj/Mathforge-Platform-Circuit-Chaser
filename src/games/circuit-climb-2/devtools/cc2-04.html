@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>MathForge Circuit Climb — CC2-06D Expanded Tower / Smooth Chase</title>
+  <title>MathForge Circuit Climb — CC2-07A Energetic Chase</title>
   <style>
     :root { color-scheme:dark; font: 14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; --ink:#e9f6fd; --muted:#a0b7c9; --edge:rgba(132,197,232,.25); background:#08131f; }
     * { box-sizing:border-box; }
@@ -342,9 +342,9 @@
         <div class="brand-type"><div class="brand-eyebrow">MATHFORGE <span> / WORLD 03</span></div>
           <h1>Circuit <em>Climb</em></h1></div>
       </div>
-      <span class="phase">CC2-06D · EXPANDED TOWER</span>
+      <span class="phase">CC2-07A · ENERGETIC CHASE</span>
     </div>
-    <p class="disclaimer"><span class="live-indicator" aria-hidden="true"></span> EXPANDED TOWER · 1.5× TIER GAP · SMOOTH SPARK · DIRECT CHASE <span class="tagline-note">· Choose the correct path. Stay ahead.</span></p>
+    <p class="disclaimer"><span class="live-indicator" aria-hidden="true"></span> EXPANDED TOWER · FASTER SPARK · ASCENDING PURSUER <span class="tagline-note">· Choose the correct path. Stay ahead.</span></p>
     <section class="hud" aria-label="Mathematics and progress">
       <div class="hud-primary"><div id="equation" role="status" aria-live="polite">Loading…</div></div>
       <div id="height">ROW 0<br>BOT SEARCH</div>
@@ -441,6 +441,9 @@
       <fieldset class="lab-group">
         <legend>Pursuer · finite sensing and physical motion</legend>
         <div class="lab-grid">
+          <label>Search strategy (public floor geometry only)
+            <select id="searchStrategy"><option value="frontier">Legacy breadth-first patrol</option><option value="ascending" selected>Ascending tower patrol</option></select>
+          </label>
           <label>Near sensing radius (50–500)
             <input id="nearSenseRadius" type="number" min="50" max="500" step="10" value="260">
           </label>
