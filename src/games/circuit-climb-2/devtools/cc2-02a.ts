@@ -189,6 +189,10 @@ let accumulator = 0;
 // latest 60Hz simulation samples. Core state and replay remain untouched.
 let sparkBeforeTick:{x:number;y:number;tick:number}|null=null;
 let sparkAfterTick:{x:number;y:number;tick:number}|null=null;
+let botBeforeTick:{x:number;y:number;tick:number}|null=null;
+let botAfterTick:{x:number;y:number;tick:number}|null=null;
+let botLastTick:{x:number;y:number;tick:number}|null=null;
+let latestVisibleBot:{x:number;y:number}|null=null;
 let latestVisibleSpark={x:300,y:0};
 const sessionRecorder=new SessionTelemetry07C();
 let currentProblemId = '';
@@ -912,6 +916,14 @@ function draw(): void {
   // Developer-only geometry mode: the physics network is not invented by
   // the UI. It displays edges issued by the same real pursuit controller.
   const bot=engine.bot();
+  const botInterpolate=canInterpolate && botBeforeTick!==null &&
+    botAfterTick!==null && botAfterTick.tick===state.tick &&
+    botBeforeTick.tick===state.tick-1;
+  const presentedBot=botInterpolate?{
+    x:botBeforeTick!.x+(botAfterTick!.x-botBeforeTick!.x)*alpha,
+    y:botBeforeTick!.y+(botAfterTick!.y-botBeforeTick!.y)*alpha,
+  }:bot?.body??null;
+  latestVisibleBot=presentedBot?{x:presentedBot.x,y:presentedBot.y}:null;
   if(botEnabled && graphDebug){
     const graph=engine.devGraph();
     if(graph){
@@ -953,7 +965,7 @@ function draw(): void {
     context.strokeStyle=bot.sensed?'#ffd0da':'#ff8bab';
     context.lineWidth=2.5;
     context.beginPath();
-    context.ellipse(bot.body.x,worldY(bot.body.y),
+    context.ellipse(presentedBot!.x,worldY(presentedBot!.y),
       botVisualRadiusX,botVisualRadiusY,0,0,2*Math.PI);
     context.fill();context.stroke();
     context.fillStyle='#fff0f6';
@@ -963,7 +975,7 @@ function draw(): void {
       :bot.emotion==='FRUSTRATED'?'×'
       :bot.emotion==='HESITATING'?'…'
       :bot.emotion==='CURIOUS'?'?':'◆';
-    drawWorldLabel(face,bot.body.x,worldY(bot.body.y),
+    drawWorldLabel(face,presentedBot!.x,worldY(presentedBot!.y),
       canvas.clientWidth<500?17:20,'#fff2f7','800');
     if(!reducedMotion && currentFeedback.vfxEnabled &&
        currentFeedback.vfxIntensity>0){
@@ -974,7 +986,7 @@ function draw(): void {
       context.strokeStyle=moodColor;
       context.globalAlpha=Math.max(.05,alpha);
       context.lineWidth=2;
-      context.ellipse(bot.body.x,worldY(bot.body.y),
+      context.ellipse(presentedBot!.x,worldY(presentedBot!.y),
         botVisualRadiusX+4+2*pulse,botVisualRadiusY+8+4*pulse,
         0,0,Math.PI*2);
       context.stroke();
@@ -1016,7 +1028,7 @@ function draw(): void {
       const cue=CUE_CATALOG[activeCue.id];
       const fade=Math.max(0,1-(now-activeCue.started)/
         Math.max(1,activeCue.until-activeCue.started));
-      const point=cue.target==='pursuer'?engine.bot()?.body:visibleSpark;
+      const point=cue.target==='pursuer'?presentedBot:visibleSpark;
       if(point){
         const r=cue.target==='pursuer'?botVisualRadius:sparkVisualRadius;
         const extra=reducedMotion?5:(1-fade)*28*currentFeedback.vfxIntensity;
@@ -1215,6 +1227,7 @@ function beginNewRun(): void {
   cameraY=engine.snapshot().spark.y-logicalHeight/(2*effectiveCameraZoom);
   accumulator = 0;
   sparkBeforeTick=null;sparkAfterTick=null;
+  botBeforeTick=null;botAfterTick=null;botLastTick=null;
   lastTime = performance.now();
   updateMessage();
   draw();
@@ -1428,6 +1441,7 @@ document.addEventListener('visibilitychange', () => {
     previewRowsRendered,cameraY,viewportCoverage,cameraRowGap,
     horizontalCameraScale,
     visualSparkPosition:{...latestVisibleSpark},
+    visualBotPosition:latestVisibleBot?{...latestVisibleBot}:null,
     sourceSparkPosition:{...engine.snapshot().spark},
     framingPercent:engine.snapshot().world.geometry.rowGap}),
   pursuer: () => engine.bot(),
@@ -1455,8 +1469,15 @@ function frame(time: number): void {
   let steps = 0;
   while (!manualQA && accumulator >= 1000 / 60 && steps < 6) {
     const before=engine.snapshot();
+    const priorBot=botLastTick ?? (engine.bot()?.body??null);
     engine.advanceTicks(1);
     const after=engine.snapshot();
+    const nextBot=engine.bot()?.body??null;
+    // 07D display-only bot interpolation. Reuse the last authoritative
+    // tick as the prior point; never extrapolate a future AI decision.
+    botBeforeTick=priorBot?{x:priorBot.x,y:priorBot.y,tick:before.tick}:null;
+    botAfterTick=nextBot?{x:nextBot.x,y:nextBot.y,tick:after.tick}:null;
+    botLastTick=botAfterTick;
     // Sparse fixed-tick instrumentation; no animation, physics, or AI edits.
     if(after.tick!==before.tick &&
       (after.tick%15===0 || after.phase==='ended'))
