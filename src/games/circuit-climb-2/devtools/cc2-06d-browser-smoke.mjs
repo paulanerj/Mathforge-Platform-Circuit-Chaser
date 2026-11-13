@@ -129,15 +129,46 @@ try{
       await page.locator('.dev-controls summary').click();
       await page.locator('#mode').selectOption('practice');
       const first=await page.evaluate(()=>window.__CC2_02A__.snapshot().currentProblem);
-      await page.evaluate((id)=>{
+      // Qualify the actual intermediate travel frames, not just the landing.
+      const travelEvidence=await page.evaluate((id)=>{
+        const api=window.__CC2_02A__;
+        const before=api.snapshot();
+        const initialCam=api.rendererStats();
+        const canvas=document.querySelector('#worldCanvas');
+        const initialY=(before.spark.y-initialCam.cameraY)*
+          initialCam.effectiveZoom*canvas.clientWidth/600;
         document.querySelector('button[data-platform-id="'+id+'"]').click();
+        let maxTickMovement=0;
+        for(let i=0;i<10;i++){
+          const a=api.snapshot();
+          api.advanceForQA(1);
+          const b=api.snapshot();
+          maxTickMovement=Math.max(maxTickMovement,
+            Math.hypot(b.spark.x-a.spark.x,b.spark.y-a.spark.y));
+        }
+        const state=api.snapshot(),camera=api.rendererStats();
+        const currentY=(state.spark.y-camera.cameraY)*
+          camera.effectiveZoom*canvas.clientWidth/600;
+        return {phase:state.phase,maxTickMovement,displayShift:Math.abs(currentY-initialY),
+          camera,sourceY:state.spark.y};
+      },first.correctPlatformId);
+      check(travelEvidence.phase==='outbound' &&
+        travelEvidence.maxTickMovement<=19.500001,
+        'Spark follows actual circuit route at <=19.5 units/tick; no teleport');
+      check(travelEvidence.displayShift>1,
+        'visible Spark moves vertically inside camera instead of being screen-pinned');
+      check(travelEvidence.camera.viewportCoverage.above>=2 &&
+        travelEvidence.camera.viewportCoverage.below>=2,
+        'follow headroom retains 2+2 visible tiers during live climb');
+      await page.screenshot({path:join(captures,'expanded-midtravel-390.png'),fullPage:true});
+      await page.evaluate(()=>{
         const api=window.__CC2_02A__;
         for(let i=0;i<400;i++){
           const state=api.snapshot();
           if(state.phase==='ready'||state.phase==='ended')break;
           api.advanceForQA(1);
         }
-      },first.correctPlatformId);
+      });
       const report=await page.evaluate(()=>({
         state:window.__CC2_02A__.snapshot(),feedback:window.__CC2_02A__.feedbackHistory(),
       }));
