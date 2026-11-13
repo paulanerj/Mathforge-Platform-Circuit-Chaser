@@ -125,7 +125,9 @@ try{
 
     await page.screenshot({path:join(captures,'expanded-start-'+viewport.width+'.png'),fullPage:true});
     if(viewport.width===390){
-      const before=JSON.stringify(data.state);
+      // The patrol qualification advances one real simulation tick before
+      // we test whether a purely visual camera change mutates game state.
+      const before=JSON.stringify(await page.evaluate(()=>window.__CC2_02A__.snapshot()));
       await page.locator('#tuningPanel summary').click();
       await page.locator('#cameraZoom').evaluate(el=>{
         el.value='0.25';
