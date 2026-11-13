@@ -55,7 +55,7 @@ jobs:
       - name: Protected original Chromium gameplay regression
         run: npm run test:circuit-climb:browser
       - name: Bundle complete updated game into ONE offline HTML
-        run: node src/games/circuit-climb-2/devtools/buildPortable06D.mjs
+        run: node src/games/circuit-climb-2/devtools/buildPortable07A.mjs
       - name: Actual file-protocol play with all HTTP blocked
         run: node src/games/circuit-climb-2/devtools/cc2-07a-portable-smoke.mjs
       - name: Deliver playable single-file offline build
