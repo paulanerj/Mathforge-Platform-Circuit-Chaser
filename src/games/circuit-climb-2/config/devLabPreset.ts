@@ -108,6 +108,29 @@ export function spacedDirectChaseDevLabPreset():DevLabPresetV1{
   };
 }
 
+/**
+ * CC2-07A — provisional energetic default, NOT final difficulty.
+ * The previous expanded Direct Chase is preserved as a separate preset.
+ * The ratio is intentional: Spark is 23% faster, Pursuer nearly 2x faster.
+ * Upward-biased public-tower patrol fixes the long initial-basement search
+ * without hidden Spark coordinates or instant teleporting to the player.
+ */
+export function energeticClimbDevLabPreset():DevLabPresetV1{
+  const p=spacedDirectChaseDevLabPreset();
+  return {
+    ...p,
+    learner:{...p.learner,circuitSpeedPerTick:24,
+      hopTicks:16,returnTicks:13},
+    pursuer:{...p.pursuer,
+      searchStrategy:'ascending',
+      nearSenseRadius:340,clearSightRadius:540,
+      trailSenseRadius:165,trailLifetimeTicks:600,
+      staleContactTicks:90,speedSearch:4.8,speedPursuit:6.0,
+      spawnRowsBelow:2},
+    personality:{...p.personality!,noticeTicks:0},
+  };
+}
+
 export function validateDevLabPreset(input:unknown):DevLabPresetV1 {
   if (!input || typeof input!=='object' || Array.isArray(input))
     throw Error('CC2_DEV_PRESET_NOT_OBJECT');
