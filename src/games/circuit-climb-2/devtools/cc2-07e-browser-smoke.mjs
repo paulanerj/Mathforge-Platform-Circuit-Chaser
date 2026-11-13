@@ -84,6 +84,19 @@ try{
       viewport.width+'px: readable source-backed threat status visible');
     check(await page.locator('#downloadPlaytest').count()===1,
       viewport.width+'px: one-click session diagnostic export is accessible');
+    if(viewport.width<=650){
+      const labelRects=await page.evaluate(()=>{
+        const title=document.querySelector('.threat-head').getBoundingClientRect();
+        const value=document.querySelector('.threat-range').getBoundingClientRect();
+        const rail=document.querySelector('.threat-rail').getBoundingClientRect();
+        return {titleBottom:title.bottom,valueTop:value.top,
+          valueBottom:value.bottom,railTop:rail.top};
+      });
+      check(labelRects.titleBottom<=labelRects.valueTop+1 &&
+        labelRects.valueBottom<=labelRects.railTop+1,
+        viewport.width+'px: radar status, distance and bar never overlap');
+    }
+
 
     const patrol=await page.evaluate(()=>{
       const api=window.__CC2_02A__;
