@@ -312,14 +312,16 @@
        A dedicated phone landscape breakpoint avoids horizontal clipping. */
     .board{height:clamp(590px,calc(100dvh - 105px),980px);}
     .choice{min-height:50px;}
-    .status-wrap{position:sticky;bottom:0;z-index:10}
+    .status-wrap{position:relative;bottom:auto;z-index:auto}
     @media(max-width:650px){
       .shell{padding-bottom:calc(12px + env(safe-area-inset-bottom))}
       .board{height:clamp(495px,calc(100svh - 90px),850px)}
-      .controls{position:sticky;bottom:0;z-index:12;
+      /* No sticky stage overlay: both bars follow the full canvas in flow.
+         Owner must see the entire Spark route and lower tier warning. */
+      .controls{position:relative;bottom:auto;z-index:auto;
         background:#071b28ed;padding:6px 3px;border-radius:13px;
         border:1px solid #64999e33;margin:7px 0;}
-      .status-wrap{bottom:56px}
+      .status-wrap{position:relative;bottom:auto}
       .choice{min-height:49px}
     }
     @media(max-width:400px){
