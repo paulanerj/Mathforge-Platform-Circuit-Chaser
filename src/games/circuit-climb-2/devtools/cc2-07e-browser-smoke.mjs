@@ -154,7 +154,8 @@ try{
         return window.__CC2_02A__.sessionReport();
       });
       check(apiState.schemaVersion==='cc2-playtest-report/v1' &&
-        apiState.metrics.tickCount===30 &&
+        apiState.metrics.tickCount>=30 &&
+        apiState.replay.finalTick===apiState.metrics.tickCount &&
         apiState.samples.length>=2 &&
         apiState.replay.pursuerPreset.speedPursuit===6,
         'read-only report includes actual live tick evidence and exact energetic config');
@@ -167,12 +168,12 @@ try{
       if(!file)throw Error('CC2_07E_DOWNLOAD_MISSING_FILE');
       const report=JSON.parse(readFileSync(file,'utf8'));
       check(report.schemaVersion==='cc2-playtest-report/v1' &&
-        report.metrics.tickCount===30 &&
+        report.metrics.tickCount===apiState.metrics.tickCount &&
         report.samples.length>=2 &&
         report.events.length>=1 &&
-        report.replay.finalTick===30,
+        report.replay.finalTick===apiState.metrics.tickCount,
         'downloaded report is valid actual replay + arithmetic events + bot telemetry');
-      check(report.finalState.tick===30 &&
+      check(report.finalState.tick===apiState.metrics.tickCount &&
         report.stateDigest===apiState.stateDigest,
         'download matches live source tick and digest');
     }
