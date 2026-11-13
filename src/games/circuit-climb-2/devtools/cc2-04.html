@@ -393,9 +393,13 @@
     @media(max-width:650px){
       .threat-radar{grid-template-columns:minmax(0,1fr) auto;
         row-gap:5px;padding:7px 10px;font-size:9px;}
-      .threat-head{min-width:0}
-      .threat-rail{grid-row:2;grid-column:1 / -1}
-      .threat-range{font-size:9px}
+      /* The longer SEARCH / LOCKED label gets its own readable row on
+         narrow screens. Do not allow the true distance text to overlap. */
+      .threat-head{grid-row:1;grid-column:1 / -1;min-width:0;
+        white-space:normal}
+      .threat-range{grid-row:2;grid-column:1 / -1;
+        text-align:left;font-size:9px;white-space:normal}
+      .threat-rail{grid-row:3;grid-column:1 / -1}
       .pace-export{flex:1}
     }
     @media(max-width:350px){.threat-range{font-size:8px}}
