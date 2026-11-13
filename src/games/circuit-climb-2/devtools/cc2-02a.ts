@@ -34,6 +34,7 @@ import {
   type FeedbackPresetV1,type FeedbackCueId,
 } from '../presentation/feedback';
 import {CircuitClimbFeedbackAudio} from './feedbackAudio';
+import {paceProfile,PACE_LABELS,type PaceProfileId} from '../config/paceProfiles';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#worldCanvas')!;
 const board = document.querySelector<HTMLElement>('#board')!;
@@ -86,6 +87,9 @@ const threatIndicator=document.querySelector<HTMLElement>('#threatIndicator');
 const threatText=document.querySelector<HTMLElement>('#threatText');
 const soundToggle=document.querySelector<HTMLButtonElement>('#soundToggle');
 const testSound=document.querySelector<HTMLButtonElement>('#testSound');
+const paceSelection=document.querySelector<HTMLSelectElement>('#paceProfile');
+const applyPace=document.querySelector<HTMLButtonElement>('#applyPace');
+const paceDescription=document.querySelector<HTMLElement>('#paceDescription');
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const audio=new CircuitClimbFeedbackAudio();
 const context = canvas.getContext('2d')!;
@@ -1215,6 +1219,26 @@ function liveCameraChange():void {
 }
 if(cameraZoomInput)cameraZoomInput.oninput=liveCameraChange;
 if(cameraFollowInput)cameraFollowInput.onchange=liveCameraChange;
+// Profiles have a constant experiment seed. One-click selection always
+// creates a fresh source-owned run; timing changes do not happen mid-flight.
+if(applyPace)applyPace.onclick=()=>{
+  try{
+    const profile=(paceSelection?.value??'energetic') as PaceProfileId;
+    const test=paceProfile(profile);
+    loadLabPreset(test);
+    beginNewRun();
+    if(paceDescription)paceDescription.textContent=
+      PACE_LABELS[profile]+' · Spark '+test.learner.circuitSpeedPerTick+
+      ' / bot SEARCH '+test.pursuer.speedSearch+
+      ' / CHASE '+test.pursuer.speedPursuit+
+      ' · spawn '+test.pursuer.spawnRowsBelow+' tiers below';
+    labMessage('Pace profile '+PACE_LABELS[profile]+
+      ' selected; new deterministic run from seed '+seedInput.value.trim()+'.');
+  }catch(error){
+    labMessage('Pace profile rejected: '+
+      String(error instanceof Error?error.message:error),true);
+  }
+};
 if(applyTuning)applyTuning.onclick=()=>{
   const prior=engine;
   beginNewRun();
@@ -1224,6 +1248,9 @@ if(resetTuning)resetTuning.onclick=()=>{
   const base=energeticClimbDevLabPreset();
   loadLabPreset(base);
   beginNewRun();
+  if(paceSelection)paceSelection.value='energetic';
+  if(paceDescription)paceDescription.textContent=
+    'ENERGETIC · default chase · Spark 24 / bot SEARCH 4.8 / CHASE 6.0 · 2-row spawn';
   labMessage('Energetic Chase default: 1.5× rows; Spark 24; Pursuer 4.8/6.0 with ascending search.');
 };
 if(exportPreset)exportPreset.onclick=()=>{
@@ -1232,7 +1259,7 @@ if(exportPreset)exportPreset.onclick=()=>{
     if(presetData)presetData.value=payload;
     const url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
     const link=document.createElement('a');
-    link.href=url;link.download='cc2-05b-living-pursuer-preset.json';link.click();
+    link.href=url;link.download='cc2-07b-playtest-pace-preset.json';link.click();
     URL.revokeObjectURL(url);
     labMessage('Validated versioned tuning preset exported. Paste its JSON here to restore.');
   }catch(error){
