@@ -1456,7 +1456,7 @@ document.addEventListener('visibilitychange', () => {
   advanceForQA: (ticks:number) => {
     if(!manualQA)throw new Error('QA_MANUAL_MODE_REQUIRED');
     engine.advanceTicks(ticks);
-    sessionRecorder.observe(engine.snapshot(),engine.bot());
+    sessionRecorder.observe(engine.snapshot(),engine.bot(),true);
     draw();
     return engine.snapshot();
   },
