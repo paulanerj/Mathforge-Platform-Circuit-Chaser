@@ -72,7 +72,9 @@ export function resolveWorldGeometry(config: RunConfigV1): ResolvedWorldGeometry
     platformWidth: BASE.platformWidth * (0.98 + 0.02 * zoom),
     platformHeight: BASE.platformHeight * Math.pow(zoom, 0.48),
     playerRadius: BASE.playerRadius * zoom,
-    rowGap: BASE.rowGap * zoom,
+    // CC2-06B: actual physical tier separation, not a CSS stretch. Player,
+    // route planner, Pursuer graph, landing and replay share this one value.
+    rowGap: BASE.rowGap * zoom * (config.rowGapScale ?? 1),
     routePlatformPadding: BASE.routePlatformPadding,
     routeTurnCount: config.routeTurns,
     routeMaxStraightRun: 72 * zoom,
