@@ -48,6 +48,14 @@ try{
       viewport.width+'px: curious personality active in real Pursuer');
     check(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),
       viewport.width+'px: no horizontal overflow');
+    const unobscured=await page.evaluate(()=>{
+      const board=document.querySelector('#board').getBoundingClientRect();
+      const status=document.querySelector('.status-wrap').getBoundingClientRect();
+      const controls=document.querySelector('.controls').getBoundingClientRect();
+      return status.top>=board.bottom-2 && controls.top>=status.bottom-2;
+    });
+    check(unobscured,viewport.width+
+      'px: status/action bars never overlay physical gameplay canvas');
     check(errors.length===0,viewport.width+'px: no browser script errors');
     const boxes=await page.locator('.choice').evaluateAll(nodes=>
       nodes.filter(node=>!node.hidden).map(node=>{
