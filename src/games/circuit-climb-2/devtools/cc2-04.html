@@ -332,6 +332,37 @@
       .shell{padding-top:6px}
       .disclaimer{margin-bottom:5px}
     }
+
+    /* CC2-07B: simple, accessible, low-height A/B pace selector.
+       No sticky surfaces over the playable board and no animation lock. */
+    .pace-strip{border:1px solid #789ca740;border-radius:12px;
+      padding:10px 12px;margin:9px 0 12px;
+      background:linear-gradient(125deg,#122b3b,#0b2433);}
+    .pace-heading{display:flex;gap:11px;align-items:center;flex-wrap:wrap}
+    .pace-heading>div{min-width:145px;flex:1}
+    .pace-heading strong{display:block;color:#c8f9ea;
+      font-size:11px;letter-spacing:.12em}
+    .pace-heading span{display:block;color:#8eaab8;font-size:10px}
+    .pace-label{font-size:10px;color:#c8d9df;display:flex;
+      flex-direction:column;gap:3px;min-width:175px;flex:1}
+    .pace-label select{min-height:38px;border-radius:9px;color:#edffff;
+      background:#18394b;border:1px solid #6e9dab77;padding:7px 8px}
+    .pace-apply{min-height:40px;border-radius:9px;
+      background:linear-gradient(130deg,#285c5b,#185048);
+      border:1px solid #8bcdc8;color:#ecfff9;font-weight:750;
+      font-size:12px;padding:8px 13px;cursor:pointer;}
+    .pace-apply:focus-visible{outline:3px solid #c7efda}
+    .pace-description{font-size:10px;color:#a9d5d4;margin:7px 0 0}
+    @media(max-width:480px){
+      .pace-heading>div{flex:0 0 100%}
+      .pace-label{min-width:154px}
+      .pace-apply{align-self:flex-end;min-width:111px;padding:7px}
+    }
+    @media(max-width:350px){
+      .pace-heading{gap:5px}
+      .pace-label{min-width:100%}
+      .pace-apply{width:100%}
+    }
   </style>
 </head>
 <body data-pursuer="on" data-features="on" data-summary="on">
@@ -342,9 +373,9 @@
         <div class="brand-type"><div class="brand-eyebrow">MATHFORGE <span> / WORLD 03</span></div>
           <h1>Circuit <em>Climb</em></h1></div>
       </div>
-      <span class="phase">CC2-07A · ENERGETIC CHASE</span>
+      <span class="phase">CC2-07B · PLAYTEST PACE LAB</span>
     </div>
-    <p class="disclaimer"><span class="live-indicator" aria-hidden="true"></span> EXPANDED TOWER · FASTER SPARK · ASCENDING PURSUER <span class="tagline-note">· Choose the correct path. Stay ahead.</span></p>
+    <p class="disclaimer"><span class="live-indicator" aria-hidden="true"></span> EXPANDED TOWER · THREE TEST PACES · ASCENDING PURSUER <span class="tagline-note">· Choose the correct path. Stay ahead.</span></p>
     <section class="hud" aria-label="Mathematics and progress">
       <div class="hud-primary"><div id="equation" role="status" aria-live="polite">Loading…</div></div>
       <div id="height">ROW 0<br>BOT SEARCH</div>
@@ -378,6 +409,20 @@
       <button class="action" id="restart" type="button">New run</button>
       <button class="action audio-control" id="soundToggle" type="button" aria-pressed="true">Sound: On</button>
     </div>
+    <section class="pace-strip" aria-label="Choose a game speed for repeatable playtests">
+      <div class="pace-heading">
+        <div><strong>CHASE PACE</strong><span>Change speed without changing the math seed</span></div>
+        <label for="paceProfile" class="pace-label">Test profile
+          <select id="paceProfile" aria-label="Pursuer and Spark pace">
+            <option value="training">Warm-up · easier to escape</option>
+            <option value="energetic" selected>Energetic · current default</option>
+            <option value="intense">Intense · closer, faster threat</option>
+          </select>
+        </label>
+        <button id="applyPace" type="button" class="pace-apply">Start pace test</button>
+      </div>
+      <p id="paceDescription" class="pace-description" role="status">Energetic · Spark 24 / bot SEARCH 4.8 / CHASE 6.0 · 2-row spawn</p>
+    </section>
     <details class="dev-controls">
       <summary>Developer settings · seed, framing and movement</summary>
       <p class="dev-note">This is a test candidate. Settings change starts a fresh run. Make target: platform = amount to ADD. Skip count: platform = NEXT EVEN TOTAL. Running addition: carries its solved total until the four-row recharge. Run reports contain source-owned events and deterministic replay.</p>
