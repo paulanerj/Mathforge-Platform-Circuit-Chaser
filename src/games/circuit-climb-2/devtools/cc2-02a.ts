@@ -18,6 +18,7 @@ import {defaultFeatureConfig} from '../features/progression';
 import {defaultLearnerMotionPreset,type LearnerMotionPresetV1} from '../config/learnerMotionPreset';
 import {
   defaultDevLabPreset,intermediateDevLabPreset,
+  spacedDirectChaseDevLabPreset,
   validateCameraView,validateDevLabPreset,
   exportDevLabPreset,importDevLabPreset,
   type DevLabPresetV1,type CameraViewPresetV1,
@@ -158,8 +159,8 @@ function makeSurfaceEngine(
   };
 }
 let engine:SurfaceEngine=makeSurfaceEngine(seedInput.value);
-let cameraView:CameraViewPresetV1={...intermediateDevLabPreset().camera};
-let appliedLabPreset:DevLabPresetV1=intermediateDevLabPreset();
+let cameraView:CameraViewPresetV1={...spacedDirectChaseDevLabPreset().camera};
+let appliedLabPreset:DevLabPresetV1=spacedDirectChaseDevLabPreset();
 let currentFeedback:FeedbackPresetV1=defaultFeedbackPreset();
 let activeCue:{id:FeedbackCueId;until:number;started:number}|null=null;
 let previousBotEmotion:PursuerEmotionV1|null=null;
@@ -173,6 +174,11 @@ let viewportCoverage={above:0,below:0};
 let logicalHeight = 800;
 let lastTime = 0;
 let accumulator = 0;
+// Render-only interpolation: each animation frame can draw between the two
+// latest 60Hz simulation samples. Core state and replay remain untouched.
+let sparkBeforeTick:{x:number;y:number;tick:number}|null=null;
+let sparkAfterTick:{x:number;y:number;tick:number}|null=null;
+let latestVisibleSpark={x:300,y:0};
 let currentProblemId = '';
 let previousEventCount = 0;
 let previousFeatureEventCount = 0;
@@ -217,6 +223,7 @@ function configFromControls():RunConfigV1 {
     mode:(modeSelect?.value as RunConfigV1['mode'])??defaultRunConfig().mode,
     curriculum:(curriculumSelect?.value as RunConfigV1['curriculum'])??defaultRunConfig().curriculum,
     framingPercent:Number(framingSelect.value),
+    rowGapScale:numericControl('rowGapScale'),
     movement:movementSelect.value as RunConfigV1['movement'],
     routeTurns:numericControl('routeTurns') as RunConfigV1['routeTurns'],
     transitShield:boolControl('transitShield'),
@@ -271,6 +278,7 @@ function loadLabPreset(preset:DevLabPresetV1):void {
   const p=validateDevLabPreset(preset);
   const fields:Record<string,number>={
     framing:p.run.framingPercent,routeTurns:p.run.routeTurns,
+    rowGapScale:p.run.rowGapScale??1,
     landingGraceTicks:p.run.landingGraceTicks,
     ...{
       circuitSpeedPerTick:p.learner.circuitSpeedPerTick,
@@ -602,6 +610,17 @@ function roundedRect(x: number, y: number, width: number, height: number, radius
 
 function draw(): void {
   const state = engine.snapshot();
+  const canInterpolate=!manualQA&&!state.paused&&state.phase!=='ended'&&
+    sparkBeforeTick!==null&&sparkAfterTick!==null&&
+    sparkAfterTick.tick===state.tick&&
+    sparkAfterTick.tick===sparkBeforeTick.tick+1;
+  const alpha=canInterpolate?
+    Math.max(0,Math.min(1,accumulator/(1000/60))):1;
+  const visibleSpark=canInterpolate?{
+    x:sparkBeforeTick!.x+(sparkAfterTick!.x-sparkBeforeTick!.x)*alpha,
+    y:sparkBeforeTick!.y+(sparkAfterTick!.y-sparkBeforeTick!.y)*alpha,
+  }:state.spark;
+  latestVisibleSpark={x:visibleSpark.x,y:visibleSpark.y};
   const g = state.world.geometry;
   const features = featuresEnabled ? engine.features() : null;
   fitCanvas();
@@ -612,7 +631,7 @@ function draw(): void {
   productionFrame=computeProductionCamera({
     logicalWidth:600,logicalHeight,rowGap:g.rowGap,
     platformHeight:g.platformHeight,columns:g.columns,
-    sparkY:state.spark.y,previousCameraY:cameraY,
+    sparkY:visibleSpark.y,previousCameraY:cameraY,
     maxZoom:cameraView.zoom,follow:cameraView.follow,
   });
   const zoom=productionFrame.yScale;
@@ -804,7 +823,11 @@ function draw(): void {
     for (const p of pts.slice(1)) context.lineTo(p.x, worldY(p.y));
     context.stroke();
 
-    let remaining = state.travel.distance;
+    // Draw the lit route up to the same SUB-TICK position as the orb.
+    // Previously the glow raced up to one full physics tick ahead of Spark,
+    // making the travel path appear disconnected/choppy on high-Hz displays.
+    let remaining=Math.max(0,state.travel.distance-
+      (canInterpolate?appliedLabPreset.learner.circuitSpeedPerTick*(1-alpha):0));
     context.beginPath();
     context.moveTo(pts[0].x, worldY(pts[0].y));
     for (let i = 1; i < pts.length; i += 1) {
@@ -951,21 +974,21 @@ function draw(): void {
   context.strokeStyle = '#a4edff';
   context.lineWidth = 3;
   context.beginPath();
-  context.ellipse(state.spark.x,worldY(state.spark.y),
+  context.ellipse(visibleSpark.x,worldY(visibleSpark.y),
     sparkVisualRadiusX,sparkVisualRadiusY,0,0,Math.PI*2);
   context.fill();
   context.stroke();
   context.restore();
-  drawWorldLabel(String(state.spark.value),state.spark.x,
-    worldY(state.spark.y),canvas.clientWidth<500?20:23,
+  drawWorldLabel(String(state.spark.value),visibleSpark.x,
+    worldY(visibleSpark.y),canvas.clientWidth<500?20:23,
     '#f4ffff','800');
   if (state.travel?.kind === 'outbound') {
     const option = findPlatform(state.world, state.travel.platformId);
     if (option?.value !== null && option?.value !== undefined) {
       // The selected addend accompanies the blue Spark and reinforces why
       // the new result will only be carried after a correct landing.
-      const x=state.spark.x+sparkVisualRadiusX+14;
-      const y=worldY(state.spark.y)-sparkVisualRadiusY-4;
+      const x=visibleSpark.x+sparkVisualRadiusX+14;
+      const y=worldY(visibleSpark.y)-sparkVisualRadiusY-4;
       drawWorldLabel((state.currentProblem.operation==='skip-count-by-2'?'→':'+')
         +option.value,x,y,canvas.clientWidth<500?15:19,'#e8fff6');
     }
@@ -978,7 +1001,7 @@ function draw(): void {
       const cue=CUE_CATALOG[activeCue.id];
       const fade=Math.max(0,1-(now-activeCue.started)/
         Math.max(1,activeCue.until-activeCue.started));
-      const point=cue.target==='pursuer'?engine.bot()?.body:state.spark;
+      const point=cue.target==='pursuer'?engine.bot()?.body:visibleSpark;
       if(point){
         const r=cue.target==='pursuer'?botVisualRadius:sparkVisualRadius;
         const extra=reducedMotion?5:(1-fade)*28*currentFeedback.vfxIntensity;
@@ -1006,7 +1029,8 @@ function draw(): void {
     ? `Count by 2: ${state.currentProblem.incomingValue} → ?`
     : `${state.currentProblem.incomingValue} + ? = ${state.currentProblem.targetValue}`;
   if(viewReadout){
-    viewReadout.textContent='SIGHTLINE · 2 ROWS ABOVE / 2 BELOW · vertical fit '+
+    viewReadout.textContent='SIGHTLINE · 2 ROWS ABOVE / 2 BELOW · '+
+      (state.world.geometry.rowGap/205).toFixed(2)+'× REAL GAP · vertical fit '+
       Math.round(effectiveCameraZoom*100)+'% · user maximum '+
       Math.round(cameraView.zoom*100)+'%';
   }
@@ -1160,6 +1184,7 @@ function beginNewRun(): void {
   fitCanvas();
   cameraY=engine.snapshot().spark.y-logicalHeight/(2*effectiveCameraZoom);
   accumulator = 0;
+  sparkBeforeTick=null;sparkAfterTick=null;
   lastTime = performance.now();
   updateMessage();
   draw();
@@ -1193,10 +1218,10 @@ if(applyTuning)applyTuning.onclick=()=>{
   if(engine!==prior)labMessage('Validated tuning applied. New run started; replay includes source-owned learner and pursuer presets.');
 };
 if(resetTuning)resetTuning.onclick=()=>{
-  const base=intermediateDevLabPreset();
+  const base=spacedDirectChaseDevLabPreset();
   loadLabPreset(base);
   beginNewRun();
-  labMessage('Intermediate curious Pursuer restored (search 1.44, pursuit 2.28).');
+  labMessage('Expanded Direct Chase restored: 1.5× rows; Spark 19.5; Pursuer 2.20/3.10.');
 };
 if(exportPreset)exportPreset.onclick=()=>{
   try{
@@ -1314,6 +1339,8 @@ document.addEventListener('visibilitychange', () => {
     effectiveZoom:effectiveCameraZoom,follow:cameraView.follow,
     previewRowsRendered,cameraY,viewportCoverage,cameraRowGap,
     horizontalCameraScale,
+    visualSparkPosition:{...latestVisibleSpark},
+    sourceSparkPosition:{...engine.snapshot().spark},
     framingPercent:engine.snapshot().world.geometry.rowGap}),
   pursuer: () => engine.bot(),
   features: () => engine.features(),
@@ -1336,7 +1363,11 @@ function frame(time: number): void {
   lastTime = time;
   let steps = 0;
   while (!manualQA && accumulator >= 1000 / 60 && steps < 6) {
+    const before=engine.snapshot();
     engine.advanceTicks(1);
+    const after=engine.snapshot();
+    sparkBeforeTick={x:before.spark.x,y:before.spark.y,tick:before.tick};
+    sparkAfterTick={x:after.spark.x,y:after.spark.y,tick:after.tick};
     accumulator -= 1000 / 60;
     steps += 1;
   }
@@ -1346,6 +1377,6 @@ function frame(time: number): void {
   requestAnimationFrame(frame);
 }
 
-loadLabPreset(intermediateDevLabPreset());
+loadLabPreset(spacedDirectChaseDevLabPreset());
 beginNewRun();
 requestAnimationFrame(frame);

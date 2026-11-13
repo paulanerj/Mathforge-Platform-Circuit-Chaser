@@ -11,6 +11,8 @@ export interface RunConfigV1 {
   curriculum: 'add20' | 'makeTarget20' | 'skip2to10';
   movement: 'circuit' | 'hop';
   framingPercent: number; // all integer percentages from 80 through 120
+  /** Optional CC2-06B extension. Legacy runs omit it and preserve 1.0 geometry. */
+  rowGapScale?: number; // exactly 1.0 (legacy) or 1.5 (expanded climb)
   routeTurns: 6 | 8 | 10 | 12;
   transitShield: boolean;
   landingGraceTicks: number;
@@ -34,7 +36,10 @@ export function validateRunConfig(value: unknown): RunConfigV1 {
     throw new Error('CONFIG_NOT_OBJECT');
   }
   const input = value as Record<string, unknown>;
-  if (Object.keys(input).sort().join('|') !== keys.join('|')) {
+  // Preserve every historical V1 field and hash while allowing ONLY the
+  // explicitly versioned CC2-06B row-spacing extension.
+  const inputKeys=Object.keys(input).filter(key=>key!=='rowGapScale').sort();
+  if (inputKeys.join('|') !== keys.join('|')) {
     throw new Error('CONFIG_UNKNOWN_OR_MISSING_FIELDS');
   }
   if (input.schemaVersion !== 'cc2-run-config/v1') throw new Error('CONFIG_UNSUPPORTED_VERSION');
@@ -46,6 +51,8 @@ export function validateRunConfig(value: unknown): RunConfigV1 {
       (input.framingPercent as number) > 120) {
     throw new Error('CONFIG_UNSAFE_FRAMING');
   }
+  if (input.rowGapScale!==undefined && input.rowGapScale!==1 &&
+      input.rowGapScale!==1.5) throw new Error('CONFIG_INVALID_ROW_SPACING');
   if (![6, 8, 10, 12].includes(input.routeTurns as number)) throw new Error('CONFIG_INVALID_TURNS');
   if (typeof input.transitShield !== 'boolean') throw new Error('CONFIG_INVALID_TRANSIT_SHIELD');
   if (!Number.isInteger(input.landingGraceTicks) ||
@@ -58,7 +65,11 @@ export function validateRunConfig(value: unknown): RunConfigV1 {
 
 /** FNV-1a 32-bit digest: adequate for deterministic provenance, not a security signature. */
 export function configHash(value: RunConfigV1): string {
-  const serialized = keys.map(key => `${key}=${JSON.stringify(value[key as keyof RunConfigV1])}`).join(';');
+  const historical=keys.map(key => `${key}=${JSON.stringify(value[key as keyof RunConfigV1])}`).join(';');
+  // Do not change old replay hashes merely by supporting a new optional field.
+  // Expanded geometry is distinct and included in the digest when supplied.
+  const serialized=value.rowGapScale===undefined?historical:
+    historical+`;rowGapScale=${JSON.stringify(value.rowGapScale)}`;
   let h = 2166136261;
   for (const char of serialized) {
     h ^= char.charCodeAt(0);

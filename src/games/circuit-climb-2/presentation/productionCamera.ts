@@ -43,10 +43,16 @@ export function computeProductionCamera(v:ProductionCameraInput):ProductionCamer
   }
   const laneGap=(v.columns[2]-v.columns[0])/2;
   const xScale=(v.logicalWidth*LANE_DISTANCE_FRACTION)/laneGap;
-  // Includes platform height and a visual margin, not just row centerlines.
+  // CC2-06C: preserve two entire levels each way, but reserve an extra
+  // 0.8 tier of tracking headroom. Without this buffer the camera snaps
+  // perfectly onto Spark on every physics tick and creates a "teleporting
+  // platforms" illusion even while source-owned Spark moves continuously.
+  // With a bounded follow lag, Spark visibly moves inside its own viewport.
   const desiredSpan=2*MIN_VISIBLE_ROWS_EACH_SIDE*v.rowGap+
     v.platformHeight+96;
-  const yScale=Math.max(0.10,Math.min(v.maxZoom,v.logicalHeight/desiredSpan));
+  const trackingHeadroom=0.8*v.rowGap;
+  const yScale=Math.max(0.10,Math.min(v.maxZoom,
+    v.logicalHeight/(desiredSpan+trackingHeadroom)));
   const idealCameraY=v.sparkY-v.logicalHeight/(2*yScale);
   const spare=Math.max(0,(v.logicalHeight/yScale-desiredSpan)/2);
   const proposed=v.previousCameraY+

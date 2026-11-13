@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>MathForge — Circuit Climb | Production Visual Concept</title>
+  <title>MathForge Circuit Climb — CC2-06D Expanded Tower / Smooth Chase</title>
   <style>
     :root { color-scheme:dark; font: 14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; --ink:#e9f6fd; --muted:#a0b7c9; --edge:rgba(132,197,232,.25); background:#08131f; }
     * { box-sizing:border-box; }
@@ -304,6 +304,34 @@
       #height{min-width:78px;font-size:9px}
       #rowKind,#modeBadge,#curriculumBadge,.cell-progress,.energy{font-size:8.5px}
     }
+
+    /* CC2-06C: make actual expanded geometry visible, not merely shrink
+       the entire world again to fit the same old board height. A taller
+       responsive board with overflow-safe page scroll preserves 2+2 tiers.
+       On 320px phones, the first playable row remains visible above the fold.
+       A dedicated phone landscape breakpoint avoids horizontal clipping. */
+    .board{height:clamp(590px,calc(100dvh - 105px),980px);}
+    .choice{min-height:50px;}
+    .status-wrap{position:relative;bottom:auto;z-index:auto}
+    @media(max-width:650px){
+      .shell{padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+      .board{height:clamp(495px,calc(100svh - 90px),850px)}
+      /* No sticky stage overlay: both bars follow the full canvas in flow.
+         Owner must see the entire Spark route and lower tier warning. */
+      .controls{position:relative;bottom:auto;z-index:auto;
+        background:#071b28ed;padding:6px 3px;border-radius:13px;
+        border:1px solid #64999e33;margin:7px 0;}
+      .status-wrap{position:relative;bottom:auto}
+      .choice{min-height:49px}
+    }
+    @media(max-width:400px){
+      .board{height:clamp(490px,calc(100svh - 77px),740px)}
+    }
+    @media(orientation:landscape) and (max-height:520px){
+      .board{height:clamp(430px,100svh,690px)}
+      .shell{padding-top:6px}
+      .disclaimer{margin-bottom:5px}
+    }
   </style>
 </head>
 <body data-pursuer="on" data-features="on" data-summary="on">
@@ -314,9 +342,9 @@
         <div class="brand-type"><div class="brand-eyebrow">MATHFORGE <span> / WORLD 03</span></div>
           <h1>Circuit <em>Climb</em></h1></div>
       </div>
-      <span class="phase">PRODUCTION LOOK · CONCEPT 01</span>
+      <span class="phase">CC2-06D · EXPANDED TOWER</span>
     </div>
-    <p class="disclaimer"><span class="live-indicator" aria-hidden="true"></span> A mathematical chase through the circuit tower <span class="tagline-note">· Choose the correct path. Stay ahead.</span></p>
+    <p class="disclaimer"><span class="live-indicator" aria-hidden="true"></span> EXPANDED TOWER · 1.5× TIER GAP · SMOOTH SPARK · DIRECT CHASE <span class="tagline-note">· Choose the correct path. Stay ahead.</span></p>
     <section class="hud" aria-label="Mathematics and progress">
       <div class="hud-primary"><div id="equation" role="status" aria-live="polite">Loading…</div></div>
       <div id="height">ROW 0<br>BOT SEARCH</div>
@@ -338,7 +366,7 @@
       <div id="mathWorking" class="math-working" role="status" aria-live="polite" hidden></div>
       <div class="choices" id="choices" aria-label="Choose a numbered destination"></div>
     </section>
-    <div class="view-readout" id="viewReadout" role="status">SIGHTLINE · 2 ROWS UP / 2 ROWS DOWN</div>
+    <div class="view-readout" id="viewReadout" role="status">2 UP / 2 DOWN · 1.5× PHYSICAL ROW GAP</div>
     <div class="status-wrap">
       <div id="status" class="status" role="status" aria-live="polite">Choose the number that completes the sum.</div>
       <div id="cellNotice" class="cell-notice" role="status" aria-live="polite" hidden></div>
@@ -386,6 +414,9 @@
       <fieldset class="lab-group">
         <legend>Spark · movement and travel</legend>
         <div class="lab-grid">
+          <label>Physical row spacing (legacy 1× · expanded 1.5×)
+            <select id="rowGapScale"><option value="1">1× · Legacy</option><option value="1.5" selected>1.5× · Expanded</option></select>
+          </label>
           <label>Circuit speed / tick (1–50)
             <input id="circuitSpeedPerTick" type="number" min="1" max="50" step="1" value="16">
           </label>

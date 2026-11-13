@@ -80,6 +80,34 @@ export function intermediateDevLabPreset():DevLabPresetV1{
   };
 }
 
+/**
+ * CC2-06B→06D owner-controlled production candidate.
+ * R2 verified Direct Chase is preserved; the actual physical row gap grows
+ * from 205 to 307.5 at 100% framing, and the learner's circuit speed drops
+ * by exactly 25% from 26 to 19.5 world units per 60Hz tick.
+ *
+ * This is an isolated opt-in preset. Historical default/replay semantics
+ * remain unchanged for existing tests and accepted source.
+ */
+export function spacedDirectChaseDevLabPreset():DevLabPresetV1{
+  const p=intermediateDevLabPreset();
+  return {
+    ...p,
+    run:{...p.run,rowGapScale:1.5},
+    learner:{...p.learner,circuitSpeedPerTick:19.5,
+      hopTicks:19,returnTicks:16},
+    pursuer:{...p.pursuer,
+      nearSenseRadius:230,clearSightRadius:380,
+      trailSenseRadius:125,trailLifetimeTicks:480,
+      staleContactTicks:60,speedSearch:2.20,speedPursuit:3.10,
+      spawnRowsBelow:3},
+    personality:{...curiousPursuerPersonality(),
+      hesitationChance:0,hesitationMinTicks:0,
+      hesitationMaxTicks:0,noticeTicks:5,
+      detourChance:0,detourTicks:0,frustrationTicks:25},
+  };
+}
+
 export function validateDevLabPreset(input:unknown):DevLabPresetV1 {
   if (!input || typeof input!=='object' || Array.isArray(input))
     throw Error('CC2_DEV_PRESET_NOT_OBJECT');
