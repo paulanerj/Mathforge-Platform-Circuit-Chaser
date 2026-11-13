@@ -823,7 +823,11 @@ function draw(): void {
     for (const p of pts.slice(1)) context.lineTo(p.x, worldY(p.y));
     context.stroke();
 
-    let remaining = state.travel.distance;
+    // Draw the lit route up to the same SUB-TICK position as the orb.
+    // Previously the glow raced up to one full physics tick ahead of Spark,
+    // making the travel path appear disconnected/choppy on high-Hz displays.
+    let remaining=Math.max(0,state.travel.distance-
+      (canInterpolate?appliedLabPreset.learner.circuitSpeedPerTick*(1-alpha):0));
     context.beginPath();
     context.moveTo(pts[0].x, worldY(pts[0].y));
     for (let i = 1; i < pts.length; i += 1) {
