@@ -35,6 +35,8 @@ import {
 } from '../presentation/feedback';
 import {CircuitClimbFeedbackAudio} from './feedbackAudio';
 import {paceProfile,PACE_LABELS,type PaceProfileId} from '../config/paceProfiles';
+import {SessionTelemetry07C} from './sessionTelemetry07C';
+import {classifyThreat} from '../presentation/threatRadar07D';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#worldCanvas')!;
 const board = document.querySelector<HTMLElement>('#board')!;
@@ -90,6 +92,11 @@ const testSound=document.querySelector<HTMLButtonElement>('#testSound');
 const paceSelection=document.querySelector<HTMLSelectElement>('#paceProfile');
 const applyPace=document.querySelector<HTMLButtonElement>('#applyPace');
 const paceDescription=document.querySelector<HTMLElement>('#paceDescription');
+const downloadPlaytest=document.querySelector<HTMLButtonElement>('#downloadPlaytest');
+const threatRadar=document.querySelector<HTMLElement>('.threat-radar');
+const threatRadarLabel=document.querySelector<HTMLElement>('#threatRadarLabel');
+const threatRadarDistance=document.querySelector<HTMLElement>('#threatRadarDistance');
+const threatRadarFill=document.querySelector<HTMLElement>('#threatRadarFill');
 const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const audio=new CircuitClimbFeedbackAudio();
 const context = canvas.getContext('2d')!;
@@ -183,6 +190,7 @@ let accumulator = 0;
 let sparkBeforeTick:{x:number;y:number;tick:number}|null=null;
 let sparkAfterTick:{x:number;y:number;tick:number}|null=null;
 let latestVisibleSpark={x:300,y:0};
+const sessionRecorder=new SessionTelemetry07C();
 let currentProblemId = '';
 let previousEventCount = 0;
 let previousFeatureEventCount = 0;
@@ -1047,6 +1055,19 @@ function draw(): void {
         ? `MAKE TARGET · ${state.currentProblem.targetValue}`
         : 'RUNNING ADDITION · TO 20');
   const botHud=engine.bot();
+  // A learner-facing radar reports the ACTUAL current physical separation.
+  // The pursuer's sensing flag is shown separately; the AI never receives
+  // radar data, camera state, or hidden mathematical information.
+  if(botHud && threatRadar && threatRadarFill){
+    const radar=classifyThreat(state.spark,botHud.body,g.rowGap);
+    threatRadar.dataset.threatLevel=radar.level;
+    threatRadarFill.style.width=radar.magnitudePercent+'%';
+    if(threatRadarLabel)threatRadarLabel.textContent=radar.label+
+      (botHud.sensed?' · LOCKED':' · SEARCH');
+    if(threatRadarDistance)threatRadarDistance.textContent=
+      radar.rangeInTiers.toFixed(1)+' TIERS · '+
+      radar.relativeDirection.toUpperCase();
+  }
   // Directional threat information uses only the ACTUAL world position
   // already published to the renderer. It neither moves the bot nor
   // fabricates it on the tower when the bot is more than two levels away.
@@ -1167,6 +1188,8 @@ function beginNewRun(): void {
     next.run,next.learner,next.pursuer,next.personality,
   );
   engine=nextEngine;
+  sessionRecorder.reset();
+  sessionRecorder.observe(engine.snapshot(),engine.bot());
   cameraView=next.camera;
   appliedLabPreset=next;
   currentFeedback=next.feedback!;
@@ -1238,6 +1261,41 @@ if(applyPace)applyPace.onclick=()=>{
     labMessage('Pace profile rejected: '+
       String(error instanceof Error?error.message:error),true);
   }
+};
+/**
+ * Export one self-contained report with exact input replay, physics-backed
+ * positions, a bounded 15-tick sample trace, and math ledger. This button
+ * is a normal user gesture and requires no DevTools/PowerShell.
+ */
+function sessionPayload():object{
+  return {
+    schemaVersion:'cc2-playtest-report/v1',
+    prototype:'CC2-07E',
+    profile:paceSelection?.value??'custom',
+    sourceTimingHz:60,
+    sampleIntervalTicks:15,
+    humanGameTesting:true,
+    display:{width:canvas.clientWidth,height:canvas.clientHeight,
+      reducedMotion},
+    preset:{...appliedLabPreset,camera:cameraView},
+    metrics:sessionRecorder.summary(),
+    samples:sessionRecorder.samples(),
+    replay:engine.replayExport(),
+    stateDigest:engine.stateDigest(),
+    events:engine.eventLog(),
+    finalState:engine.snapshot(),
+    runSummary:engine.summary(),
+  };
+}
+if(downloadPlaytest)downloadPlaytest.onclick=()=>{
+  const payload=JSON.stringify(sessionPayload(),null,2);
+  const url=URL.createObjectURL(new Blob([payload],{type:'application/json'}));
+  const link=document.createElement('a');
+  link.href=url;link.download='CC2-07E-PLAYTEST-REPORT.json';
+  document.body.appendChild(link);
+  link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  labMessage('Session report exported: actual replay, math results, bot route and separation.');
 };
 if(applyTuning)applyTuning.onclick=()=>{
   const prior=engine;
@@ -1380,9 +1438,12 @@ document.addEventListener('visibilitychange', () => {
   feedbackSettings:()=>({...currentFeedback}),
   activePreset:()=>({...appliedLabPreset}),
   pulse: () => {const outcome=engine.pulse();updateFeatureEvents();return outcome;},
+  sessionReport:()=>sessionPayload(),
   advanceForQA: (ticks:number) => {
     if(!manualQA)throw new Error('QA_MANUAL_MODE_REQUIRED');
-    engine.advanceTicks(ticks);draw();
+    engine.advanceTicks(ticks);
+    sessionRecorder.observe(engine.snapshot(),engine.bot());
+    draw();
     return engine.snapshot();
   },
 };
@@ -1396,6 +1457,10 @@ function frame(time: number): void {
     const before=engine.snapshot();
     engine.advanceTicks(1);
     const after=engine.snapshot();
+    // Sparse fixed-tick instrumentation; no animation, physics, or AI edits.
+    if(after.tick!==before.tick &&
+      (after.tick%15===0 || after.phase==='ended'))
+      sessionRecorder.observe(after,engine.bot());
     sparkBeforeTick={x:before.spark.x,y:before.spark.y,tick:before.tick};
     sparkAfterTick={x:after.spark.x,y:after.spark.y,tick:after.tick};
     accumulator -= 1000 / 60;
