@@ -141,7 +141,11 @@ export class PursuerController {
     const arrived=!this.body.edgeTo&&this.body.nodeId===before.goalId;
     // Last failure is explicit to Brain; no silent successful path claim.
     const decision=choosePursuitGoal(before,observation,this.graph,
-      this.body.nodeId,arrived,Boolean(this.lastFailure),this.preset.staleContactTicks);
+      this.body.nodeId,arrived,Boolean(this.lastFailure),this.preset.staleContactTicks,
+      this.preset.searchStrategy??'frontier',
+      // Publicly generated geometry is allowed; never provide the true Spark
+      // row/position or the destination from a learner's pending selection.
+      world.rows.at(-1)?.index??0);
     this.belief=decision.belief;
     // A new legitimate contact causes a short visible surprise.
     // The bot never receives a future answer or the unseen exact location.
