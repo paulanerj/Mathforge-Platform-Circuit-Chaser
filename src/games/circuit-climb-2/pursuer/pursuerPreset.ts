@@ -14,6 +14,8 @@ export interface PursuerPresetV1 {
   speedPursuit:number;
   actorRadiusRatio:number;
   spawnRowsBelow:number;
+  /** Optional CC2-07A search policy. Old presets/replays stay 'frontier'. */
+  searchStrategy?:'frontier'|'ascending';
 }
 export const DEFAULT_PURSUER_PRESET:Readonly<PursuerPresetV1>=Object.freeze({
   schemaVersion:'cc2-pursuer/v1',profile:'climb-provisional-b1',
@@ -26,7 +28,11 @@ export function validatePursuerPreset(value:unknown):PursuerPresetV1{
   if(!value||typeof value!=='object'||Array.isArray(value))throw Error('PURSUER_PRESET_NOT_OBJECT');
   const v=value as Record<string,unknown>;
   const defaults=Object.keys(DEFAULT_PURSUER_PRESET);
-  if(Object.keys(v).sort().join('|')!==[...defaults].sort().join('|'))throw Error('PURSUER_PRESET_SHAPE');
+  const keys=Object.keys(v).filter(k=>k!=='searchStrategy');
+  if(keys.sort().join('|')!==[...defaults].sort().join('|')||
+     (v.searchStrategy!==undefined &&
+      !['frontier','ascending'].includes(String(v.searchStrategy))))
+    throw Error('PURSUER_PRESET_SHAPE');
   if(v.schemaVersion!=='cc2-pursuer/v1'||v.profile!=='climb-provisional-b1')throw Error('PURSUER_PRESET_VERSION');
   const ranges:Record<string,[number,number]>={
     nearSenseRadius:[50,500],clearSightRadius:[50,600],trailSenseRadius:[0,260],
