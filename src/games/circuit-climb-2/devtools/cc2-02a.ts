@@ -18,7 +18,7 @@ import {defaultFeatureConfig} from '../features/progression';
 import {defaultLearnerMotionPreset,type LearnerMotionPresetV1} from '../config/learnerMotionPreset';
 import {
   defaultDevLabPreset,intermediateDevLabPreset,
-  spacedDirectChaseDevLabPreset,
+  spacedDirectChaseDevLabPreset,energeticClimbDevLabPreset,
   validateCameraView,validateDevLabPreset,
   exportDevLabPreset,importDevLabPreset,
   type DevLabPresetV1,type CameraViewPresetV1,
@@ -159,8 +159,8 @@ function makeSurfaceEngine(
   };
 }
 let engine:SurfaceEngine=makeSurfaceEngine(seedInput.value);
-let cameraView:CameraViewPresetV1={...spacedDirectChaseDevLabPreset().camera};
-let appliedLabPreset:DevLabPresetV1=spacedDirectChaseDevLabPreset();
+let cameraView:CameraViewPresetV1={...energeticClimbDevLabPreset().camera};
+let appliedLabPreset:DevLabPresetV1=energeticClimbDevLabPreset();
 let currentFeedback:FeedbackPresetV1=defaultFeedbackPreset();
 let activeCue:{id:FeedbackCueId;until:number;started:number}|null=null;
 let previousBotEmotion:PursuerEmotionV1|null=null;
@@ -237,7 +237,8 @@ function collectLabPreset():DevLabPresetV1 {
     hopTicks:numericControl('hopTicks'),
     returnTicks:numericControl('returnTicks'),
   };
-  const pursuerPreset:PursuerPresetV1={...defaultPursuerPreset()};
+  const pursuerPreset:PursuerPresetV1={...defaultPursuerPreset(),
+    searchStrategy:(document.querySelector<HTMLSelectElement>('#searchStrategy')?.value??'frontier') as 'frontier'|'ascending'};
   for(const field of [
     'nearSenseRadius','clearSightRadius','trailSenseRadius',
     'trailLifetimeTicks','staleContactTicks','speedSearch','speedPursuit',
@@ -311,6 +312,8 @@ function loadLabPreset(preset:DevLabPresetV1):void {
   }
   const shield=document.querySelector<HTMLInputElement>('#transitShield');
   if(shield)shield.checked=p.run.transitShield;
+  const searchSelect=document.querySelector<HTMLSelectElement>('#searchStrategy');
+  if(searchSelect)searchSelect.value=p.pursuer.searchStrategy??'frontier';
   const persona=document.querySelector<HTMLSelectElement>('#personalityStyle');
   if(persona)persona.value=p.personality!.style;
   const feedbackCheckbox=document.querySelector<HTMLInputElement>('#feedbackEnabled');
@@ -1218,10 +1221,10 @@ if(applyTuning)applyTuning.onclick=()=>{
   if(engine!==prior)labMessage('Validated tuning applied. New run started; replay includes source-owned learner and pursuer presets.');
 };
 if(resetTuning)resetTuning.onclick=()=>{
-  const base=spacedDirectChaseDevLabPreset();
+  const base=energeticClimbDevLabPreset();
   loadLabPreset(base);
   beginNewRun();
-  labMessage('Expanded Direct Chase restored: 1.5× rows; Spark 19.5; Pursuer 2.20/3.10.');
+  labMessage('Energetic Chase default: 1.5× rows; Spark 24; Pursuer 4.8/6.0 with ascending search.');
 };
 if(exportPreset)exportPreset.onclick=()=>{
   try{
@@ -1377,6 +1380,6 @@ function frame(time: number): void {
   requestAnimationFrame(frame);
 }
 
-loadLabPreset(spacedDirectChaseDevLabPreset());
+loadLabPreset(energeticClimbDevLabPreset());
 beginNewRun();
 requestAnimationFrame(frame);
