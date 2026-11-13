@@ -1,7 +1,7 @@
 name: CC2-07B playable A/B pace lab, seeded capture matrix and offline single-file
 on:
   push:
-    branches: [feature/cc2-07b-energetic-pursuit-default]
+    branches: [feature/cc2-07b-playability-pace-lab]
   workflow_dispatch:
 
 permissions:
@@ -63,7 +63,7 @@ jobs:
       - name: Protected original Chromium gameplay regression
         run: npm run test:circuit-climb:browser
       - name: Bundle complete updated game into ONE offline HTML
-        run: node src/games/circuit-climb-2/devtools/buildPortable07A.mjs
+        run: node src/games/circuit-climb-2/devtools/buildPortable07B.mjs
       - name: Actual file-protocol play with all HTTP blocked
         run: node src/games/circuit-climb-2/devtools/cc2-07b-portable-smoke.mjs
       - name: Deliver playable single-file offline build
