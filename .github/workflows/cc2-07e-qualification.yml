@@ -57,7 +57,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: cc2-07e-viewport-screenshots
-          path: cc2-07b-screenshots/
+          path: cc2-07e-screenshots/
           if-no-files-found: warn
           retention-days: 30
       - name: Protected original Chromium gameplay regression
