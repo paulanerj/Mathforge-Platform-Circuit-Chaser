@@ -19,6 +19,10 @@ export interface ProductionCameraInput {
   previousCameraY:number;
   maxZoom:number;
   follow:number;
+  /** Optional presentation-only fit reference for expanded CC2-09B geometry. */
+  fitRowGap?:number;
+  /** Presentation-only extra world around the active Spark. */
+  coverageExpansion?:number;
 }
 export interface ProductionCameraFrame {
   xScale:number;
@@ -38,7 +42,10 @@ export function computeProductionCamera(v:ProductionCameraInput):ProductionCamer
     !Number.isFinite(v.rowGap) || v.rowGap<=0 ||
     !Number.isFinite(v.platformHeight) || v.platformHeight<=0 ||
     !Number.isFinite(v.maxZoom) || v.maxZoom<=0 || v.maxZoom>1 ||
-    !Number.isFinite(v.follow) || v.follow<=0 || v.follow>1) {
+    !Number.isFinite(v.follow) || v.follow<=0 || v.follow>1 ||
+    (v.fitRowGap!==undefined && (!Number.isFinite(v.fitRowGap)||v.fitRowGap<=0)) ||
+    (v.coverageExpansion!==undefined &&
+      (!Number.isFinite(v.coverageExpansion)||v.coverageExpansion<1||v.coverageExpansion>1.5))) {
     throw Error('CC2_PRODUCTION_CAMERA_INVALID');
   }
   const laneGap=(v.columns[2]-v.columns[0])/2;
@@ -48,11 +55,12 @@ export function computeProductionCamera(v:ProductionCameraInput):ProductionCamer
   // perfectly onto Spark on every physics tick and creates a "teleporting
   // platforms" illusion even while source-owned Spark moves continuously.
   // With a bounded follow lag, Spark visibly moves inside its own viewport.
-  const desiredSpan=2*MIN_VISIBLE_ROWS_EACH_SIDE*v.rowGap+
+  const fitGap=v.fitRowGap??v.rowGap;
+  const desiredSpan=2*MIN_VISIBLE_ROWS_EACH_SIDE*fitGap+
     v.platformHeight+96;
-  const trackingHeadroom=0.8*v.rowGap;
+  const trackingHeadroom=0.8*fitGap;
   const yScale=Math.max(0.10,Math.min(v.maxZoom,
-    v.logicalHeight/(desiredSpan+trackingHeadroom)));
+    v.logicalHeight/(desiredSpan+trackingHeadroom))/(v.coverageExpansion??1));
   const idealCameraY=v.sparkY-v.logicalHeight/(2*yScale);
   const spare=Math.max(0,(v.logicalHeight/yScale-desiredSpan)/2);
   const proposed=v.previousCameraY+
