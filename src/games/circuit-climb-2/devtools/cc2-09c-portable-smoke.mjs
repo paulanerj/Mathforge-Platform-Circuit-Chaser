@@ -3,7 +3,7 @@ import {chromium} from 'playwright-core';
 import {readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {findChromium,LAUNCH_ARGS} from '../../circuit-climb/tools/circuitClimbBrowserHarness.mjs';
-const html=readFileSync(resolve('cc2-standalone/CC2-09C-Source-Integrated-Playable.html'),'utf8');
+const html=readFileSync(resolve('cc2-standalone/CC2-09C-Original-Menu-Powerups-Playable.html'),'utf8');
 if(/type="module" src=/.test(html))throw Error('OFFLINE_ENTRY_NOT_EMBEDDED');
 const browser=await chromium.launch({headless:true,executablePath:findChromium(),args:LAUNCH_ARGS});
 let n=0;
