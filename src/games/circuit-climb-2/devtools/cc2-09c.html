@@ -510,14 +510,16 @@ body{background:#e7f1fa!important;color:#0e1b33!important}
 
 </style>
 
-<style id="cc209c-original-menu-contrast">
+<link rel="icon" href="data:,"><style id="cc209c-original-menu-contrast">
 /* CC2-09C: original-inspired introductory/paused/ending presentation.
    No game state, collision geometry or Pursuer behavior is changed here. */
 :root { --cc-ink:#142d4a; --cc-secondary:#375570; --cc-accent:#1558a7; --cc-edge:#9ebbd1; --cc-card:#fff; --cc-pale:#f0f6fc; }
 #cc209c-intro[hidden],#cc209c-pause[hidden],#cc209c-toast[hidden]{display:none!important}
+body[data-cc209c-intro-open="on"] .shell{visibility:hidden!important}
 .cc209c-screen { position:fixed;inset:0;z-index:145;display:grid;place-items:center;
   padding:15px;background:rgba(224,239,251,.93);backdrop-filter:blur(7px);
   color:var(--cc-ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
+#cc209c-pause{background:rgba(226,240,252,.77);backdrop-filter:blur(7px)}
 .cc209c-card { width:min(430px,100%);max-height:calc(100dvh - 30px);overflow:auto;
   border:1.5px solid #b6d0e4;border-radius:23px;background:linear-gradient(155deg,#fff,#f3f9ff);
   box-shadow:0 24px 72px #1f466b35;padding:22px 22px 20px;text-align:center; }
@@ -602,6 +604,44 @@ body{background:#e7f1fa!important;color:#0e1b33!important}
   .cc209c-card h2{font-size:28px}#cc209c-toast{bottom:14%;font-size:12px}
   #cc209c-highlights{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* Explicit light backgrounds and dark text for the inherited pacing panel.
+   The previous dark gradient had 10px grey labels that were illegible in
+   screenshot inspection. Same exact run and Pursuer controls, presentation only. */
+#cc209-settings .pace-strip{
+ background:#f0f7fc!important;color:#214769!important;border:1px solid #b9d2e4!important;
+ box-shadow:none!important;
+}
+#cc209-settings .pace-heading strong{
+ color:#143d66!important;font-size:13px!important;letter-spacing:.06em!important;
+}
+#cc209-settings .pace-heading span,
+#cc209-settings .pace-description,
+#cc209-settings #paceDescription{
+ color:#315775!important;font-size:12px!important;
+}
+#cc209-settings .pace-label{
+ color:#264b6b!important;font-size:12px!important;font-weight:650!important;
+}
+#cc209-settings #paceProfile{
+ background:#fff!important;color:#193c61!important;border:1px solid #9ebbd2!important;
+ min-height:42px!important;
+}
+#cc209-settings #applyPace{
+ background:#155a49!important;color:#ffffff!important;border:1px solid #155a49!important;
+ font-size:12px!important;font-weight:760!important;
+}
+#cc209-settings #downloadPlaytest{
+ background:#e7f3fb!important;color:#164d78!important;border:1px solid #aacadb!important;
+ font-size:12px!important;
+}
+#cc209-settings .cc209-dialog details>summary{
+ background:#eaf4fb!important;color:#153d66!important;
+ border:1px solid #c1d9e9!important;font-size:13px!important;
+}
+#cc209-settings .cc209-dialog details[open]>summary{
+ background:#e0f0fb!important;color:#123f69!important;
+}
 /* The earlier dark summary tiles survived inside the new light summary card.
    Force their real backgrounds as well as text colours; otherwise a dark
    caption on an inherited navy metric fails WCAG despite nominal text tokens. */
@@ -622,7 +662,7 @@ body{background:#e7f1fa!important;color:#0e1b33!important}
 @media(prefers-reduced-motion:reduce){.cc209c-screen *,#cc209c-toast{animation:none!important;transition:none!important}}
 </style>
 </head>
-<body data-pursuer="on" data-features="on" data-summary="on" data-cc209b="on" data-cc209c="on">
+<body data-pursuer="on" data-features="on" data-summary="on" data-cc209b="on" data-cc209c="on" data-cc209c-intro-open="on">
   <main class="shell">
     <div class="heading">
       <div class="brand-lockup">
@@ -1407,7 +1447,7 @@ window.addEventListener('DOMContentLoaded',function(){
   const api=()=>window.__CC2_02A__;
   const intro=byId('cc209c-intro'),pauseScreen=byId('cc209c-pause');
   const toast=byId('cc209c-toast'),settings=byId('cc209-settings');
-  const enter=()=>{intro.hidden=true;byId('cc209c-enter').blur();};
+  const enter=()=>{intro.hidden=true;document.body.removeAttribute('data-cc209c-intro-open');byId('cc209c-enter').blur();};
   let viewSeen=false,seenFeatures=0,seenCore=0,previousRun=null;
   let displayQueue=[],shownUntil=0,pauseBeforeSettings=false;
   const records={frames:0,sourceEventCount:0,featureEventCount:0,alerts:[],errors:[]};
