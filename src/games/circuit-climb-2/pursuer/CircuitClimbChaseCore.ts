@@ -102,6 +102,19 @@ export class CircuitClimbChaseCore {
   selectPlatform(platformId:string):SelectionResultV1{
     this.record('SELECT',platformId);
     if(this.adjudicate())return {ok:false,reason:'CAPTURED'};
+    // CC2-11: this is Spark's route-style fairness guard, not a Pursuer
+    // intelligence change. It reads only a legitimate LIVE sensor flag and
+    // current physical separation. Bot graph, brain, sensing and speed remain
+    // fully authoritative and cannot see the chosen answer or route.
+    if(this.config.routeStyleVersion==='cc2-motion-styles/v1'){
+      const state=this.core.snapshot(),bot=this.pursuer.snapshot();
+      const separation=Math.hypot(state.spark.x-bot.body.x,
+        state.spark.y-bot.body.y);
+      const danger=bot.sensed && bot.belief.mode==='PURSUIT' &&
+        separation<=state.world.geometry.rowGap*1.35;
+      return this.core.selectPlatform(platformId,
+        danger?{suppressStyle:true}:undefined);
+    }
     return this.core.selectPlatform(platformId);
   }
   /** Earned Pulse is available only at a grounded READY state. */
