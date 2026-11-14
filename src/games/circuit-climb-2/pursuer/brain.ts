@@ -134,8 +134,10 @@ export function choosePursuitGoal(
         // At the physical public top, survey same-floor lanes and at most
         // ONE floor below to detect a stationary Spark on the last completed
         // floor. Never choose deeper basement targets without fresh evidence.
-        const candidates=searchFrontier(graph,anchor).filter(id=>
-          (graph.byId.get(id)?.row??-Infinity)>=publicTop-1);
+        const candidates=searchFrontier(graph,anchor).filter(id=>{
+          const row=graph.byId.get(id)?.row;
+          return row!==undefined&&row>=publicTop-1&&row<=publicTop;
+        });
         const currentGoal=graph.byId.get(b.goalId);
         const isLocalGoal=Boolean(currentGoal&&currentGoal.row>=publicTop-1);
         if(arrivedGoal||routeBlocked||!isLocalGoal){
