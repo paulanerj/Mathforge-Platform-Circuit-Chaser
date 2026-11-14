@@ -1,0 +1,71 @@
+name: CC2-09C Original Menus, Power-ups, and Contrast Qualification
+on:
+  push:
+    branches: [feature/cc2-09c-original-menus-powerup-contrast]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  menus-abilities-contrast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Protect original game, mathematical source and newer Pursuer AI
+        shell: bash
+        run: |
+          set -euo pipefail
+          legacy=0a6f138f229119bc6b6c15ee1f658046c7075f50
+          while IFS= read -r path; do
+            test "$(git rev-parse "HEAD:$path")" = "$(git rev-parse "$legacy:$path")"
+          done < <(git ls-tree -r --name-only "$legacy" src/games/circuit-climb/)
+          frozen=df3fe8b71aeeeea2d34f235a80b3c231ded02040
+          git diff --exit-code "$frozen" HEAD -- \
+            src/games/circuit-climb-2/core/ \
+            src/games/circuit-climb-2/math/ \
+            src/games/circuit-climb-2/world/ \
+            src/games/circuit-climb-2/pursuer/ \
+            src/games/circuit-climb-2/features/
+          echo "PASS original and source-owned Pursuer/math/world/features custody"
+      - run: npm ci
+      - name: TypeScript source check
+        run: npm run lint
+      - name: Deterministic math, abilities and Pursuer tests
+        run: npx vitest run src/games/circuit-climb-2/tests
+      - name: Whole inherited unit suite
+        run: npm test
+      - name: Compile production source
+        run: npm run build
+      - name: Existing CC2-07E 125-assertion browser regression
+        run: node src/games/circuit-climb-2/devtools/cc2-07e-browser-smoke.mjs
+      - name: CC2-09B previous source and bot integrity browser regression
+        run: node src/games/circuit-climb-2/devtools/cc2-09b-browser-smoke.mjs
+      - name: Capture actual original menus and qualify 09C source UI and contrast
+        run: node src/games/circuit-climb-2/devtools/cc2-09c-visual-contrast-smoke.mjs
+      - name: Build exact CC2-09C source-owned offline HTML
+        run: node src/games/circuit-climb-2/devtools/buildPortable09C.mjs
+      - name: Test standalone browser with all HTTP blocked
+        run: node src/games/circuit-climb-2/devtools/cc2-09c-portable-smoke.mjs
+      - name: Publish CC2-09C source-built playable HTML
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-09C-Original-Menu-Powerups-Playable
+          path: cc2-standalone/CC2-09C-Original-Menu-Powerups-Playable.html
+          retention-days: 30
+      - name: Publish original-versus-new screenshots and contrast report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-09C-Original-Versus-New-Visual-Evidence
+          path: cc2-09c-artifacts/
+          retention-days: 30
+          if-no-files-found: warn
