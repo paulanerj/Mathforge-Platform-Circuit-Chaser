@@ -108,39 +108,47 @@ export function choosePursuitGoal(
       b.goalId=candidates.find(id=>!b.visitedIds.includes(id)&&id!==currentNodeId)??currentNodeId;
     }
   }
-  // CC2-07A: a physically present, public tower grows upward. An energetic
-  // patrol explores that geometry rather than repeatedly revisiting the
-  // original basement. Only the generated tower's public top is passed here;
-  // there is NO Spark position, answer, future route, or hidden row signal.
-  // Live sensor / stale contact / wake evidence ALWAYS take precedence.
-  if(searchStrategy==='ascending' && b.mode==='SEARCH' &&
-     b.reason==='INITIAL_PATROL'){
+  // CC2-16A: ascending search applies to EVERY unsensed SEARCH state,
+  // including SEARCH_FRONTIER after a lost lock. Previously it ran only for
+  // INITIAL_PATROL; a single acquired-and-lost contact reverted to the old
+  // historical-anchor sweep, sending a legitimate bot back down several rows
+  // while the player stood above it (owner report: 72 downward intervals).
+  //
+  // The sole target is PUBLIC graph topology. It does not receive actual
+  // Spark coordinates, future routes, math correctness or selected answers.
+  // Genuine LIVE / STALE / WAKE evidence above retains full priority.
+  if(searchStrategy==='ascending' && b.mode==='SEARCH'){
     const publicTop=Math.min(graph.maxRow,
       Math.max(0,Math.floor(highestPublicRow)));
     const anchor=nodeId(publicTop,'B');
     const at=graph.byId.get(currentNodeId);
-    if(at && graph.byId.has(anchor)){
+    if(at&&graph.byId.has(anchor)){
       if(at.row<publicTop){
+        // Seek the highest constructed public floor, even AFTER a lost
+        // contact. This prevents stale lastKnownX and historical frontier
+        // anchors from pulling the bot several floors downhill.
         b.goalId=anchor;
         b.lastSearchAnchor=anchor;
         b.visitedIds=[];
       }else{
-        // Once at the newest publicly constructed tier, inspect nearby
-        // horizontal lanes and no more than one floor below. Graph edges
-        // determine reachability; this cannot jump through platforms.
+        // At the physical public top, survey same-floor lanes and at most
+        // ONE floor below to detect a stationary Spark on the last completed
+        // floor. Never choose deeper basement targets without fresh evidence.
         const candidates=searchFrontier(graph,anchor).filter(id=>
           (graph.byId.get(id)?.row??-Infinity)>=publicTop-1);
-        if(arrivedGoal||routeBlocked){
-          if(!b.visitedIds.includes(before.goalId))
+        const currentGoal=graph.byId.get(b.goalId);
+        const isLocalGoal=Boolean(currentGoal&&currentGoal.row>=publicTop-1);
+        if(arrivedGoal||routeBlocked||!isLocalGoal){
+          if(arrivedGoal&&!b.visitedIds.includes(before.goalId))
             b.visitedIds.push(before.goalId);
+          let next=candidates.find(id=>
+            !b.visitedIds.includes(id)&&id!==currentNodeId);
+          if(!next){
+            b.visitedIds=[currentNodeId];
+            next=candidates.find(id=>id!==currentNodeId);
+          }
+          if(next)b.goalId=next;
         }
-        let next=candidates.find(id=>
-          !b.visitedIds.includes(id)&&id!==currentNodeId);
-        if(!next){
-          b.visitedIds=[currentNodeId];
-          next=candidates.find(id=>id!==currentNodeId);
-        }
-        if(next)b.goalId=next;
       }
     }
   }
