@@ -48,6 +48,11 @@ try{
     'no responsive horizontal overflow '+w);
   check(await page.locator('#cc209-equation').count()===1,
     'no enlarged center target '+w);
+  // The original intro deliberately hides the Settings header until the
+  // learner chooses View tower. Dismiss it without starting simulation.
+  await page.locator('#cc209c-enter').click();
+  check(await page.evaluate(()=>window.__CC2_02A__.snapshot().tick===0),
+    'intro exit does not start Pursuer '+w);
   await page.locator('#cc209-settings-btn').click();
   await page.locator('#cc209-settings').waitFor({state:'visible',timeout:4000});
   await page.locator('#cc216-pursuer-lab > summary').click();
