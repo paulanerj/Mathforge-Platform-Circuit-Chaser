@@ -12,7 +12,7 @@ export interface RunConfigV1 {
   movement: 'circuit' | 'hop';
   framingPercent: number; // all integer percentages from 80 through 120
   /** Optional CC2-06B extension. Legacy runs omit it and preserve 1.0 geometry. */
-  rowGapScale?: number; // exactly 1.0 (legacy) or 1.5 (expanded climb)
+  rowGapScale?: number; // 1.0 legacy, 1.5 07E, 2.25 08B, 2.8125 09B; optional preserves historical hashes
   routeTurns: 6 | 8 | 10 | 12;
   transitShield: boolean;
   landingGraceTicks: number;
@@ -51,8 +51,9 @@ export function validateRunConfig(value: unknown): RunConfigV1 {
       (input.framingPercent as number) > 120) {
     throw new Error('CONFIG_UNSAFE_FRAMING');
   }
-  if (input.rowGapScale!==undefined && input.rowGapScale!==1 &&
-      input.rowGapScale!==1.5) throw new Error('CONFIG_INVALID_ROW_SPACING');
+  if (input.rowGapScale!==undefined &&
+      ![1,1.5,2.25,2.8125].includes(input.rowGapScale as number))
+    throw new Error('CONFIG_INVALID_ROW_SPACING');
   if (![6, 8, 10, 12].includes(input.routeTurns as number)) throw new Error('CONFIG_INVALID_TURNS');
   if (typeof input.transitShield !== 'boolean') throw new Error('CONFIG_INVALID_TRANSIT_SHIELD');
   if (!Number.isInteger(input.landingGraceTicks) ||
