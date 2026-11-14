@@ -68,7 +68,7 @@ try{
       learn:p.learning(),ability:p.ability(),
       scriptErrors:p.errors(),routes:a.pursuer().routeFailures};
   });
-  check(after.rows>=1&&after.solved.length>=1,
+  check(after.rows>=1&&after.solved>=1,
     'real correct landing '+w);
   check(after.learn.confirmedSolved>=1&&after.learn.attempts>=1,
     'learning uses landing receipt '+w);
