@@ -659,6 +659,16 @@ body[data-cc209c-intro-open="on"] .shell{visibility:hidden!important}
 .cc209-dialog .dev-tuning button{background:#edf6fc!important;color:#183e63!important;
  border:1px solid #9cb9d0!important}
 .cc209-dialog pre,.cc209-dialog code{color:#183c5d!important;background:#e9f2f8!important}
+/* Restore the original rounded Pause/Restart action treatment. */
+.controls .action{border-radius:999px!important}
+/* A 320x568 phone must show the full start action without clipped footer.
+   The extra note is redundant with the visible first-click rule above. */
+@media(max-height:650px){
+  .cc209c-card{padding:13px 13px 14px}
+  .cc209c-card h2{margin:7px 0 9px}
+  .cc209c-rules{margin:10px 0 12px}
+  .cc209c-fineprint{display:none!important}
+}
 @media(prefers-reduced-motion:reduce){.cc209c-screen *,#cc209c-toast{animation:none!important;transition:none!important}}
 </style>
 </head>
