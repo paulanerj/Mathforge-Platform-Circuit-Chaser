@@ -1,0 +1,59 @@
+/**
+ * CC2-11/12 — restrained original-derived electric surface.
+ * No giant target, no secondary HUD row, and no changes to selection hitboxes.
+ */
+#cc212-chase-indicator {
+ position:absolute;right:10px;top:11px;z-index:7;pointer-events:none;
+ min-width:69px;max-width:79px;min-height:25px;
+ display:flex;align-items:center;justify-content:center;
+ padding:5px 7px;border-radius:999px;
+ background:#ecf5fded;border:1px solid #a3c4db;
+ box-shadow:0 2px 11px #144c7824;
+ color:#234c69;font:800 10px/1.1 system-ui,sans-serif;
+ letter-spacing:.06em;text-align:center;
+}
+#cc212-chase-indicator[hidden],#cc212-motion-signal[hidden]{display:none!important}
+.board[data-cc212-chase-phase="ACQUIRE"] #cc212-chase-indicator{
+ color:#70431d;background:#fff7e6ed;border-color:#d9b16c;
+}
+.board[data-cc212-chase-phase="PRESSURE"] #cc212-chase-indicator{
+ color:#7c2942;background:#fff1f5ed;border-color:#d999ae;
+}
+.board[data-cc212-chase-phase="RECOVER"] #cc212-chase-indicator{
+ color:#50417b;background:#f4f0ffed;border-color:#b8a9db;
+}
+/* The bot phase influences the real tower's perimeter, not its collision. */
+.board[data-cc212-chase-phase="ACQUIRE"]{
+ box-shadow:0 15px 40px #1f47672c,inset 0 0 29px #d9a75a20!important;
+}
+.board[data-cc212-chase-phase="PRESSURE"]{
+ box-shadow:0 15px 40px #1f47672c,inset 0 0 31px #c84e6a25!important;
+}
+.board[data-cc212-chase-phase="RECOVER"]{
+ box-shadow:0 15px 40px #1f47672c,inset 0 0 29px #7963b824!important;
+}
+#cc212-motion-signal {
+ position:absolute;bottom:12px;right:12px;z-index:7;
+ border-radius:999px;padding:5px 9px;pointer-events:none;
+ border:1px solid #b0cbdb;background:#ffffffdb;
+ color:#315979;font:750 10px/1.1 system-ui;letter-spacing:.08em;
+ opacity:.8;
+}
+#cc212-motion-signal[data-style="FEINT_RECOVER"]{
+ color:#75521c;border-color:#d5bc85;background:#fff9eaee;
+}
+#cc212-motion-signal[data-style="OVERSHOOT_SETTLE"]{
+ color:#325a80;border-color:#8ebbdc;background:#eef8ffee;
+}
+/* Ensure the mathematical equation remains above all subtler VFX. */
+#cc209-equation {z-index:9!important}
+#cc209d-effects {z-index:3!important;pointer-events:none!important}
+/* Clear legacy on-stage meta; diagnostics remain inside Settings. */
+#viewReadout,.view-readout,.threat-radar{display:none!important}
+@media(max-width:355px){
+ #cc212-chase-indicator{right:5px;min-width:58px;max-width:64px;font-size:9px;padding:5px}
+ #cc212-motion-signal{font-size:9px}
+}
+@media(prefers-reduced-motion:reduce){
+ #cc212-chase-indicator,#cc212-motion-signal{transition:none!important;animation:none!important}
+}
