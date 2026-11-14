@@ -27,7 +27,9 @@
  function progressSnapshot(){
    const a=api(),s=a?.snapshot?.(),b=a?.pursuer?.();
    if(!s||!b)return;
-   if(lastRun!==s.runId){
+   // Restart may reuse the same source runId for the same seed. A tick
+   // rewind is a real epoch boundary, not an enormous downhill motion.
+   if(lastRun!==s.runId||s.tick<lastTelemetryTick){
      lastRun=s.runId;lastTelemetryTick=-1;lastY=null;
      bestY=Infinity;seenContact=false;contactLosses=0;maxDownhill=0;
      downSteps=0;peakWake=0;recentDecisions=[];
