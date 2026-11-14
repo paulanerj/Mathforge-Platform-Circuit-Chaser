@@ -1,0 +1,97 @@
+/**
+ * CC2-09D — faithful target choreography and cinematic event/finale skin.
+ * Presentation ONLY. CSS neither moves a hit target nor changes world physics.
+ */
+#cc209d-effects{
+  position:absolute;inset:0;z-index:3;width:100%;height:100%;
+  pointer-events:none;display:block;
+}
+#cc209-preend{
+  background:radial-gradient(circle at 50% 39%,#edf7fff9 0%,#d6e8f4f7 54%,#b9cfe5f7 100%)!important;
+  isolation:isolate;
+}
+#cc209-preend:before,
+#cc209-preend:after{
+  content:"";position:absolute;left:50%;top:43%;transform:translate(-50%,-50%);
+  border:2px solid #508dc57d;border-radius:50%;width:min(56vw,280px);aspect-ratio:1;
+  pointer-events:none;z-index:-1;
+}
+#cc209-preend:after{
+  width:min(80vw,410px);border-color:#4da9b943;border-width:1px;
+}
+#cc209-preend[data-outcome="capture"]{
+  background:radial-gradient(circle at 50% 39%,#fff7f6 0%,#fce5e7 56%,#e6b9c5 100%)!important;
+  color:#7a2035!important;
+}
+#cc209-preend[data-outcome="capture"]:before{border-color:#ce3f60a6}
+#cc209-preend[data-outcome="capture"]:after{border-color:#b6385647}
+#cc209-preend[data-outcome="goal"]{
+  background:radial-gradient(circle at 50% 39%,#f8fffa 0%,#dff6e6 57%,#a8d8bc 100%)!important;
+  color:#15543a!important;
+}
+#cc209-preend[data-outcome="goal"]:before{border-color:#26946894}
+#cc209-preend[data-outcome="goal"]:after{border-color:#30855748}
+#cc209-preend[data-outcome="quit"]{
+  background:radial-gradient(circle at 50% 39%,#f9fcff,#e6f0fa 61%,#d3e1ee)!important;
+}
+#cc209-preend .cc209-preend-inner{
+  position:relative;z-index:2;width:min(440px,94vw);margin:auto;
+  padding:28px 20px 30px!important;
+  background:#ffffffdc;border:1px solid #adc7db;border-radius:23px;
+  box-shadow:0 20px 52px #1d4b752d;
+  color:#143b62;text-align:center;
+}
+#cc209-end-head{
+  font-size:clamp(23px,6.6vw,40px)!important;font-weight:900!important;
+  line-height:1.12!important;letter-spacing:.03em!important;
+  color:#174572!important;text-shadow:none!important;
+}
+#cc209-preend[data-outcome="capture"] #cc209-end-head{color:#8d2641!important}
+#cc209-preend[data-outcome="goal"] #cc209-end-head{color:#126543!important}
+#cc209-end-caption{color:#315573!important;font-weight:650!important;font-size:13px!important}
+#cc209d-final-meta{
+  display:flex;gap:8px;align-items:center;justify-content:center;
+  flex-wrap:wrap;margin:14px 0 0;
+}
+#cc209d-final-meta span{
+  border:1px solid #b3cde1;background:#edf6fd;color:#194b77;
+  padding:8px 11px;border-radius:999px;font:800 13px/1 system-ui;
+}
+#cc209-preend[data-outcome="capture"] #cc209d-final-meta span{
+  background:#fff2f4;border-color:#e0a6b5;color:#82334b;
+}
+#cc209-preend[data-outcome="goal"] #cc209d-final-meta span{
+  background:#e4f9eb;border-color:#9fcbb4;color:#155f42;
+}
+#cc209d-final-subtitle{
+  display:block;margin:11px auto 0;font:600 12px/1.5 system-ui;
+  color:#365a78;max-width:30ch;
+}
+#summaryPanel .summary-card{
+  border:1.5px solid #9fbed8!important;
+  box-shadow:0 18px 65px #164b782d!important;
+}
+#summaryPanel #summaryOutcome{font-size:15px!important;color:#115b44!important}
+#summaryPanel .summary-metric{
+  transition:box-shadow .15s ease;
+  background:#eef7ff!important;color:#1c4369!important;
+}
+#summaryPanel .summary-achievement{
+  background:#eee7ff!important;color:#3f2c77!important;
+  border-color:#af9fd5!important;
+}
+@keyframes cc209d-ripple{
+  0%{transform:translate(-50%,-50%) scale(.67);opacity:.8}
+  100%{transform:translate(-50%,-50%) scale(1.6);opacity:.05}
+}
+@media(prefers-reduced-motion:no-preference){
+  #cc209-preend[data-outcome="capture"]:before,
+  #cc209-preend[data-outcome="goal"]:before{animation:cc209d-ripple 1.3s ease-out both}
+  #cc209-preend[data-outcome="capture"]:after,
+  #cc209-preend[data-outcome="goal"]:after{animation:cc209d-ripple 1.3s .12s ease-out both}
+}
+@media(prefers-reduced-motion:reduce){
+  #cc209-preend *,#cc209-preend:before,#cc209-preend:after{
+    animation:none!important;transition:none!important;
+  }
+}
