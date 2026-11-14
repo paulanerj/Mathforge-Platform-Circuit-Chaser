@@ -20,6 +20,7 @@ import {
   pointAlongRoute, pointOnHop, retainRecentRows, WorldV1,
 } from '../world/world';
 import { RoutePoint } from '../world/legacyLearnerRouting';
+import {expressiveRoute10,type SparkTravelStyle10} from '../world/expressiveRoute10';
 import {defaultLearnerMotionPreset,validateLearnerMotionPreset,type LearnerMotionPresetV1} from '../config/learnerMotionPreset';
 
 export type TurnPhaseV1 = 'ready' | 'outbound' | 'return' | 'ended';
@@ -70,6 +71,8 @@ export interface TravelV1 {
   platformId: string;
   correct: boolean;
   firstTry: boolean;
+  /** Source-owned real route style; absent for all historical runs. */
+  routeStyle?:SparkTravelStyle10;
 }
 
 export interface EngineStateV1 {
@@ -108,6 +111,8 @@ export type ReplayCommandV1 = {
   readonly x?: number;
   readonly y?: number;
   readonly radius?: number;
+  /** Replay-exact suppression from a legitimate close-range sensed threat. */
+  readonly suppressStyle?:boolean;
 };
 
 export type ReplayV1 = {
@@ -249,8 +254,9 @@ export class CircuitClimbCore {
   }
 
   /** The selected tile and the route must both be valid before an attempt exists. */
-  selectPlatform(platformId: string): SelectionResultV1 {
-    this.record('SELECT', { platformId });
+  selectPlatform(platformId: string, options?:{suppressStyle?:boolean}): SelectionResultV1 {
+    this.record('SELECT', { platformId,
+      ...(this.config.routeStyleVersion&&options?.suppressStyle?{suppressStyle:true}:{}) });
     if (this.state.paused) return { ok: false, reason: 'PAUSED' };
     if (this.state.phase === 'ended') return { ok: false, reason: 'CAPTURED' };
     if (this.state.phase !== 'ready') return { ok: false, reason: 'BUSY' };
@@ -272,16 +278,23 @@ export class CircuitClimbCore {
       ? platform.value === problem.targetValue
       : problem.incomingValue + (platform.value ?? Number.NaN) === problem.targetValue;
     const firstTry = this.state.attemptsOnCurrentRow === 0;
+    const styleRoute=this.config.routeStyleVersion==='cc2-motion-styles/v1' &&
+      this.config.movement==='circuit'
+      ?expressiveRoute10(this.state.world,source,platform,route.points,
+        this.state.runId+'|'+attemptId,options?.suppressStyle===true)
+      :null;
 
     platform.selected = true;
     this.state.phase = 'outbound';
     this.state.travel = {
       kind: 'outbound',
       movement: this.config.movement,
-      points: route.points,
+      points: styleRoute?.points??route.points,
       from,
       to,
-      total: this.config.movement === 'circuit' ? route.totalLength : 1,
+      total: this.config.movement === 'circuit'
+        ?(styleRoute?.totalLength??route.totalLength):1,
+      ...(styleRoute?{routeStyle:styleRoute.style}:{}),
       distance: 0,
       attemptId,
       platformId,
@@ -308,7 +321,10 @@ export class CircuitClimbCore {
       supportUsed: false,
       acceptedAtTick: this.state.tick,
     });
-    this.emit('TRAVEL_STARTED', { attemptId, platformId, movement: this.config.movement });
+    this.emit('TRAVEL_STARTED', {attemptId,platformId,movement:this.config.movement,
+      ...(styleRoute?{routeStyle:styleRoute.style,routeVaried:styleRoute.varied,
+        routeSections:styleRoute.sections,routeSuppressed:styleRoute.suppressed}:{}),
+    });
     return { ok: true, attemptId, correct };
   }
 
@@ -534,7 +550,8 @@ export function replayCore(trace: ReplayV1): CircuitClimbCore {
     }
     lastOrdinal = item.ordinal;
     core.advanceTicks(item.tick - core.snapshot().tick);
-    if (item.command === 'SELECT') core.selectPlatform(item.platformId ?? '');
+    if (item.command === 'SELECT') core.selectPlatform(item.platformId ?? '',
+      item.suppressStyle?{suppressStyle:true}:undefined);
     else if (item.command === 'PAUSE') core.pause();
     else if (item.command === 'RESUME') core.resume();
     else if (item.command === 'QUIT') core.quit();
