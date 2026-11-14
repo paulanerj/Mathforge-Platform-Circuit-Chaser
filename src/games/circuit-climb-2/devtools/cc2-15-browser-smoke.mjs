@@ -115,6 +115,17 @@ try{
     'all Pursuer tuning controls retained '+w);
   if(w===390){
     await page.screenshot({path:dir+'/CC2-15-audio-settings-390.png',fullPage:true});
+    const beforeAudition=await page.evaluate(()=>window.__CC2_15__.music().renderedNotes);
+    await page.locator('#cc213-audition').click();
+    await page.waitForTimeout(780);
+    const audition=await page.evaluate(()=>window.__CC2_15__.music());
+    check(audition.contextState==='running'&&audition.renderedNotes>beforeAudition,
+      'real audio audition plays in paused Settings',JSON.stringify({
+        state:audition.contextState,notes:audition.renderedNotes,previous:beforeAudition
+      }));
+    check(audition.activeVoices<=audition.voiceLimit,
+      'single-context capped voice budget on audition');
+
     const ratios=await page.evaluate(()=>{
       const e=document.querySelector('#cc213-music-controls');
       const c=getComputedStyle(e);
