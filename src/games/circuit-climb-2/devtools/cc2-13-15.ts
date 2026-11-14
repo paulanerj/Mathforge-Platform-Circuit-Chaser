@@ -268,7 +268,7 @@ function refresh(){
     lastTick=state.tick;lastCoreLen=events.length;
     director.consume(state,events,features,Boolean(bot?.sensed));
     synth.setGamePaused(state.paused||state.phase==='ended'||
-      document.hidden||!window.__cc2ChaseStarted);
+      document.hidden||!(window as unknown as {__cc2ChaseStarted?:boolean}).__cc2ChaseStarted);
     const receipts=director.drain();
     synth.queue(receipts);
     lastReport={
