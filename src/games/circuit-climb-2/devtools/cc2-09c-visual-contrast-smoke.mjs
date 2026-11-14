@@ -96,6 +96,7 @@ async function modernScenes({width,height}){
   const errs=[];const consoles=[];
   page.on('pageerror',e=>errs.push(String(e)));
   page.on('console',m=>{if(m.type()==='error')consoles.push(m.text())});
+  page.on('response',r=>{if(r.status()===404&&!r.url().endsWith('/favicon.ico'))consoles.push('HTTP404 '+r.url())});
   const url=new URL('src/games/circuit-climb-2/devtools/cc2-09c.html?manual=1',server.url);
   await page.goto(url.toString(),{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>window.__CC2_09C__?.summary&&window.__CC2_09B__?.summary
@@ -187,6 +188,17 @@ async function modernScenes({width,height}){
     await contrast(page,'settings details','#cc209-settings summary','#ffffff');
     await contrast(page,'settings audio label','#cc209b-audio-ui span','#ffffff');
     await contrast(page,'settings close button','#cc209-settings .cc209-close','#eef7fc');
+    await contrast(page,'pace panel headline','#cc209-settings .pace-heading strong','#f0f7fc');
+    await contrast(page,'pace panel subtitle','#cc209-settings .pace-heading span','#f0f7fc');
+    await contrast(page,'pace profile label','#cc209-settings .pace-label','#f0f7fc');
+    await contrast(page,'pace selector','#paceProfile','#ffffff');
+    await contrast(page,'pace apply action','#applyPace','#155a49');
+    await contrast(page,'pace report download','#downloadPlaytest','#e7f3fb');
+    await contrast(page,'pace status detail','#paceDescription','#f0f7fc');
+    await page.locator('#cc209-settings details:has(> summary:has-text("Developer tools")) > summary').click();
+    await page.screenshot({path:join(dir,'09C-developer-tools-390.png'),fullPage:true});
+    await contrast(page,'developer mode label','#cc209-developer-slot .dev-controls label','#ffffff');
+
   }
   await page.locator('[data-close="cc209-settings"]').click();
   await page.locator('#cc209c-pause').waitFor({state:'visible',timeout:5000});
@@ -224,6 +236,7 @@ async function modernScenes({width,height}){
   await page.evaluate(()=>document.getElementById('endRun').click());
   await page.locator('#cc209-preend').waitFor({state:'visible',timeout:6000});
   if(width===390)await page.screenshot({path:join(dir,'09C-preend-390.png'),fullPage:true});
+  await page.waitForFunction(()=>document.querySelector('#cc209-end-head')?.textContent==='RUN ENDED',null,{timeout:5000});
   check((await page.locator('#cc209-end-head').textContent())==='RUN ENDED',
     'quit is not falsely called victory '+width);
   await page.locator('#summaryPanel').waitFor({state:'visible',timeout:7000});
