@@ -244,6 +244,7 @@ function configFromControls():RunConfigV1 {
     curriculum:(curriculumSelect?.value as RunConfigV1['curriculum'])??defaultRunConfig().curriculum,
     framingPercent:Number(framingSelect.value),
     rowGapScale:numericControl('rowGapScale'),
+    ...(expressive12?{routeStyleVersion:'cc2-motion-styles/v1' as const}:{}),
     movement:movementSelect.value as RunConfigV1['movement'],
     routeTurns:numericControl('routeTurns') as RunConfigV1['routeTurns'],
     transitShield:boolControl('transitShield'),
