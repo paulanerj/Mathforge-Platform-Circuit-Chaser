@@ -1,0 +1,17 @@
+/**
+ * CC2-09E — modest target feedback.
+ * Only the existing mathematical equation chip changes. No overlay numbers.
+ * The chip never blocks selections (pointer-events:none in original styles).
+ */
+@keyframes cc209e-target-acknowledge {
+  0% { transform:translateX(-50%) scale(1); filter:drop-shadow(0 0 0px #5bbbd400); }
+  32% { transform:translateX(-50%) scale(1.03); filter:drop-shadow(0 0 8px #4bb5d6a0); }
+  100% { transform:translateX(-50%) scale(1); filter:drop-shadow(0 0 0px #5bbbd400); }
+}
+#cc209-equation.cc209e-target-glow {
+  animation:cc209e-target-acknowledge 520ms ease-out 1;
+  transform-origin:center center;
+}
+@media (prefers-reduced-motion:reduce) {
+  #cc209-equation.cc209e-target-glow { animation:none!important; }
+}
