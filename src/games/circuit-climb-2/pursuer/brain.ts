@@ -139,7 +139,8 @@ export function choosePursuitGoal(
           return row!==undefined&&row>=publicTop-1&&row<=publicTop;
         });
         const currentGoal=graph.byId.get(b.goalId);
-        const isLocalGoal=Boolean(currentGoal&&currentGoal.row>=publicTop-1);
+        const isLocalGoal=Boolean(currentGoal&&currentGoal.row>=publicTop-1&&
+          currentGoal.row<=publicTop);
         if(arrivedGoal||routeBlocked||!isLocalGoal){
           if(arrivedGoal&&!b.visitedIds.includes(before.goalId))
             b.visitedIds.push(before.goalId);
