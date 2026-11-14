@@ -1,0 +1,78 @@
+name: CC2-13–15 Adaptive Music, Abilities and Learning Qualification
+on:
+  push:
+    branches: [feature/cc2-13-15-audio-abilities-curriculum]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  adaptive-score-specials-learning:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Protect original SOT, mathematical rules and intelligent Pursuer
+        shell: bash
+        run: |
+          set -euo pipefail
+          original=0a6f138f229119bc6b6c15ee1f658046c7075f50
+          while IFS= read -r path; do
+            test "$(git rev-parse "HEAD:$path")" = "$(git rev-parse "$original:$path")"
+          done < <(git ls-tree -r --name-only "$original" src/games/circuit-climb/)
+          accepted=60a783d2f33e33c024b0ddd1edb3bc67bdc989b2
+          git diff --exit-code "$accepted" HEAD -- \
+            src/games/circuit-climb-2/core/ \
+            src/games/circuit-climb-2/math/ \
+            src/games/circuit-climb-2/world/ \
+            src/games/circuit-climb-2/pursuer/ \
+            src/games/circuit-climb-2/config/ \
+            src/games/circuit-climb-2/features/progression.ts
+          echo "Protected original, authoritative mathematics, route, bot and ability reducers unchanged"
+      - run: npm ci
+      - name: Source typings and strict audio contract compilation
+        run: npm run lint
+      - name: CC2-13 through 15 source-backed music, ability and learning tests
+        run: npx vitest run src/games/circuit-climb-2/tests/audioAbilityLearning131415.test.ts
+      - name: All inherited unit and deterministic replay regressions
+        run: npm test
+      - name: Production TS build
+        run: npm run build
+      - name: Inherited mathematical and finite-sensing Pursuer browser QA
+        run: node src/games/circuit-climb-2/devtools/cc2-07e-browser-smoke.mjs
+      - name: Inherited original UI menu and contrast QA
+        run: node src/games/circuit-climb-2/devtools/cc2-09c-visual-contrast-smoke.mjs
+      - name: Inherited twelve real special rows and capture QA
+        run: node src/games/circuit-climb-2/devtools/cc2-09d-real-events-smoke.mjs
+      - name: Inherited opt-in Spark personality and visual QA
+        run: node src/games/circuit-climb-2/devtools/cc2-12-browser-smoke.mjs
+      - name: CC2-15 source-backed music/ability/learning browser and accessibility
+        run: node src/games/circuit-climb-2/devtools/cc2-15-browser-smoke.mjs
+      - name: Build exact offline HTML with recorded-stem-ready score
+        run: node src/games/circuit-climb-2/devtools/buildPortable15.mjs
+      - name: Blocked-network standalone gameplay and audio contract QA
+        run: node src/games/circuit-climb-2/devtools/cc2-15-portable-smoke.mjs
+      - name: Publish exact source-built CC2-15 playable
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-15-Source-Integrated-Music-Learning-Playable
+          path: cc2-standalone/CC2-15-Music-Learning-Playable.html
+          retention-days: 30
+      - name: Publish screenshot and QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-15-Music-Learning-Evidence
+          path: |
+            cc2-15-evidence/
+            cc2-12-evidence/
+            cc2-09c-artifacts/
+            cc2-09d-evidence/
+          if-no-files-found: warn
+          retention-days: 30
