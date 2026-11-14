@@ -127,6 +127,8 @@ const featuresEnabled=document.body.dataset.features==='on';
 const summaryEnabled=document.body.dataset.summary==='on';
 const manualQA=featuresEnabled && new URLSearchParams(location.search).get('manual')==='1';
 const graphDebug=new URLSearchParams(location.search).get('graph')==='1';
+/** CC2-10–12: isolated owner candidate; prior CC2-09E remains unchanged. */
+const expressive12=document.body.dataset.cc212==='on';
 function makeSurfaceEngine(
   seed:string,config:RunConfigV1=defaultRunConfig(),
   learnerMotion:LearnerMotionPresetV1=defaultLearnerMotionPreset(),
@@ -1276,7 +1278,8 @@ if(applyPace)applyPace.onclick=()=>{
     const profile=(paceSelection?.value??'energetic') as PaceProfileId;
     const standard=paceProfile(profile);
     const test=fidelity09B?validateDevLabPreset({
-      ...standard,run:{...standard.run,rowGapScale:2.8125},
+      ...standard,run:{...standard.run,rowGapScale:2.8125,
+        ...(expressive12?{routeStyleVersion:'cc2-motion-styles/v1' as const}:{})},
     }):standard;
     loadLabPreset(test);
     beginNewRun();
@@ -1523,7 +1526,8 @@ function frame(time: number): void {
 
 const initialPreset=energeticClimbDevLabPreset();
 loadLabPreset(fidelity09B?validateDevLabPreset({
-  ...initialPreset,run:{...initialPreset.run,rowGapScale:2.8125},
+  ...initialPreset,run:{...initialPreset.run,rowGapScale:2.8125,
+    ...(expressive12?{routeStyleVersion:'cc2-motion-styles/v1' as const}:{})},
 }):initialPreset);
 beginNewRun();
 requestAnimationFrame(frame);
