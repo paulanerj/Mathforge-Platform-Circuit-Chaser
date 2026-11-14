@@ -13,9 +13,9 @@ try{
   const failures=[];page.on('pageerror',e=>failures.push(String(e)));
   await page.route('**/*',route=>{if(/^https?:/i.test(route.request().url()))throw Error('OFFLINE_HTTP_BLOCKED');return route.continue()});
   await page.setContent(html,{waitUntil:'load'});
-  await page.waitForFunction(()=>window.__CC2_09E__?.summary&&window.__CC2_02A__?.snapshot,{timeout:15000});
+  await page.waitForFunction(()=>window.__CC2_09D__?.summary&&window.__CC2_02A__?.snapshot,{timeout:15000});
   const s=await page.evaluate(()=>({gap:window.__CC2_02A__.snapshot().world.geometry.rowGap,
-   tick:window.__CC2_02A__.snapshot().tick,errors:window.__CC2_09E__.summary().errors}));
+   tick:window.__CC2_02A__.snapshot().tick,errors:window.__CC2_09D__.summary().errors}));
   if(s.gap!==576.5625||s.tick!==0||s.errors||failures.length)throw Error('OFFLINE_SMOKE_FAIL '+JSON.stringify({s,failures}));
   const correct=await page.evaluate(()=>window.__CC2_02A__.snapshot().currentProblem.correctPlatformId);
   await page.locator('#cc209c-enter').click();
