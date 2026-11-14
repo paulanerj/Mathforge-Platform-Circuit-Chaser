@@ -1,0 +1,68 @@
+name: CC2-09B Source Integration — Original Fidelity and AI Custody
+on:
+  push:
+    branches: [feature/cc2-09b-original-surface-fidelity]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-fidelity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Assert protected original, mathematical core and Pursuer are unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=0a6f138f229119bc6b6c15ee1f658046c7075f50
+          while IFS= read -r path; do
+            test "$(git rev-parse "HEAD:$path")" = "$(git rev-parse "$base:$path")"
+          done < <(git ls-tree -r --name-only "$base" src/games/circuit-climb/)
+          frozen=df3fe8b71aeeeea2d34f235a80b3c231ded02040
+          git diff --exit-code "$frozen" HEAD --             src/games/circuit-climb-2/core/             src/games/circuit-climb-2/pursuer/             src/games/circuit-climb-2/math/             src/games/circuit-climb-2/world/
+          echo "Protected SOT-02 and source-owned bot/math/routing unchanged"
+      - run: npm ci
+      - name: TypeScript source contracts
+        run: npm run lint
+      - name: CC2 deterministic math and Pursuer regression
+        run: npx vitest run src/games/circuit-climb-2/tests
+      - name: All inherited unit regressions
+        run: npm test
+      - name: Source build
+        run: npm run build
+      - name: Inherited mathematical and summary browser regression
+        run: node src/games/circuit-climb-2/devtools/cc2-04-browser-smoke.mjs
+      - name: Q2 curriculum correctness browser regression
+        run: node src/games/circuit-climb-2/devtools/cc2-04-q2-browser-smoke.mjs
+      - name: Legacy CC2-07E four viewport regression
+        run: node src/games/circuit-climb-2/devtools/cc2-07e-browser-smoke.mjs
+      - name: New CC2-09B source-fed board and first-click qualification
+        run: node src/games/circuit-climb-2/devtools/cc2-09b-browser-smoke.mjs
+      - name: Build exact source-integrated offline playable HTML
+        run: node src/games/circuit-climb-2/devtools/buildPortable09B.mjs
+      - name: Verify standalone has no network dependency and plays
+        run: node src/games/circuit-climb-2/devtools/cc2-09b-portable-smoke.mjs
+      - name: Publish standalone owner playtest candidate
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-09B-Source-Integrated-Playable
+          path: cc2-standalone/CC2-09B-Source-Integrated-Playable.html
+          retention-days: 30
+      - name: Preserve browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-09B-Source-Integration-Screenshots
+          path: cc2-09b-screenshots/
+          if-no-files-found: warn
+          retention-days: 30
