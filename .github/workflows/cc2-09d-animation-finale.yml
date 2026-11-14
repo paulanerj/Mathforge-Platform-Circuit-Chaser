@@ -1,0 +1,75 @@
+name: CC2-09D Original Animation, Special Events & Finale Qualification
+on:
+  push:
+    branches: [feature/cc2-09d-animation-special-finale]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  animation-fidelity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Assert protected original and intelligent Pursuer/math/features unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          original=0a6f138f229119bc6b6c15ee1f658046c7075f50
+          while IFS= read -r path; do
+            test "$(git rev-parse "HEAD:$path")" = "$(git rev-parse "$original:$path")"
+          done < <(git ls-tree -r --name-only "$original" src/games/circuit-climb/)
+          baseline=df3fe8b71aeeeea2d34f235a80b3c231ded02040
+          git diff --exit-code "$baseline" HEAD -- \
+            src/games/circuit-climb-2/core/ \
+            src/games/circuit-climb-2/math/ \
+            src/games/circuit-climb-2/world/ \
+            src/games/circuit-climb-2/pursuer/ \
+            src/games/circuit-climb-2/features/
+          echo "SOT-02, newer Pursuer, mathematical, world, and abilities authority preserved"
+      - run: npm ci
+      - name: TypeScript and source declarations
+        run: npm run lint
+      - name: Core, features, math and chase deterministic tests
+        run: npx vitest run src/games/circuit-climb-2/tests
+      - name: Inherited whole unit suite
+        run: npm test
+      - name: Production build
+        run: npm run build
+      - name: CC2-07E inherited four-viewport chase and math
+        run: node src/games/circuit-climb-2/devtools/cc2-07e-browser-smoke.mjs
+      - name: CC2-09B restored original rendering and chase regression
+        run: node src/games/circuit-climb-2/devtools/cc2-09b-browser-smoke.mjs
+      - name: CC2-09C menus, power-ups, contrast and original screenshots
+        run: node src/games/circuit-climb-2/devtools/cc2-09c-visual-contrast-smoke.mjs
+      - name: CC2-09D target choreography, event VFX and finale visual matrix
+        run: node src/games/circuit-climb-2/devtools/cc2-09d-visual-smoke.mjs
+      - name: Build source-controlled offline CC2-09D playable HTML
+        run: node src/games/circuit-climb-2/devtools/buildPortable09D.mjs
+      - name: Offline launch and game with network forbidden
+        run: node src/games/circuit-climb-2/devtools/cc2-09d-portable-smoke.mjs
+      - name: Publish exact source-built playable
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-09D-Animation-Finale-Playable
+          path: cc2-standalone/CC2-09D-Animation-Finale-Playable.html
+          retention-days: 30
+      - name: Preserve animation, event and baseline screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-09D-Animation-Finale-Evidence
+          path: |
+            cc2-09d-evidence/
+            cc2-09c-artifacts/
+          if-no-files-found: warn
+          retention-days: 30
