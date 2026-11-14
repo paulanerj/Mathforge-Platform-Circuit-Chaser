@@ -1,0 +1,80 @@
+/**
+ * CC2-13–15 — clean music/learning UI. Dynamic score controls live in
+ * Settings; no new top HUD row, no enlarged target, no click interception.
+ */
+#cc213-music-controls{
+  margin:10px 0;padding:12px 13px;border-radius:13px;
+  border:1px solid #bdd6e6;background:#f3f9fe;color:#234560;
+  font:13px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;
+}
+#cc213-music-controls .cc213-music-title{
+  font-weight:850;color:#143e68;font-size:14px;letter-spacing:.015em;
+}
+#cc213-music-controls p,#cc215-learning-settings p,
+#cc215-learning-help{
+  color:#31506b!important;font-size:12px!important;
+  line-height:1.55;margin:7px 0 11px;
+}
+.cc213-control{
+  display:flex;align-items:center;gap:10px;justify-content:space-between;
+  min-height:42px;border-top:1px solid #d3e4ef;
+  color:#244760!important;font-weight:700;font-size:12px;
+}
+.cc213-control input[type=range]{
+  flex:0 0 46%;min-width:90px;accent-color:#215f9c;
+}
+.cc213-control input[type=checkbox]{
+  width:19px;height:19px;flex:0 0 19px;accent-color:#235e96;
+}
+.cc213-audio-actions{display:flex;gap:9px;margin:10px 0;flex-wrap:wrap;}
+.cc213-audio-actions button,
+#cc215-export{
+  flex:1 1 120px;min-height:43px;background:#e8f3fc!important;
+  color:#17446c!important;border:1.5px solid #a3c4db!important;
+  border-radius:11px;padding:8px 11px;cursor:pointer;
+  font:750 12px/1.35 system-ui;
+}
+.cc213-audio-actions button:focus-visible,#cc215-export:focus-visible{
+  outline:3px solid #125eae;outline-offset:2px;
+}
+#cc213-music-status,#cc214-feature-status{
+  background:#e6f3fc;border:1px solid #bcd5e5;border-radius:9px;
+  color:#1d4569!important;font:750 12px/1.4 system-ui;
+  margin:8px 0;padding:8px 10px;
+}
+#cc213-music-lab{margin:7px 0 0}
+#cc213-music-lab>summary{
+  color:#16456c!important;background:#e7f3fb!important;
+  border:1px solid #b6d2e4!important;border-radius:9px;
+  padding:9px 10px;cursor:pointer;font-size:12px!important;
+}
+#cc213-role-controls{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+#cc213-role-controls label{min-width:0}
+#cc215-learning-settings{
+  border-top:1px solid #cbdde9;margin-top:10px;padding-top:10px;
+}
+#cc215-learning-settings>summary{
+  color:#1a456d!important;background:#eaf5fd!important;border:1px solid #b4cedf!important;
+  padding:11px;border-radius:10px;cursor:pointer;
+}
+#cc215-learning-help{
+  background:#f0f7fc;padding:10px 11px;
+  border:1px solid #c3dae9;border-radius:10px;
+}
+#cc215-hint{
+  position:absolute;z-index:8;bottom:11%;left:50%;
+  transform:translateX(-50%);width:min(82%,320px);
+  pointer-events:none;text-align:center;
+  padding:10px 12px;background:#fffdf0f0;border:1.5px solid #ba9452;
+  border-radius:12px;box-shadow:0 5px 22px #374f5739;
+  color:#684409;font:800 12px/1.45 system-ui;
+}
+#cc215-hint[hidden]{display:none!important}
+body[data-cc215-hint="on"] #cc209c-toast{display:none!important}
+@media(max-width:380px){
+ #cc213-role-controls{grid-template-columns:1fr}
+ #cc215-hint{font-size:11px;bottom:13%}
+}
+@media(prefers-reduced-motion:reduce){
+ #cc215-hint,#cc213-music-controls *{transition:none!important;animation:none!important}
+}
