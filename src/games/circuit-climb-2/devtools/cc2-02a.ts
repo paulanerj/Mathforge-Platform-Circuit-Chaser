@@ -38,6 +38,8 @@ import {paceProfile,PACE_LABELS,type PaceProfileId} from '../config/paceProfiles
 import {SessionTelemetry07C} from './sessionTelemetry07C';
 import {classifyThreat} from '../presentation/threatRadar07D';
 
+/** Original-surface fidelity is opt-in; historical CC2-07E remains exact. */
+const fidelity09B=document.body.dataset.cc209b==='on';
 const canvas = document.querySelector<HTMLCanvasElement>('#worldCanvas')!;
 const board = document.querySelector<HTMLElement>('#board')!;
 const choices = document.querySelector<HTMLElement>('#choices')!;
@@ -355,7 +357,9 @@ function labMessage(message:string,error=false):void {
 }
 
 function emitCue(id:FeedbackCueId):void {
-  audio.cue(id);
+  // Original CC2-09B cue signatures own audio only on the fidelity page.
+  // Neither branch changes mathematical or Pursuer feedback events.
+  if(!fidelity09B)audio.cue(id);
   if(!currentFeedback.vfxEnabled)return;
   const now=performance.now();
   activeCue={id,started:now,until:now+(reducedMotion?550:850)};
@@ -652,6 +656,10 @@ function draw(): void {
     platformHeight:g.platformHeight,columns:g.columns,
     sparkY:visibleSpark.y,previousCameraY:cameraY,
     maxZoom:cameraView.zoom,follow:cameraView.follow,
+    // Fit with the prior tier reference, so the larger real gap stays
+    // visible instead of shrinking back to the former on-screen spacing.
+    fitRowGap:fidelity09B?307.5:undefined,
+    coverageExpansion:fidelity09B?1.15:undefined,
   });
   const zoom=productionFrame.yScale;
   horizontalCameraScale=productionFrame.xScale;
@@ -1200,6 +1208,12 @@ function beginNewRun(): void {
     next.run,next.learner,next.pursuer,next.personality,
   );
   engine=nextEngine;
+  if(fidelity09B){
+    (window as Window & {__cc2ChaseStarted?:boolean}).__cc2ChaseStarted=false;
+    const hint=document.querySelector<HTMLElement>('#cc209-start');
+    if(hint)hint.hidden=false;
+    pause.disabled=true;
+  }
   sessionRecorder.reset();
   sessionRecorder.observe(engine.snapshot(),engine.bot());
   cameraView=next.camera;
@@ -1260,7 +1274,10 @@ if(cameraFollowInput)cameraFollowInput.onchange=liveCameraChange;
 if(applyPace)applyPace.onclick=()=>{
   try{
     const profile=(paceSelection?.value??'energetic') as PaceProfileId;
-    const test=paceProfile(profile);
+    const standard=paceProfile(profile);
+    const test=fidelity09B?validateDevLabPreset({
+      ...standard,run:{...standard.run,rowGapScale:2.8125},
+    }):standard;
     loadLabPreset(test);
     beginNewRun();
     if(paceDescription)paceDescription.textContent=
@@ -1422,7 +1439,13 @@ window.addEventListener('keydown', event => {
   if (!['1','2','3'].includes(event.key)) return;
   const option = engine.snapshot().currentProblem.options[Number(event.key) - 1];
   if (option) {
-    engine.selectPlatform(option.platformId);
+    const selected=engine.selectPlatform(option.platformId);
+    if(fidelity09B&&selected.ok){
+      (window as Window & {__cc2ChaseStarted?:boolean}).__cc2ChaseStarted=true;
+      const hint=document.querySelector<HTMLElement>('#cc209-start');
+      if(hint)hint.hidden=true;
+      pause.disabled=false;
+    }
     updateMessage();
   }
 });
@@ -1463,6 +1486,11 @@ document.addEventListener('visibilitychange', () => {
 };
 
 function frame(time: number): void {
+  if(fidelity09B&&!(window as Window & {__cc2ChaseStarted?:boolean}).__cc2ChaseStarted){
+    // First valid choice starts simulation; visual animation alone never
+    // advances the Pursuer, capture logic, timer, or event ledger.
+    lastTime=time;accumulator=0;draw();requestAnimationFrame(frame);return;
+  }
   if (!lastTime) lastTime = time;
   accumulator += Math.min(100, Math.max(0, time - lastTime));
   lastTime = time;
@@ -1493,6 +1521,9 @@ function frame(time: number): void {
   requestAnimationFrame(frame);
 }
 
-loadLabPreset(energeticClimbDevLabPreset());
+const initialPreset=energeticClimbDevLabPreset();
+loadLabPreset(fidelity09B?validateDevLabPreset({
+  ...initialPreset,run:{...initialPreset.run,rowGapScale:2.8125},
+}):initialPreset);
 beginNewRun();
 requestAnimationFrame(frame);
