@@ -74,6 +74,7 @@ class CircuitSynth13 {
   private renderedNotes=0;
   private scheduledBars=0;
   private mutedByGame=true;
+  private auditioning=false;
   private lastGesture=0;
   readonly identity='Circuit Ascending — D Dorian, original procedural audition';
   private readonly voiceLimit=44;
@@ -82,17 +83,23 @@ class CircuitSynth13 {
   get isStarted():boolean{return this.started;}
   setMix(next:unknown):void{
     this.mix=validateMix(next);
+    if(!this.mix.enabled)this.auditioning=false;
     if(this.master&&this.ctx){
       this.master.gain.setTargetAtTime(this.mix.enabled?
         this.mix.musicVolume*.32:0,this.ctx.currentTime,.08);
     }
   }
   setGamePaused(paused:boolean):void{
-    this.mutedByGame=paused;
+    // Listening in Settings is an explicit musical audition. Normal game
+    // pausing, backgrounding and tab visibility still suspend all voices.
+    const settings=byId('cc209-settings');
+    const preview=Boolean(this.auditioning&&settings&&!settings.hidden&&!document.hidden);
+    this.mutedByGame=paused&&!preview;
+    if(!preview)this.auditioning=false;
     if(!this.ctx)return;
-    if(paused&&this.ctx.state==='running'){
+    if(this.mutedByGame&&this.ctx.state==='running'){
       void this.ctx.suspend().catch(err=>this.fail('suspend',err));
-    }else if(!paused&&this.mix.enabled&&this.started&&this.ctx.state==='suspended'){
+    }else if(!this.mutedByGame&&this.mix.enabled&&this.started&&this.ctx.state==='suspended'){
       void this.ctx.resume().catch(err=>this.fail('resume',err));
     }
   }
@@ -100,6 +107,12 @@ class CircuitSynth13 {
     this.errors.push(scope+': '+String(error));
     if(this.errors.length>60)this.errors.shift();
   }
+  audition():void{
+    this.auditioning=true;
+    this.unlock();
+    this.setGamePaused(false);
+  }
+  stopAudition():void{this.auditioning=false;}
   /** Must be called in a direct user selection or Music button gesture. */
   unlock():void{
     if(this.stopped||!this.mix.enabled)return;
@@ -360,11 +373,10 @@ function controlUI(){
   volume.addEventListener('input',apply);
   gentle.addEventListener('change',apply);
   byId('cc213-audition')?.addEventListener('click',()=>{
-    on.checked=true;apply();synth.unlock();
-    synth.setGamePaused(false);
+    on.checked=true;apply();synth.audition();
   });
   byId('cc213-stop')?.addEventListener('click',()=>{
-    on.checked=false;apply();
+    on.checked=false;synth.stopAudition();apply();
   });
   byId('cc213-reset')?.addEventListener('click',()=>{
     synth.setMix(defaults());syncControls();
