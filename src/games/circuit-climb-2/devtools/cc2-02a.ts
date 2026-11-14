@@ -9,7 +9,7 @@ import {
   CircuitClimbCore,type EngineStateV1,type GameEventV1,type SelectionResultV1,
 } from '../core/CircuitClimbCore';
 import { CircuitClimbChaseCore } from '../pursuer/CircuitClimbChaseCore';
-import type { PursuerSnapshot } from '../pursuer/pursuerController';
+import type { PursuerSnapshot,PursuerDiagnostic } from '../pursuer/pursuerController';
 import type { FeatureSnapshotV1, FeatureEventV1 } from '../features/progression';
 import type { RunSummaryV1 } from '../progression/runSummary';
 import { RunConfigV1, defaultRunConfig } from '../config/runConfig';
@@ -115,6 +115,8 @@ interface SurfaceEngine {
   pause():void;resume():void;
   stateDigest():string;replayExport():unknown;
   bot():PursuerSnapshot|null;
+  /** Read-only source trace, limited to the Pursuer controller's bounded window. */
+  botDiagnostics():PursuerDiagnostic[];
   devGraph():ReturnType<CircuitClimbChaseCore['devGraph']>|null;
   features():FeatureSnapshotV1|null;
   featureEvents():FeatureEventV1[];
@@ -147,6 +149,7 @@ function makeSurfaceEngine(
       stateDigest:()=>game.stateDigest(),
       replayExport:()=>game.replayExport(),
       bot:()=>game.snapshot().pursuer,
+      botDiagnostics:()=>game.diagnostics(),
       devGraph:()=>game.devGraph(),
       features:()=>game.featureSnapshot(),
       featureEvents:()=>game.featureEventLog(),
@@ -165,6 +168,7 @@ function makeSurfaceEngine(
     stateDigest:()=>game.stateDigest(),
     replayExport:()=>game.replayExport(),
     bot:()=>null,
+    botDiagnostics:()=>[],
     devGraph:()=>null,
     features:()=>null,
     featureEvents:()=>[],
@@ -1472,6 +1476,9 @@ document.addEventListener('visibilitychange', () => {
     sourceSparkPosition:{...engine.snapshot().spark},
     framingPercent:engine.snapshot().world.geometry.rowGap}),
   pursuer: () => engine.bot(),
+  /** CC2-16A read-only full-session diagnostic export; no bot steering. */
+  pursuerTrace: () => engine.botDiagnostics(),
+  devGraph: () => engine.devGraph(),
   features: () => engine.features(),
   featureEvents: () => engine.featureEvents(),
   summary: () => engine.summary(),
