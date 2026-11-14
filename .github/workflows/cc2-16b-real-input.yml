@@ -1,0 +1,53 @@
+name: CC2-16B Real Platform Input and Manual Lab Clock
+
+on:
+  push:
+    branches:
+      - fix/cc2-16b-manual-clock-input-recovery
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  actual-player-click:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Lock original game and all authoritative gameplay systems
+        shell: bash
+        run: |
+          set -euo pipefail
+          original=0a6f138f229119bc6b6c15ee1f658046c7075f50
+          accepted=efd05ec9ba67f5005eddc2178ade3c0980af77b2
+          while IFS= read -r path; do
+            test "$(git rev-parse "HEAD:$path")" = "$(git rev-parse "$original:$path")"
+          done < <(git ls-tree -r --name-only "$original" src/games/circuit-climb/)
+          git diff --exit-code "$accepted" HEAD --             src/games/circuit-climb-2/core/             src/games/circuit-climb-2/math/             src/games/circuit-climb-2/world/             src/games/circuit-climb-2/config/             src/games/circuit-climb-2/features/             src/games/circuit-climb-2/learning/             src/games/circuit-climb-2/music/             src/games/circuit-climb-2/pursuer/perception.ts             src/games/circuit-climb-2/pursuer/chassis.ts             src/games/circuit-climb-2/pursuer/pursuitGraph.ts             src/games/circuit-climb-2/pursuer/pursuerController.ts             src/games/circuit-climb-2/pursuer/CircuitClimbChaseCore.ts             src/games/circuit-climb-2/pursuer/pursuerPreset.ts             src/games/circuit-climb-2/pursuer/personality.ts
+      - name: Install exact dependencies
+        run: npm ci
+      - name: TypeScript contracts
+        run: npm run lint
+      - name: Real pointer clicks in three viewports, normal and manual URLs
+        run: node src/games/circuit-climb-2/devtools/cc2-16b-input-smoke.mjs
+      - name: Previous Pursuer and music regression
+        run: |
+          npx vitest run src/games/circuit-climb-2/tests/pursuerAscending16A.test.ts
+          node src/games/circuit-climb-2/devtools/cc2-16a-browser-smoke.mjs
+      - name: Production build
+        run: npm run build
+      - name: Upload visual clicks and failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-16B-Real-Player-Input-Evidence
+          path: cc2-16b-evidence/
+          if-no-files-found: warn
+          retention-days: 30
