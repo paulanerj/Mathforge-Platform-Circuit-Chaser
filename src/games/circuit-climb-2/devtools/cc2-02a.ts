@@ -128,6 +128,18 @@ const botEnabled=document.body.dataset.pursuer==='on';
 const featuresEnabled=document.body.dataset.features==='on';
 const summaryEnabled=document.body.dataset.summary==='on';
 const manualQA=featuresEnabled && new URLSearchParams(location.search).get('manual')==='1';
+/**
+ * CC2-16B: the QA URL is still a playable game. Only an actively running
+ * scripted scenario may take exclusive ownership of the simulation clock.
+ *
+ * Before this repair, '?manual=1' froze all automatic ticks for the entire
+ * session, so an ordinary platform click could submit a selection while
+ * the Spark never moved. The test lab sets this flag only while replaying.
+ */
+const manualScenarioActive=():boolean=>manualQA&&Boolean(
+  (window as Window & {__cc2ManualScenarioActive?:boolean})
+    .__cc2ManualScenarioActive,
+);
 const graphDebug=new URLSearchParams(location.search).get('graph')==='1';
 /** CC2-10–12: isolated owner candidate; prior CC2-09E remains unchanged. */
 const expressive12=document.body.dataset.cc212==='on';
@@ -640,7 +652,7 @@ function roundedRect(x: number, y: number, width: number, height: number, radius
 
 function draw(): void {
   const state = engine.snapshot();
-  const canInterpolate=!manualQA&&!state.paused&&state.phase!=='ended'&&
+  const canInterpolate=!manualScenarioActive()&&!state.paused&&state.phase!=='ended'&&
     sparkBeforeTick!==null&&sparkAfterTick!==null&&
     sparkAfterTick.tick===state.tick&&
     sparkAfterTick.tick===sparkBeforeTick.tick+1;
@@ -1488,7 +1500,7 @@ document.addEventListener('visibilitychange', () => {
   pulse: () => {const outcome=engine.pulse();updateFeatureEvents();return outcome;},
   sessionReport:()=>sessionPayload(),
   advanceForQA: (ticks:number) => {
-    if(!manualQA)throw new Error('QA_MANUAL_MODE_REQUIRED');
+    if(!manualScenarioActive())throw new Error('QA_MANUAL_SCENARIO_REQUIRED');
     engine.advanceTicks(ticks);
     sessionRecorder.observe(engine.snapshot(),engine.bot(),true);
     draw();
@@ -1506,7 +1518,7 @@ function frame(time: number): void {
   accumulator += Math.min(100, Math.max(0, time - lastTime));
   lastTime = time;
   let steps = 0;
-  while (!manualQA && accumulator >= 1000 / 60 && steps < 6) {
+  while (!manualScenarioActive() && accumulator >= 1000 / 60 && steps < 6) {
     const before=engine.snapshot();
     const priorBot=botLastTick ?? (engine.bot()?.body??null);
     engine.advanceTicks(1);
@@ -1527,7 +1539,7 @@ function frame(time: number): void {
     steps += 1;
   }
   if (steps === 6 && accumulator > 1000 / 60) accumulator = 0;
-  if (manualQA) accumulator=0;
+  if (manualScenarioActive()) accumulator=0;
   draw();
   requestAnimationFrame(frame);
 }

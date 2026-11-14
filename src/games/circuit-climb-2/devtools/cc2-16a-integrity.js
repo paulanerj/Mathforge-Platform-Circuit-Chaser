@@ -249,6 +249,9 @@
  async function runScenario(kind){
    if(runtime.running)return;
    runtime.running=true;runtime.routeWarnings=[];
+   // CC2-16B: manual clock ownership is exclusive to the selected scenario.
+   // When this flag is false, normal button clicks run the live chase.
+   window.__cc2ManualScenarioActive=true;
    const buttons=document.querySelectorAll('.cc216-qa-button');
    buttons.forEach(b=>b.disabled=true);
    setStatus('Running '+kind+' using real source ticks and choices…');
@@ -263,11 +266,15 @@
      recent(runtime.errors,error,60);
      runtime.latest={scenario:kind,error,failed:true};
      setStatus('SCENARIO FAILED: '+error);
-   }finally{runtime.running=false;buttons.forEach(b=>b.disabled=false);}
+   }finally{
+     window.__cc2ManualScenarioActive=false;
+     runtime.running=false;
+     buttons.forEach(b=>b.disabled=false);
+   }
  }
  window.__CC2_16A__={
    report:diagnostics,
-   summary:()=>({schema:runtime.schema,latest:runtime.latest,
+   summary:()=>({schema:runtime.schema,running:runtime.running,latest:runtime.latest,
      runCount:runtime.runCount,errors:[...runtime.errors],
      routeWarnings:[...runtime.routeWarnings],maxDownhill,
      seenContact,contactLosses,peakWake}),
@@ -286,7 +293,7 @@
      '<button type="button" id="cc216-download">Download FULL Pursuer Session (JSON)</button>'+
      '<p class="cc216-note">The current source trace retains its last 700 ticks; exact replay and all retained 15-tick samples cover the session. Attach the JSON in this chat for diagnosis.</p>'+
      (manual?'<div id="cc216-qa-actions">'+
-       '<p><strong>Simulation-only lab</strong> — buttons drive real source choices and ticks. They start a new test run; they do not modify AI tuning.</p>'+
+       '<p><strong>Playable QA mode</strong> — normal platform clicks move Spark. The simulation clock is controlled manually only while a scripted scenario runs; those scenarios start new test runs and do not modify AI tuning.</p>'+
        '<button class="cc216-qa-button" data-kind="close-four" type="button">Close bot → 4 rapid climbs → search</button>'+
        '<button class="cc216-qa-button" data-kind="owner-replay" type="button">Replay reported 8-row timing</button>'+
        '<button class="cc216-qa-button" data-kind="idle" type="button">Idle capture / reacquisition</button>'+
