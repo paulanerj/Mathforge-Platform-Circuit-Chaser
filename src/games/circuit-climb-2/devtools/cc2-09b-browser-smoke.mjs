@@ -32,7 +32,7 @@ try {
   assert(before.options===3,'three math choices '+width);
   assert(before.hud==='none'&&before.overflow<=1,'minimal HUD/overflow '+width);
   assert(before.painter.paintFailures===0&&before.painter.errors===0,'no painter errors '+width);
-  assert(await page.locator('#cc209b-canvas').isVisible(),'original view mounted '+width);
+  assert(await page.locator('#cc209b-heritage-canvas').isVisible(),'original view mounted '+width);
   await page.locator('#cc209-settings-btn').click();
   assert(await page.locator('#cc209-settings').isVisible(),'settings accessible '+width);
   await page.locator('[data-close="cc209-settings"]').click();
