@@ -111,7 +111,10 @@ const run=async(width,height,{reduced=false}={})=>{
    const text=document.querySelector('#cc209-end-head');
    const card=document.querySelector('.cc209-preend-inner');
    const pill=document.querySelector('#cc209d-final-meta span');
-   return Boolean(text&&card&&pill&&getComputedStyle(text).color!=='rgb(255, 255, 255)');
+   return Boolean(text&&card&&pill&&getComputedStyle(text).color!=='rgb(255, 255, 255)' &&
+    getComputedStyle(card).opacity==='1' &&
+    getComputedStyle(card).animationName==='none' &&
+    getComputedStyle(card).backgroundColor==='rgb(255, 255, 255)');
   });
   check('390 finale has visible outcome-specific stats',legible);
  }
