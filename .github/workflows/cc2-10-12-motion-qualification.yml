@@ -1,0 +1,74 @@
+name: CC2-10-12 Spark Motion, Pursuer Fairness and Original Visual Qualification
+on:
+  push:
+    branches: [feature/cc2-10-12-motion-pursuit-visual]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  motion-fairness-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Protected source and finite-sensing Pursuer controller custody
+        shell: bash
+        run: |
+          set -euo pipefail
+          old=0a6f138f229119bc6b6c15ee1f658046c7075f50
+          while IFS= read -r path; do
+            test "$(git rev-parse "HEAD:$path")" = "$(git rev-parse "$old:$path")"
+          done < <(git ls-tree -r --name-only "$old" src/games/circuit-climb/)
+          accepted=c24679fee27f381f8a60956633062e20d8684175
+          git diff --exit-code "$accepted" HEAD -- \
+            src/games/circuit-climb-2/math/ \
+            src/games/circuit-climb-2/features/ \
+            src/games/circuit-climb-2/pursuer/brain.ts \
+            src/games/circuit-climb-2/pursuer/perception.ts \
+            src/games/circuit-climb-2/pursuer/pursuerController.ts \
+            src/games/circuit-climb-2/pursuer/chassis.ts \
+            src/games/circuit-climb-2/pursuer/pursuitGraph.ts \
+            src/games/circuit-climb-2/world/legacyLearnerRouting.ts \
+            src/games/circuit-climb-2/world/legacyGeometry.ts \
+            src/games/circuit-climb-2/world/world.ts
+          echo "Protected original, math, abilities and Pursuer Brain/graph/chassis unchanged"
+      - run: npm ci
+      - name: TypeScript contracts
+        run: npm run lint
+      - name: Real route, fairness and replay source qualification
+        run: npx vitest run src/games/circuit-climb-2/tests/motion101112.test.ts
+      - name: Complete existing MathForge unit regressions
+        run: npm test
+      - name: Production source build
+        run: npm run build
+      - name: Inherited 07E Pursuer and mathematics browser test
+        run: node src/games/circuit-climb-2/devtools/cc2-07e-browser-smoke.mjs
+      - name: Inherited 09E unobstructed target and source replay test
+        run: node src/games/circuit-climb-2/devtools/cc2-09e-subtle-target-smoke.mjs
+      - name: New CC2-12 five-viewport owner test surface
+        run: node src/games/circuit-climb-2/devtools/cc2-12-browser-smoke.mjs
+      - name: Build single-file source-backed owner candidate
+        run: node src/games/circuit-climb-2/devtools/buildPortable12.mjs
+      - name: Offline playable with network denied
+        run: node src/games/circuit-climb-2/devtools/cc2-12-portable-smoke.mjs
+      - name: Source-built playable downloadable backup
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-12-Motion-Pursuit-Visual-Playable
+          path: cc2-standalone/CC2-12-Motion-Pursuit-Visual-Playable.html
+          retention-days: 30
+      - name: Screenshots and QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-12-Visual-Motion-Test-Evidence
+          path: cc2-12-evidence/
+          if-no-files-found: warn
+          retention-days: 30
