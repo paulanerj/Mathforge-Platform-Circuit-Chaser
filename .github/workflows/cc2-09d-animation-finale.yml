@@ -52,6 +52,8 @@ jobs:
         run: node src/games/circuit-climb-2/devtools/cc2-09c-visual-contrast-smoke.mjs
       - name: CC2-09D target choreography, event VFX and finale visual matrix
         run: node src/games/circuit-climb-2/devtools/cc2-09d-visual-smoke.mjs
+      - name: True 12-row ability and capture regression (no fabricated events)
+        run: node src/games/circuit-climb-2/devtools/cc2-09d-real-events-smoke.mjs
       - name: Build source-controlled offline CC2-09D playable HTML
         run: node src/games/circuit-climb-2/devtools/buildPortable09D.mjs
       - name: Offline launch and game with network forbidden
