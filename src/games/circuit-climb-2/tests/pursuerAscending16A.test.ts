@@ -119,6 +119,18 @@ describe('CC2-16A brain fallback: no lost-contact basement regression',()=>{
     expect(result.targetId).toBe('R9:B');
     expect(graph.byId.get(result.targetId)?.row).toBe(9);
   });
+  it('never retains a preview node above publicly available top when resuming SEARCH',()=>{
+    const graph=publicTower(),belief={
+      ...freshBelief(),mode:'SEARCH' as const,
+      reason:'SEARCH_FRONTIER' as const,goalId:'R10:B',
+      lastDirect:{x:205,y:-4*rowGap,tick:10,source:'NEAR' as const},
+    };
+    const result=choosePursuitGoal(belief,observation(900),graph,
+      'R9:B',false,false,90,'ascending',9);
+    const row=graph.byId.get(result.targetId)?.row;
+    expect(row).toBeGreaterThanOrEqual(8);
+    expect(row).toBeLessThanOrEqual(9);
+  });
   it('does not erase authentic LIVE, STALE or WAKE sensor evidence',()=>{
     const graph=publicTower(),base=freshBelief();
     const live=choosePursuitGoal(base,{
