@@ -1,0 +1,1662 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="cc2-offline" content="09e-subtle-target-feedback">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>MathForge Circuit Climb — CC2-16A Pursuer Integrity & Session Lab</title>
+  <style>
+    :root { color-scheme:dark; font: 14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; --ink:#e9f6fd; --muted:#a0b7c9; --edge:rgba(132,197,232,.25); background:#08131f; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); min-width:280px; }
+    .shell { max-width:680px; margin:auto; padding:14px 14px calc(16px + env(safe-area-inset-bottom)); }
+    .heading { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:10px; }
+    h1 { margin:0; font-size:18px; font-weight:720; letter-spacing:.025em; }
+    .phase { font-size:11px; padding:5px 8px; border-radius:20px; color:#a8dcec; border:1px solid #395f72; text-align:center; }
+    .disclaimer { margin:0 0 9px; color:#c0cfd9; font-size:12px; }
+    .hud { display:flex; align-items:center; gap:11px; justify-content:space-between; padding:12px; background:#12283b; border:1px solid var(--edge); border-radius:12px 12px 0 0; min-height:58px; }
+    #equation { font-weight:800; font-size:clamp(19px,5.5vw,29px); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    #height { color:#bceadd; font-variant-numeric:tabular-nums; text-align:right; font-size:12px; }
+    .board { position:relative; height:clamp(260px,calc(100dvh - 270px),610px); min-height:0; background:#091724; border:1px solid var(--edge); border-top:0; overflow:hidden; touch-action:none; }
+    canvas { display:block; width:100%; height:100%; }
+    .choices { position:absolute; inset:0; pointer-events:none; }
+    .choice { pointer-events:auto; position:absolute; transform:translateX(-50%); min-width:52px; min-height:44px; border:1px solid #6795b2; border-radius:10px; background:linear-gradient(135deg,rgba(28,68,94,.98),rgba(23,45,67,.98)); color:#effdff; font-size:clamp(19px,5vw,25px); font-weight:800; box-shadow:0 2px 8px #0008; cursor:pointer; touch-action:manipulation; transition:background .12s; }
+    .choice:focus-visible { outline:3px solid #f4d879; outline-offset:2px; }
+    .choice:disabled { opacity:.48; cursor:default; }
+    .choice.short { color:#ffb1a3; border-color:#ad584f; background:#53292e; }
+    .choice.selected { outline:2px solid #8cdeff; }
+    .choice[data-modifier="CAPACITOR"] { border-color:#d4bd70; box-shadow:inset 0 0 0 1px #9b833b,0 2px 12px #d0b26730; }
+    .choice[data-modifier="RELAY"] { border-color:#8ccde1; box-shadow:inset 0 0 0 1px #4b94ad,0 2px 12px #56bfd430; }
+    .row-kind {font-size:10px;color:#dbbf86;font-weight:800;letter-spacing:.09em;padding-top:2px;}
+    .energy {font-size:12px;color:#b2f3e2;font-weight:800;font-variant-numeric:tabular-nums;}
+    .cell-progress {font-size:11px;color:#d9e8f6;font-weight:750;font-variant-numeric:tabular-nums;letter-spacing:.035em;}
+
+    .achievement-toast {position:absolute;z-index:5;pointer-events:none;inset:0;
+      background:#3f3658;color:#f9edff;border:1px solid #bda4e4;
+      display:flex;align-items:center;justify-content:center;text-align:center;
+      padding:7px 10px;font-size:11px;font-weight:800;}
+    .achievement-toast[hidden]{display:none;}
+    .summary-overlay {position:fixed;z-index:80;inset:0;
+      background:rgba(3,12,22,.91);display:flex;align-items:center;
+      justify-content:center;padding:12px;}
+    .summary-overlay[hidden]{display:none;}
+    .summary-card {background:#132b3b;color:#f0fcff;
+      border:1px solid #5b8ca2;border-radius:16px;padding:17px;
+      max-width:550px;width:100%;max-height:calc(100dvh - 24px);
+      overflow-y:auto;box-shadow:0 12px 35px #000b;}
+    .summary-header{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+    .summary-header h2{margin:0;font-size:19px;}
+    .summary-header button {border:1px solid #527b94;border-radius:8px;
+      color:#d9f1fc;background:#193d56;padding:8px 10px;min-height:44px;}
+    #summaryOutcome{font-size:15px;color:#b6efdb;font-weight:750;margin:9px 0;}
+    .summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+    .summary-metric{border:1px solid #35566b;border-radius:8px;
+      padding:8px;background:#0d2233;display:flex;flex-direction:column;gap:1px;}
+    .summary-metric span{color:#b6cbd9;font-size:11px;}
+    .summary-metric strong{font-size:15px;font-variant-numeric:tabular-nums;}
+    .summary-card h3{font-size:13px;margin:15px 0 7px;}
+    #summaryBadges{display:flex;flex-wrap:wrap;gap:7px;color:#b6cbd9;}
+    .summary-achievement{border:1px solid #9a86c8;color:#f2e8ff;
+      background:#403b5e;border-radius:9px;padding:8px 10px;font-size:12px;}
+    #summaryEquations{border:1px solid #395a73;border-radius:8px;
+      padding:9px 12px 9px 33px;background:#0c1d2d;
+      max-height:190px;overflow-y:auto;margin:0;}
+    #summaryEquations li{padding:4px 0;font-size:13px;
+      font-variant-numeric:tabular-nums;}
+    .summary-footnote{font-size:11px;color:#adc2cf;margin-top:9px;}
+    @media(max-width:390px){.summary-card{padding:12px;}
+      .summary-header h2{font-size:16px;}.summary-grid{gap:5px;}}
+    @media(prefers-reduced-motion:reduce){ .choice{transition:none;} }
+    #pulse { background:#154c50;color:#ecfffc;border-color:#65b9ac; }
+    #pulse:disabled { opacity:.52; }
+    .math-working { position:absolute; z-index:3; pointer-events:none; top:9px; left:9px; right:9px; display:flex; justify-content:center; text-align:center; padding:9px 12px; min-height:40px; border-radius:9px; font-size:clamp(14px,4vw,19px); font-weight:800; letter-spacing:.01em; font-variant-numeric:tabular-nums; color:#f1fdff; background:rgba(12,40,59,.96); border:1px solid #538ba8; box-shadow:0 3px 14px #0007; }
+    .math-working[data-kind="incorrect"] { color:#ffe2d6; background:rgba(71,32,38,.98); border-color:#ce827c; }
+    .math-working[data-kind="correct"] { color:#d8ffef; background:rgba(25,75,65,.96); border-color:#70d9b2; }
+    .math-working[hidden] { display:none; }
+    .status-wrap { position:relative; min-height:44px; }
+    .cell-notice { position:absolute; z-index:4; pointer-events:none; inset:0; padding:6px 10px; display:flex; align-items:center; justify-content:center; background:#124741; color:#e6fff5; border:1px solid #82d7c7; box-shadow:0 2px 10px #0006; text-align:center; font-size:11px; font-weight:800; font-variant-numeric:tabular-nums; }
+    .cell-notice[hidden] { display:none; }
+    .status { padding:9px 12px; background:#112537; border:1px solid var(--edge); border-top:0; font-size:12px; color:#b8d3df; min-height:44px; }
+    .controls { display:flex; flex-wrap:wrap; gap:7px; margin:12px 0; }
+    button.action { background:#19334a; border:1px solid #4e7792; color:#e7f7ff; border-radius:9px; padding:11px 14px; min-height:44px; font-weight:650; flex:1; cursor:pointer; }
+    .settings { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; padding-top:10px; }
+    .dev-controls, .dev-tuning { margin-top:5px; border-top:1px solid var(--edge); padding-top:7px; }
+    .dev-controls summary, .dev-tuning summary { cursor:pointer; color:#b9d7e8; padding:5px 0; font-size:12px; font-weight:600; }
+    .dev-controls .dev-note { margin:6px 0; font-size:11px; color:var(--muted); }
+    label { color:var(--muted); font-size:11px; display:flex; flex-direction:column; gap:4px; }
+    input, select { min-width:0; width:100%; padding:9px; background:#142b3f; color:var(--ink); border:1px solid #42637b; border-radius:8px; font:inherit; }
+    details { color:var(--muted); margin-top:12px; font-size:12px; }
+    .lab-grid {display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:9px;margin:10px 0;}
+    .lab-group {border:1px solid #355d71;border-radius:12px;padding:10px;margin-top:12px;min-width:0;}
+    .lab-group legend {color:#c3e9f5;padding:0 5px;font-size:12px;font-weight:700;}
+    .lab-hint {font-size:11px;color:#bdd2e0;line-height:1.55;}
+    .lab-action-row {display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;}
+    .lab-action-row button {flex:1;min-width:130px;}
+    .lab-check {flex-direction:row;align-items:center;gap:8px;}
+    .lab-check input {width:18px;height:18px;min-width:18px;}
+    .lab-status {min-height:24px;padding:6px 0;color:#aee9db;font-size:12px;}
+    .lab-status[data-error="yes"] {color:#ffb2a5;}
+    #presetData {display:block;width:100%;min-height:120px;resize:vertical;color:#e8f6fd;
+      padding:10px;border:1px solid #4c7792;border-radius:8px;background:#0a1e2e;
+      font:12px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;}
+    #cameraZoom {accent-color:#a1e3f3;}
+    .view-readout{font-size:11px;color:#bce9eb;padding:4px 10px;background:#0f2a3a;border:1px solid #355a71;}
+    .cue-notice{position:absolute;z-index:6;left:50%;bottom:10px;transform:translateX(-50%);pointer-events:none;color:#dbfbff;background:#142c40de;border:1px solid #42758b;border-radius:20px;padding:4px 10px;font-size:11px;font-weight:700;}
+    .cue-notice[hidden]{display:none;}
+    .audio-control{background:#1a4254!important;}
+
+    .preview-key {display:inline-block;padding:2px 6px;border:1px solid #55758a;border-radius:6px;color:#bcd9e5;}
+
+    pre { background:#0c1c29; border:1px solid var(--edge); padding:10px; border-radius:8px; white-space:pre-wrap; word-break:break-word; max-height:130px; overflow:auto; color:#b1dce7; }
+    @media(max-width:390px){ .shell{padding:8px 8px calc(12px + env(safe-area-inset-bottom))} .heading{margin-bottom:5px} .choice{border-radius:8px} .hud{padding:8px} .board{height:clamp(230px,calc(100dvh - 328px),535px)} .status{font-size:11px} }
+    @media(prefers-reduced-motion:reduce){ .choice{transition:none} }
+
+    /* ───────────────────────────────────────────────────────────────
+       MathForge Production Visual Concept 01 · CC2-06A
+       One unified, restrained digital architectural style.
+       This is production-direction artwork, not an accepted release.
+       ─────────────────────────────────────────────────────────────── */
+    :root {
+      color-scheme:dark;
+      --ink:#f0f8fc; --muted:#94abba;
+      --edge:rgba(161,208,214,.20);
+      background:#06131c;
+      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;
+    }
+    body{
+      color:var(--ink);
+      min-width:280px;
+      min-height:100dvh;
+      background:
+        radial-gradient(ellipse 80% 55% at 50% -15%,rgba(37,100,122,.24),transparent 75%),
+        radial-gradient(ellipse 85% 60% at 50% 110%,rgba(14,48,68,.65),transparent),
+        linear-gradient(170deg,#05111a 0%,#0b1e2b 52%,#06131d 100%);
+    }
+    .shell{max-width:940px;padding:20px 22px 28px;}
+    .heading{align-items:center;margin-bottom:10px;gap:16px;}
+    .brand-lockup{display:flex;gap:14px;align-items:center;min-width:0}
+    .brand-mark{position:relative;width:40px;height:45px;flex:0 0 40px;
+      display:grid;place-items:center;border:1px solid #84b9c34d;
+      background:linear-gradient(145deg,#173846,#081e2a);
+      border-radius:13px;box-shadow:inset 0 0 21px #2a8da31c,0 5px 16px #0007;}
+    .brand-mark:before{content:"";width:21px;height:21px;position:absolute;
+      border:1.5px solid #9de2d5;transform:rotate(45deg);
+      box-shadow:0 0 16px #58d5c055;}
+    .brand-mark span{position:absolute;width:5px;height:5px;border-radius:50%;
+      background:#c8fef0;box-shadow:0 0 7px #67d7c9;}
+    .brand-mark span:nth-child(1){top:12px;left:11px}
+    .brand-mark span:nth-child(2){top:12px;right:11px}
+    .brand-mark span:nth-child(3){bottom:9px;left:18px}
+    .brand-eyebrow{color:#89d6d1;letter-spacing:.26em;font-size:9px;font-weight:850;margin-bottom:2px;}
+    .brand-eyebrow span{color:#6e8d9e;letter-spacing:.08em;}
+    .brand-type h1{font-size:clamp(21px,3.2vw,29px);line-height:1.08;
+      letter-spacing:.018em;font-weight:640;white-space:nowrap;}
+    .brand-type h1 em{font-style:normal;font-weight:350;color:#c4e5e8}
+    .phase{border-radius:6px;padding:7px 10px;letter-spacing:.12em;
+      color:#d4b991;border:1px solid #b49b6748;background:#b49b670b;
+      font-size:9px;font-weight:800;white-space:nowrap;}
+    .disclaimer{font-size:11px;color:#9db3bd;margin:0 0 12px 3px;
+      display:flex;gap:9px;align-items:center;letter-spacing:.025em}
+    .tagline-note{color:#708b99}
+    .live-indicator{width:6px;height:6px;border-radius:50%;display:inline-block;
+      background:#78dccb;box-shadow:0 0 12px #57c8b5}
+    .hud{min-height:80px;padding:14px 20px;
+      border:1px solid #8eb5bf2d;border-bottom:1px solid #acd5d040;
+      border-radius:16px 16px 0 0;
+      background:linear-gradient(112deg,rgba(21,52,66,.94),rgba(9,29,43,.97));
+      box-shadow:inset 0 1px #d8f5ed11;}
+    #equation{font-size:clamp(23px,4.5vw,36px);line-height:1.14;
+      font-weight:760;letter-spacing:.015em;
+      color:#edfafb;text-shadow:0 0 16px #bcece726;}
+    #rowKind,#modeBadge,#curriculumBadge{display:inline-block;margin:6px 10px 0 0;
+      letter-spacing:.08em;font-weight:700;font-size:9px;color:#b1c9d2}
+    #curriculumBadge{color:#d8c197}
+    #modeBadge{color:#8bd4c7}
+    .cell-progress,.energy{display:inline-block;font-size:10px;letter-spacing:.06em;
+      margin:5px 14px 0 0;color:#c8e7e5}
+    .cell-progress{color:#a6c3cd}
+    #height{font-size:11px;font-weight:660;line-height:1.65;color:#a6d3d1;
+      background:#153c4838;border:1px solid #85b9bd21;
+      padding:9px 11px;border-radius:10px;min-width:110px}
+    .board{height:clamp(390px,calc(100dvh - 225px),690px);
+      border:1px solid #729ca73c;border-top:none;
+      border-radius:0 0 18px 18px;
+      background:#071823;
+      box-shadow:inset 0 12px 45px #0007,0 17px 55px #0008;
+      isolation:isolate;}
+    .board:after{content:"";position:absolute;pointer-events:none;inset:0;
+      border-radius:inherit;
+      background:linear-gradient(180deg,#07182477,transparent 19%,transparent 77%,#04111b99);
+      box-shadow:inset 0 0 80px #06111bb0;z-index:1;}
+    .choices{z-index:3}
+    .choice{z-index:4;border:1.4px solid #83c9ce;border-radius:15px;
+      background:linear-gradient(155deg,rgba(42,88,104,.98),rgba(17,52,73,.99) 55%,rgba(10,34,51,.98));
+      color:#f7ffff;letter-spacing:.02em;font-size:clamp(23px,3.2vw,31px);
+      text-shadow:0 2px 5px #071f2c;
+      box-shadow:inset 0 1px 1px #d5ffec55,inset 0 -5px 12px #071b2a99,
+                 0 0 0 5px #2d8b9413,0 9px 20px #0009;
+      transition:transform .18s ease,border-color .16s,box-shadow .16s;}
+    .choice:hover:not(:disabled){transform:translateX(-50%) translateY(-3px);
+      border-color:#b7f7e0;box-shadow:0 0 0 5px #4fcb9f25,0 11px 23px #000b;}
+    .choice:disabled{opacity:.7;filter:saturate(.55)}
+    .choice.selected{outline:2px solid #d5f4e2;outline-offset:2px}
+    .choice.short{color:#ffd1c4;border-color:#e58d85;
+      background:linear-gradient(150deg,#713e46,#361e2e);}
+    .choice[data-modifier="CAPACITOR"]{border-color:#e0ba76}
+    .choice[data-modifier="RELAY"]{border-color:#8bdfe3}
+    .math-working{z-index:6;top:14px;left:50%;right:auto;max-width:calc(100% - 28px);
+      transform:translateX(-50%);white-space:nowrap;
+      background:#102d40f0;border:1px solid #76b3b8;border-radius:11px;
+      box-shadow:0 5px 25px #0009}
+    .cue-notice{z-index:7}
+    .view-readout{font-size:9px;text-align:center;color:#7195a1;
+      letter-spacing:.17em;padding:7px;border:none;background:none;}
+    .status-wrap{border-radius:10px;overflow:hidden;min-height:38px}
+    .status{min-height:38px;border:1px solid #6389952f;border-radius:10px;
+      background:#102838bb;font-size:12px;color:#b8d5dd;display:flex;align-items:center;
+      padding:8px 13px}
+    .controls{display:grid;grid-template-columns:1.25fr 1fr 1fr 1fr;gap:8px;margin:11px 0 16px}
+    button.action{border-color:#658c9a55;
+      background:linear-gradient(160deg,#1a3a4a,#122c3f);
+      color:#e1f7f8;border-radius:10px;font-size:12px;
+      box-shadow:inset 0 1px #d3f7e911;}
+    #pulse{border-color:#65b9ac80;
+      background:linear-gradient(155deg,#1c5753,#143e46);
+      color:#dbfff1;}
+    .audio-control{background:linear-gradient(155deg,#213b4b,#182e3b)!important}
+    button.action:hover:not(:disabled){border-color:#9bcec4;background:#245166}
+    .dev-controls,.dev-tuning,details{margin-top:10px}
+    .dev-controls summary,.dev-tuning summary,details>summary{
+      list-style-position:inside;border:1px solid #759dab26;
+      border-radius:9px;padding:12px 13px;color:#a8c8d2;
+      background:#142c3b74;cursor:pointer;}
+    details[open]>summary{border-color:#6a9ba54d;color:#e0eeee}
+    .lab-group{border-color:#739da44a;background:#0e273348}
+    .lab-group legend{color:#b9d7d9}
+    .summary-card{background:#102b3b;border-color:#88b9b2}
+    @media(max-width:650px){
+      .shell{padding:10px 9px 22px}
+      .heading{gap:9px}.brand-mark{width:34px;height:38px;flex-basis:34px}
+      .brand-lockup{gap:9px}
+      .brand-type h1{font-size:clamp(19px,5vw,24px)}
+      .brand-eyebrow{letter-spacing:.17em;font-size:8px}
+      .phase{font-size:8px;padding:6px;letter-spacing:.04em}
+      .disclaimer{font-size:10px;flex-wrap:wrap}
+      .tagline-note{display:none}
+      .hud{padding:12px 13px;min-height:73px}
+      #equation{font-size:clamp(23px,7vw,31px)}
+      #height{min-width:89px;padding:7px;font-size:10px}
+      #rowKind,#modeBadge,#curriculumBadge{margin-top:4px;margin-right:5px;font-size:8px}
+      .cell-progress,.energy{margin:3px 8px 0 0;font-size:9px}
+      .board{height:clamp(370px,calc(100svh - 235px),620px)}
+      .choice{font-size:clamp(22px,7vw,28px);border-radius:13px}
+      .controls{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+      button.action{font-size:11px;padding:9px 5px;min-height:44px}
+    }
+    @media(max-width:350px){
+      .brand-type h1{font-size:19px}.phase{max-width:113px;white-space:normal;text-align:center}
+      .hud{gap:7px}
+      #height{min-width:76px}
+      .controls{gap:4px}
+      .board{height:clamp(370px,calc(100svh - 225px),570px)}
+      .status{font-size:11px}
+    }
+    @media(prefers-reduced-motion:reduce){
+      .choice{transition:none}
+      .choice:hover:not(:disabled){transform:translateX(-50%)}
+    }
+
+    /* CC2-06A visual review: readable mobile HUD + physically truthful
+       offscreen Pursuer awareness (not a fake on-board enemy). */
+    .hud{display:grid;grid-template-columns:minmax(0,1fr) auto;
+      grid-template-areas:"equation height" "meta meta";
+      align-items:center;column-gap:16px;row-gap:6px;}
+    .hud-primary{grid-area:equation;min-width:0}
+    .hud-metadata{grid-area:meta;display:flex;gap:4px 13px;
+      align-items:center;flex-wrap:wrap;padding-top:4px;
+      border-top:1px solid #82b1af26}
+    #height{grid-area:height;line-height:1.55}
+    #rowKind,#modeBadge,#curriculumBadge,.cell-progress,.energy{
+      margin:0;display:block;line-height:1.45}
+    .threat-indicator{position:absolute;left:50%;bottom:44px;
+      transform:translateX(-50%);z-index:7;display:flex;
+      align-items:center;gap:9px;max-width:calc(100% - 24px);
+      padding:8px 13px;border:1px solid #f3989a77;border-radius:40px;
+      background:linear-gradient(110deg,#381f31f4,#16212ff4);
+      color:#ffb5b9;font-size:10px;letter-spacing:.105em;font-weight:800;
+      box-shadow:0 5px 22px #000a,0 0 25px #bb526526;
+      white-space:nowrap;pointer-events:none}
+    .threat-indicator[hidden]{display:none;}
+    .threat-indicator[data-direction="above"]{top:14px;bottom:auto}
+    .threat-beacon{width:21px;height:21px;flex:0 0 21px;display:grid;
+      place-items:center;border-radius:50%;border:1px solid #fa9cab;
+      background:#762f52;box-shadow:0 0 10px #d94c7590;color:#ffe4e5}
+    @media(max-width:650px){
+      .hud{column-gap:8px;row-gap:6px;padding:11px 12px}
+      .hud-metadata{gap:3px 8px;align-items:center}
+      #height{min-width:82px;font-size:10px;padding:7px 8px}
+      #equation{font-size:clamp(23px,7.6vw,31px)}
+      #rowKind,#modeBadge,#curriculumBadge,.cell-progress,.energy{
+        font-size:9px;letter-spacing:.04em}
+      .threat-indicator{font-size:9px;padding:6px 9px}
+    }
+    @media(max-width:350px){
+      .hud{column-gap:6px}
+      #height{min-width:78px;font-size:9px}
+      #rowKind,#modeBadge,#curriculumBadge,.cell-progress,.energy{font-size:8.5px}
+    }
+
+    /* CC2-06C: make actual expanded geometry visible, not merely shrink
+       the entire world again to fit the same old board height. A taller
+       responsive board with overflow-safe page scroll preserves 2+2 tiers.
+       On 320px phones, the first playable row remains visible above the fold.
+       A dedicated phone landscape breakpoint avoids horizontal clipping. */
+    .board{height:clamp(590px,calc(100dvh - 105px),980px);}
+    .choice{min-height:50px;}
+    .status-wrap{position:relative;bottom:auto;z-index:auto}
+    @media(max-width:650px){
+      .shell{padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+      .board{height:clamp(495px,calc(100svh - 90px),850px)}
+      /* No sticky stage overlay: both bars follow the full canvas in flow.
+         Owner must see the entire Spark route and lower tier warning. */
+      .controls{position:relative;bottom:auto;z-index:auto;
+        background:#071b28ed;padding:6px 3px;border-radius:13px;
+        border:1px solid #64999e33;margin:7px 0;}
+      .status-wrap{position:relative;bottom:auto}
+      .choice{min-height:49px}
+    }
+    @media(max-width:400px){
+      .board{height:clamp(490px,calc(100svh - 77px),740px)}
+    }
+    @media(orientation:landscape) and (max-height:520px){
+      .board{height:clamp(430px,100svh,690px)}
+      .shell{padding-top:6px}
+      .disclaimer{margin-bottom:5px}
+    }
+
+    /* CC2-07B: simple, accessible, low-height A/B pace selector.
+       No sticky surfaces over the playable board and no animation lock. */
+    .pace-strip{border:1px solid #789ca740;border-radius:12px;
+      padding:10px 12px;margin:9px 0 12px;
+      background:linear-gradient(125deg,#122b3b,#0b2433);}
+    .pace-heading{display:flex;gap:11px;align-items:center;flex-wrap:wrap}
+    .pace-heading>div{min-width:145px;flex:1}
+    .pace-heading strong{display:block;color:#c8f9ea;
+      font-size:11px;letter-spacing:.12em}
+    .pace-heading span{display:block;color:#8eaab8;font-size:10px}
+    .pace-label{font-size:10px;color:#c8d9df;display:flex;
+      flex-direction:column;gap:3px;min-width:175px;flex:1}
+    .pace-label select{min-height:38px;border-radius:9px;color:#edffff;
+      background:#18394b;border:1px solid #6e9dab77;padding:7px 8px}
+    .pace-apply{min-height:40px;border-radius:9px;
+      background:linear-gradient(130deg,#285c5b,#185048);
+      border:1px solid #8bcdc8;color:#ecfff9;font-weight:750;
+      font-size:12px;padding:8px 13px;cursor:pointer;}
+    .pace-apply:focus-visible{outline:3px solid #c7efda}
+    .pace-description{font-size:10px;color:#a9d5d4;margin:7px 0 0}
+    @media(max-width:480px){
+      .pace-heading>div{flex:0 0 100%}
+      .pace-label{min-width:154px}
+      .pace-apply{align-self:flex-end;min-width:111px;padding:7px}
+    }
+    @media(max-width:350px){
+      .pace-heading{gap:5px}
+      .pace-label{min-width:100%}
+      .pace-apply{width:100%}
+    }
+
+    /* ── CC2-07D: real physical proximity and real source-owned emotion ── */
+    .threat-radar{display:grid;grid-template-columns:auto minmax(40px,1fr) auto;
+      align-items:center;gap:12px;padding:8px 13px;
+      background:linear-gradient(110deg,#172a3a,#0e2433);
+      border:1px solid #51768980;border-top:none;
+      color:#adc4d0;font-size:10px;min-height:34px;}
+    .threat-head{display:flex;align-items:center;gap:7px;
+      font-weight:800;letter-spacing:.09em;min-width:155px;white-space:nowrap;}
+    .threat-symbol{color:#e899af;text-shadow:0 0 10px #ff628577}
+    .threat-rail{height:5px;border-radius:10px;background:#243748;
+      overflow:hidden;box-shadow:inset 0 1px 2px #06131a;}
+    #threatRadarFill{height:100%;width:0%;
+      background:linear-gradient(90deg,#4c95aa,#b5c9c0);
+      border-radius:inherit;transition:width .18s linear;}
+    .threat-radar[data-threat-level="approaching"] #threatRadarFill{
+      background:linear-gradient(90deg,#d4b889,#e8a28e);}
+    .threat-radar[data-threat-level="near"] #threatRadarFill,
+    .threat-radar[data-threat-level="critical"] #threatRadarFill{
+      background:linear-gradient(90deg,#db8a91,#f06887);}
+    .threat-radar[data-threat-level="critical"] .threat-head{color:#ffd0d7}
+    .threat-range{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;
+      letter-spacing:.035em;color:#b7ced3;font-size:10px;}
+    .pace-export{min-height:40px;border-radius:9px;
+      background:#1b3242;border:1px solid #648ca087;color:#cbecf1;
+      font-weight:700;font-size:11px;padding:8px 12px;cursor:pointer;}
+    .pace-export:focus-visible{outline:3px solid #c7efda}
+    @media(max-width:650px){
+      .threat-radar{grid-template-columns:minmax(0,1fr) auto;
+        row-gap:5px;padding:7px 10px;font-size:9px;}
+      /* The longer SEARCH / LOCKED label gets its own readable row on
+         narrow screens. Do not allow the true distance text to overlap. */
+      .threat-head{grid-row:1;grid-column:1 / -1;min-width:0;
+        white-space:normal}
+      .threat-range{grid-row:2;grid-column:1 / -1;
+        text-align:left;font-size:9px;white-space:normal}
+      .threat-rail{grid-row:3;grid-column:1 / -1}
+      .pace-export{flex:1}
+    }
+    @media(max-width:350px){.threat-range{font-size:8px}}
+    @media(prefers-reduced-motion:reduce){
+      #threatRadarFill{transition:none}
+    }
+  </style>
+
+<style id="cc209-final-ui-retained">
+/* Original-inspired full-height arcade tower; all engine input nodes remain mounted. */
+body{background:#07121c}
+.shell{max-width:780px;padding:8px 10px calc(10px + env(safe-area-inset-bottom))}
+.heading{margin-bottom:7px;min-height:38px}
+.brand-eyebrow{font-size:9px;letter-spacing:.12em}
+.heading h1{font-size:18px}
+.phase,.disclaimer,.hud,.view-readout{display:none!important}
+.threat-radar{margin:0 0 5px;padding:5px 10px!important;min-height:25px}
+.threat-radar .threat-head{font-size:9px!important}
+.threat-radar .threat-range{font-size:9px!important}
+.board{height:clamp(355px,calc(100dvh - 155px),900px)!important;max-height:none;border-radius:15px;border:1px solid rgba(103,194,220,.38);box-shadow:inset 0 0 44px #031017,0 12px 40px #0005}
+.status-wrap{min-height:0!important;padding:2px 4px!important;margin:2px 0!important}
+#status{font-size:11px!important;line-height:1.2!important;min-height:0!important;padding:0!important;opacity:.8}
+.controls{display:flex;justify-content:center;gap:6px;margin:6px 0 0!important;padding:0!important}
+.controls .action{min-height:38px!important;margin:0!important;padding:7px 12px!important;flex:1}
+#soundToggle{display:none!important}
+.pace-strip,.dev-controls,.dev-tuning,main.shell>details:not(.dev-controls):not(.dev-tuning),.cc208-lab{display:none!important}
+#cc209-settings .pace-strip,#cc209-settings .dev-controls,#cc209-settings .dev-tuning,#cc209-settings details,#cc209-settings .cc208-lab{display:block!important}
+#cc209-equation{position:absolute;z-index:7;top:10px;left:50%;transform:translateX(-50%);pointer-events:none;background:#102b3be8;color:#e8faff;border:1px solid #80c5dc98;border-radius:12px;padding:7px 15px;min-width:128px;text-align:center;font-size:clamp(15px,4vw,20px);font-weight:750;white-space:nowrap;box-shadow:0 5px 20px #0005}
+.cc209-actions{display:flex;gap:6px;margin-left:auto}
+.cc209-actions button{appearance:none;background:#142b39;color:#c2e9f4;border:1px solid #416a7c;border-radius:10px;min-width:43px;min-height:38px;cursor:pointer;font:600 12px system-ui}
+.cc209-modal[hidden],.cc209-preend[hidden],#cc209-start[hidden]{display:none!important}
+.cc209-modal{position:fixed;inset:0;z-index:120;background:#020910d9;display:flex;align-items:center;justify-content:center;padding:16px}
+.cc209-dialog{width:min(650px,100%);max-height:88dvh;overflow:auto;border:1px solid #4c8ca0;border-radius:17px;background:#102333;color:#e1f7fa;padding:15px;box-shadow:0 16px 70px #000b}
+.cc209-dialog h2{font-size:17px;margin:0 0 10px}
+.cc209-dialog p{line-height:1.5}
+.cc209-close{float:right;background:#23475a;border:1px solid #6a9fb5;color:white;border-radius:10px;padding:8px 13px;cursor:pointer}
+.cc209-dialog details{padding:10px;border:1px solid #36596b;border-radius:10px;margin:8px 0}
+.cc209-dialog summary{cursor:pointer;font-weight:650}
+.cc209-dialog .dev-tuning,.cc209-dialog .dev-controls{display:block!important}
+.cc209-dialog .pace-strip{display:block!important}
+#cc209-start{pointer-events:none;position:absolute;z-index:8;bottom:9%;left:50%;transform:translateX(-50%);text-align:center;width:min(94%,400px);padding:12px 14px;color:#e5fbff;font-size:12px;font-weight:650;letter-spacing:.03em;background:#08202ccc;border:1px solid #6bbac1a3;border-radius:12px;box-shadow:0 0 24px #1d64744b}
+.cc209-preend{position:fixed;inset:0;z-index:118;display:grid;place-items:center;background:#041522e8;text-align:center;color:#e1f8ff;pointer-events:none}
+.cc209-preend-inner{padding:35px;animation:cc209-appear .25s ease-out}
+.cc209-preend h2{font-size:clamp(24px,5vw,38px);letter-spacing:.08em;margin:8px}
+.cc209-preend p{color:#99cdd8;letter-spacing:.06em}
+@keyframes cc209-appear{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+@media(max-width:420px){.shell{padding:6px 6px calc(8px + env(safe-area-inset-bottom))}.brand-eyebrow{font-size:8px}.heading h1{font-size:17px}.board{height:clamp(350px,calc(100dvh - 145px),900px)!important}.controls .action{font-size:12px!important;padding:7px 6px!important}}
+@media(prefers-reduced-motion:reduce){.cc209-preend-inner{animation:none}}
+</style>
+<script>window.__cc2ChaseStarted=false;</script>
+
+<style id="cc209b-heritage-style">
+/* CC2-09B · Restored original-surface presentation. Built atop the real CC2-09A game.
+   The source canvas still runs but is visually replaced by a snapshot-only painter.
+   No gameplay hit target, mathematics, or Pursuer model is redefined here. */
+:root{color-scheme:light}
+body{background:#e7f1fa!important;color:#0e1b33!important}
+.shell{max-width:760px!important}
+.heading{background:#fafdff;box-shadow:0 4px 18px #4d7ca319;border:1px solid #c7d9e8;border-radius:14px;padding:8px 10px;margin-bottom:8px!important}
+.heading h1,.heading em{color:#132c54!important}
+.brand-eyebrow{color:#5b83a1!important}
+.brand-mark{filter:drop-shadow(0 1px 3px #12417e24)}
+.cc209-actions button{background:white!important;border:1px solid #ccdceb!important;color:#17466e!important;box-shadow:0 2px 8px #1c4e8413}
+.cc209-actions button:hover{background:#e7f4ff!important}
+#worldCanvas{opacity:0!important}
+#cc209b-heritage-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;display:block}
+.board{background:#f0f6fc!important;border:1px solid #c2d7e8!important;border-radius:18px!important;box-shadow:0 15px 40px #1f47672c,inset 0 0 35px #ffffffaa!important}
+.board:after{display:none!important}
+.choices{z-index:4!important}
+.choice{border-radius:14px!important;border:1.5px solid #c6dcf0!important;background:linear-gradient(180deg,#ffffff,#eef6fc)!important;color:#0e1b33!important;text-shadow:none!important;box-shadow:0 7px 20px #234b701c,inset 0 1px 0 #fff!important;min-width:57px!important;min-height:48px!important}
+.choice:hover:not(:disabled){border-color:#4ba9ed!important;background:#e6f5ff!important;box-shadow:0 0 0 5px #3399dd24,0 7px 20px #234b7020!important}
+.choice.selected{border-color:#2877cf!important;outline:2px solid #357fee!important;outline-offset:2px}
+.choice.short{background:#fff0f1!important;color:#a63148!important;border-color:#e1a4af!important}
+.choice:disabled{opacity:.63!important}
+#cc209-equation{background:#ffffffeb!important;border:1px solid #c3d9ea!important;color:#0e1b33!important;box-shadow:0 4px 15px #335c7e1b!important;font-weight:850!important;top:10px!important;font-size:clamp(14px,3.8vw,19px)!important;min-width:125px!important;max-width:75%!important;z-index:7!important}
+/* Source already displays the mathematically authoritative expression in the new chip. */
+.math-working{display:none!important}
+#cc209-start{background:#fffffff2!important;border:1px solid #c3d9ed!important;box-shadow:0 7px 22px #27598226!important;color:#265382!important;bottom:5%!important;font-size:11px!important;letter-spacing:.075em!important}
+.threat-radar{background:#fbfdff!important;border:1px solid #d4e3ee!important;box-shadow:0 2px 10px #234a6a14!important;color:#5b5876!important;border-radius:11px!important}
+.threat-radar .threat-head,.threat-radar .threat-range,.threat-radar label{color:#4e6484!important}
+.threat-radar .threat-rail{background:#e0e9f1!important}
+.status-wrap{display:none!important}
+.controls{margin-top:7px!important}
+.controls .action{background:linear-gradient(180deg,#fff,#eaf4fa)!important;color:#1c4671!important;border:1px solid #cbdcea!important;box-shadow:0 4px 14px #214c7417!important;font-weight:760}
+.controls #pulse{background:linear-gradient(180deg,#e8fbf7,#d8f0ea)!important;color:#237b66!important;border-color:#a8d8d0!important}
+.controls button:disabled{opacity:.5}
+.threat-indicator{background:#fff4f4ed!important;border:1px solid #eea2af!important;color:#ab3653!important;box-shadow:0 6px 24px #a84b5533!important}
+.threat-beacon{background:#f7cfda!important;color:#ab3653!important}
+.cc209-dialog{background:linear-gradient(#fff,#f1f7fc)!important;color:#183253!important;border-color:#c2d7e8!important;box-shadow:0 17px 50px #1b3b5b52!important}
+.cc209-dialog h2,.cc209-dialog summary{color:#123861!important}
+.cc209-close{background:#eef7fc!important;border:1px solid #caddeb!important;color:#235d80!important}
+.cc209-dialog details{background:#fff;border:1px solid #cee0ec!important}
+.cc209-modal{background:#0d2d4eaa!important}
+.cc209-preend{background:radial-gradient(circle at 50% 35%,#fafdff,#e1eef9ed)!important;color:#173962!important}
+.cc209-preend p{color:#567d9c!important}
+.summary-overlay{background:#d8e8f4ec!important;backdrop-filter:blur(5px)}
+.summary-card{background:#ffffff!important;color:#16365a!important;border:1px solid #c0d7e7!important;box-shadow:0 12px 50px #21436633!important}
+.summary-card h2,.summary-card h3,.summary-card p{color:#17365e!important}
+#cc209b-audio-ui{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:9px 0 0;padding:6px 0;font-size:12px;color:#315775}
+#cc209b-audio-ui button,#cc209b-audio-ui select{min-height:36px;background:white;border:1px solid #aabfcf;border-radius:9px;padding:7px 10px;color:#1c4b73;font-weight:700}
+#cc209b-audio-ui button[aria-pressed="false"]{opacity:.7}
+#cc209b-test-details{display:block;font-size:11px;color:#617b94}
+.cc209b-diagnostics{font-family:ui-monospace,monospace;font-size:11px;white-space:pre-wrap;word-break:break-word;background:#e6f1fa;border-radius:8px;border:1px solid #d2e3f0;color:#23486d;padding:10px;max-height:260px;overflow:auto}
+.cc209b-diagnostics button{min-height:38px;background:#eef7fd;border:1px solid #aac7dc;border-radius:9px;font:700 11px system-ui;padding:8px 10px;color:#1a557e;cursor:pointer}
+@media(max-width:420px){.heading{padding:7px!important}.heading h1{font-size:16px!important}#cc209-equation{padding:6px 10px!important}.controls .action{min-height:42px!important}}
+@media(prefers-reduced-motion:reduce){.choice,.cc209-preend-inner{transition:none!important;animation:none!important}}
+
+</style>
+
+<link rel="icon" href="data:,"><style id="cc209c-original-menu-contrast">
+/* CC2-09C: original-inspired introductory/paused/ending presentation.
+   No game state, collision geometry or Pursuer behavior is changed here. */
+:root { --cc-ink:#142d4a; --cc-secondary:#375570; --cc-accent:#1558a7; --cc-edge:#9ebbd1; --cc-card:#fff; --cc-pale:#f0f6fc; }
+#cc209c-intro[hidden],#cc209c-pause[hidden],#cc209c-toast[hidden]{display:none!important}
+body[data-cc209c-intro-open="on"] .shell{visibility:hidden!important}
+.cc209c-screen { position:fixed;inset:0;z-index:145;display:grid;place-items:center;
+  padding:15px;background:rgba(224,239,251,.93);backdrop-filter:blur(7px);
+  color:var(--cc-ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif; }
+#cc209c-pause{background:rgba(226,240,252,.77);backdrop-filter:blur(7px)}
+.cc209c-card { width:min(430px,100%);max-height:calc(100dvh - 30px);overflow:auto;
+  border:1.5px solid #b6d0e4;border-radius:23px;background:linear-gradient(155deg,#fff,#f3f9ff);
+  box-shadow:0 24px 72px #1f466b35;padding:22px 22px 20px;text-align:center; }
+.cc209c-card .eyebrow { color:#1b5f9d;font-size:12px;font-weight:850;text-transform:uppercase;letter-spacing:.14em }
+.cc209c-card h2 { margin:10px 0 12px;color:#102f55;font-weight:860;font-size:clamp(28px,8vw,40px);
+  line-height:1.1;letter-spacing:-.03em }
+.cc209c-card h2 em { color:#1765c0;font-style:normal; }
+.cc209c-card p { color:#344e68;font-size:14px;line-height:1.55;margin:10px 0 15px }
+.cc209c-rules { display:grid;gap:8px;text-align:left;margin:15px 0 17px }
+.cc209c-rule { display:grid;grid-template-columns:32px minmax(0,1fr);gap:10px;align-items:center;
+  color:#233e5c;background:#fff;border:1px solid #ccdeeb;border-radius:12px;
+  font-size:13px;padding:9px 11px;line-height:1.45 }
+.cc209c-rule b { display:grid;place-items:center;background:#dbeeff;color:#12538f;
+  border-radius:9px;width:31px;height:31px;font-size:15px }
+.cc209c-mainbutton { min-height:46px;width:100%;padding:10px 13px;border:1px solid #0e55a7;
+  border-radius:13px;background:linear-gradient(#2781e3,#155cbd);color:#fff;
+  font:800 14px/1.2 system-ui;cursor:pointer;box-shadow:0 7px 19px #1657a52e }
+.cc209c-secondarybutton { min-height:44px;width:100%;padding:10px 13px;border:1px solid #a3c4dd;
+  border-radius:13px;background:#fff;color:#164c7e;font:750 13px/1.2 system-ui;cursor:pointer;
+  margin-top:8px }
+.cc209c-fineprint { color:#4c6782!important;font-size:12px!important;margin-bottom:0!important }
+#cc209c-toast { position:absolute;bottom:16%;left:50%;transform:translateX(-50%);
+ z-index:9;max-width:min(88%,370px);min-width:165px;pointer-events:none;
+ text-align:center;border:1.5px solid #7aaccd;border-radius:14px;
+ background:#fffef9f7;box-shadow:0 6px 26px #224d7244;color:#153d62;
+ padding:10px 16px;font:800 13px/1.35 system-ui; }
+#cc209c-toast[data-kind="capacitor"]{background:#fff7e7;border-color:#b48122;color:#6d420b}
+#cc209c-toast[data-kind="relay"]{background:#e9fbff;border-color:#15879a;color:#0b5467}
+#cc209c-toast[data-kind="pulse"]{background:#e5fff4;border-color:#15875a;color:#0b5c3b}
+#cc209c-toast[data-kind="danger"]{background:#fff0f0;border-color:#ba4052;color:#92273b}
+#cc209c-toast[data-kind="stage"]{background:#f1ecff;border-color:#6b4ca8;color:#44297e}
+#cc209c-progress-card { margin:11px 0 12px;background:#fff;border:1px solid #c3dae9;
+  border-radius:11px;padding:12px 14px;color:#183b5d;font:600 13px/1.55 system-ui }
+#cc209c-progress-card strong{color:#123d70}
+#cc209c-progress-card .cc209c-detail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}
+#cc209c-progress-card .cc209c-detail>span{padding:9px;background:#f1f7fc;border-radius:8px}
+#cc209c-highlights { background:#edf6fd;border:1px solid #c5dce9;border-radius:12px;
+  margin:12px 0;padding:10px 12px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px; }
+#cc209c-highlights>div { border-radius:8px;padding:7px;background:#fff;color:#254965;
+  font-size:12px;line-height:1.4; }
+#cc209c-highlights strong{display:block;font-size:18px;color:#134e87}
+#cc209c-special-guide {padding:9px 11px;margin:12px 0;border:1px solid #c2d9e9;border-radius:11px;
+  color:#294c69;background:#fff;font-size:12px;line-height:1.55}
+#cc209c-special-guide strong{color:#174f85}
+.choice[data-modifier="CAPACITOR"]:not(.short){border:2px solid #a9711b!important;
+  background:linear-gradient(#fffdf4,#f8e5b6)!important;color:#614012!important;
+  box-shadow:0 0 0 2px #d2a84d55,0 5px 20px #9d71203c!important}
+.choice[data-modifier="RELAY"]:not(.short){border:2px solid #137b8e!important;
+  background:linear-gradient(#f5feff,#c9f0f5)!important;color:#0b5366!important;
+  box-shadow:0 0 0 2px #56b9c455,0 5px 20px #227d9440!important}
+.choice.short{border:2px solid #b44255!important;color:#8c1d32!important;background:#fff0f1!important}
+.choice:focus-visible,.controls button:focus-visible,.cc209c-screen button:focus-visible,
+.cc209-dialog button:focus-visible,.cc209-dialog summary:focus-visible,
+.cc209-actions button:focus-visible {outline:3px solid #165eaf!important;outline-offset:3px}
+.choice:disabled{opacity:1!important;color:#5a6977!important}
+.controls .action {color:#133e6b!important;font-size:13px!important;letter-spacing:0!important}
+.controls #pulse{color:#115842!important;border-color:#659e85!important}
+.controls #pulse:disabled{color:#31584b!important;background:#e2eee9!important;opacity:1!important}
+#cc209-equation {color:#112d4e!important;background:#fff!important;border:1.5px solid #a4bfda!important}
+.threat-radar .threat-head,.threat-radar .threat-range,.threat-radar label{color:#263e60!important;font-size:12px!important}
+.cc209-actions button{font-size:13px!important;min-height:42px!important;min-width:44px!important;color:#113e72!important}
+.cc209-dialog{color:#203c58!important}
+.cc209-dialog p,.cc209-dialog label,.cc209-dialog small,.cc209-dialog .lab-hint,
+.cc209-dialog .pace-label,.cc209-dialog .dev-note,.cc209-dialog .settings-note,
+.cc209-dialog .lab-action-row,.cc209-dialog .caution {color:#294961!important;font-size:12px!important;line-height:1.5}
+.cc209-dialog details,.cc209-dialog select,.cc209-dialog input,.cc209-dialog textarea,
+.cc209-dialog button{font-size:max(12px,1em)}
+.cc209-dialog select,.cc209-dialog input:not([type=checkbox]):not([type=range]),
+.cc209-dialog textarea{color:#193c60!important;background:#fff!important;border:1px solid #9fbfd3!important}
+.cc209-dialog details>summary {color:#153c65!important;font-size:13px!important}
+.cc209-dialog input[type=range]{accent-color:#165eaf}
+.cc209-dialog #cc209b-test-details,.cc209-dialog .pace-description,
+.cc209-dialog .lab-hint{color:#365872!important}
+.summary-card{color:#17375c!important}
+.summary-metric span,.summary-footnote,#summaryBadges,#summaryEquations {color:#34536f!important}
+.summary-metric strong,.summary-header h2 {color:#153e65!important}
+.summary-card .action,.summary-header button{color:#15446e!important;background:#f0f7fd!important}
+#summaryOutcome{color:#125744!important}
+#cc209-start{color:#1f4b78!important;font-size:12px!important}
+@media(max-width:410px){.cc209c-card{padding:16px 14px}.cc209c-rules{gap:6px}
+  .cc209c-rule{font-size:12px;padding:7px 8px}.cc209c-card p{font-size:13px}
+  .cc209c-card h2{font-size:28px}#cc209c-toast{bottom:14%;font-size:12px}
+  #cc209c-highlights{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+/* Explicit light backgrounds and dark text for the inherited pacing panel.
+   The previous dark gradient had 10px grey labels that were illegible in
+   screenshot inspection. Same exact run and Pursuer controls, presentation only. */
+#cc209-settings .pace-strip{
+ background:#f0f7fc!important;color:#214769!important;border:1px solid #b9d2e4!important;
+ box-shadow:none!important;
+}
+#cc209-settings .pace-heading strong{
+ color:#143d66!important;font-size:13px!important;letter-spacing:.06em!important;
+}
+#cc209-settings .pace-heading span,
+#cc209-settings .pace-description,
+#cc209-settings #paceDescription{
+ color:#315775!important;font-size:12px!important;
+}
+#cc209-settings .pace-label{
+ color:#264b6b!important;font-size:12px!important;font-weight:650!important;
+}
+#cc209-settings #paceProfile{
+ background:#fff!important;color:#193c61!important;border:1px solid #9ebbd2!important;
+ min-height:42px!important;
+}
+#cc209-settings #applyPace{
+ background:#155a49!important;color:#ffffff!important;border:1px solid #155a49!important;
+ font-size:12px!important;font-weight:760!important;
+}
+#cc209-settings #downloadPlaytest{
+ background:#e7f3fb!important;color:#164d78!important;border:1px solid #aacadb!important;
+ font-size:12px!important;
+}
+#cc209-settings .cc209-dialog details>summary{
+ background:#eaf4fb!important;color:#153d66!important;
+ border:1px solid #c1d9e9!important;font-size:13px!important;
+}
+#cc209-settings .cc209-dialog details[open]>summary{
+ background:#e0f0fb!important;color:#123f69!important;
+}
+/* The earlier dark summary tiles survived inside the new light summary card.
+   Force their real backgrounds as well as text colours; otherwise a dark
+   caption on an inherited navy metric fails WCAG despite nominal text tokens. */
+.summary-metric{background:#f0f7fd!important;border-color:#b9d0e4!important}
+.summary-metric strong{color:#153d66!important}
+.summary-metric span{color:#31516c!important;font-size:12px!important}
+#summaryEquations{background:#f7fbff!important;border-color:#c4d9e8!important;color:#254867!important}
+#summaryEquations li{color:#254867!important}
+.summary-achievement{background:#f1eaff!important;border-color:#ab95ce!important;color:#44326c!important}
+.summary-footnote{font-size:12px!important;color:#3c5872!important}
+.brand-eyebrow{font-size:11px!important;color:#31597a!important}
+#cc209b-test-details{font-size:12px!important;color:#375a79!important}
+.cc209-dialog .pace-strip,.cc209-dialog .dev-controls,.cc209-dialog .dev-tuning{color:#23465f!important}
+.cc209-dialog .pace-strip button,.cc209-dialog .dev-controls button,
+.cc209-dialog .dev-tuning button{background:#edf6fc!important;color:#183e63!important;
+ border:1px solid #9cb9d0!important}
+.cc209-dialog pre,.cc209-dialog code{color:#183c5d!important;background:#e9f2f8!important}
+/* Restore the original rounded Pause/Restart action treatment. */
+.controls .action{border-radius:999px!important}
+/* A 320x568 phone must show the full start action without clipped footer.
+   The extra note is redundant with the visible first-click rule above. */
+@media(max-height:650px){
+  .cc209c-card{padding:13px 13px 14px}
+  .cc209c-card h2{margin:7px 0 9px}
+  .cc209c-rules{margin:10px 0 12px}
+  .cc209c-fineprint{display:none!important}
+}
+@media(prefers-reduced-motion:reduce){.cc209c-screen *,#cc209c-toast{animation:none!important;transition:none!important}}
+</style>
+<link rel="stylesheet" href="./cc2-09d-presentation.css">
+<link rel="stylesheet" href="./cc2-09e-presentation.css">
+<link rel="stylesheet" href="./cc2-12-presentation.css">
+<link rel="stylesheet" href="./cc2-13-15.css">
+<link rel="stylesheet" href="./cc2-16a-integrity.css">
+</head>
+<body data-pursuer="on" data-features="on" data-summary="on" data-cc209b="on" data-cc209c="on" data-cc209d="on" data-cc209e="on" data-cc212="on" data-cc215="on" data-cc216a="on" data-cc209c-intro-open="on">
+  <main class="shell">
+    <div class="heading">
+      <div class="brand-lockup">
+        <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="brand-type"><div class="brand-eyebrow">MATHFORGE <span> / WORLD 03</span></div>
+          <h1>Circuit <em>Climb</em></h1></div>
+      </div>
+      <span class="phase">CC2-16A · PURSUER INTEGRITY</span><div class="cc209-actions"><button id="cc209-help-btn" type="button" aria-label="Help">? Help</button><button id="cc209-settings-btn" type="button" aria-label="Settings">⚙</button></div>
+    </div>
+    <p class="disclaimer"><span class="live-indicator" aria-hidden="true"></span> 1.5× MORE PLATFORM SPACING · ORIGINAL SPEEDS · ASCENDING PURSUER <span class="tagline-note">· Choose the correct path. Stay ahead.</span></p>
+    <section class="hud" aria-label="Mathematics and progress">
+      <div class="hud-primary"><div id="equation" role="status" aria-live="polite">Loading…</div></div>
+      <div id="height">ROW 0<br>BOT SEARCH</div>
+      <div class="hud-metadata">
+        <div id="rowKind" class="row-kind">STAGE 1 · NORMAL ROW</div>
+        <div id="modeBadge" class="row-kind">CLIMB</div>
+        <div id="curriculumBadge" class="row-kind" aria-label="Current mathematical curriculum">MAKE TARGET · TO 10</div>
+        <div id="cellProgress" class="cell-progress" aria-label="Power cell 1: zero of four rows completed">CELL 1 · ○○○○ · 0/4 powered</div>
+        <div id="energy" class="energy" role="status" aria-live="polite">PULSE 0/4</div>
+      </div>
+    </section>
+    <section class="threat-radar" data-threat-level="far" aria-label="Real Pursuer proximity">
+      <div class="threat-head"><span class="threat-symbol" aria-hidden="true">◆</span>
+        <span id="threatRadarLabel">PURSUER DISTANT</span></div>
+      <div class="threat-rail" aria-hidden="true"><div id="threatRadarFill"></div></div>
+      <span id="threatRadarDistance" class="threat-range" aria-live="off">CALCULATING DISTANCE</span>
+    </section>
+    <section class="board" id="board" aria-label="Numbered three-platform climbing board">
+      <canvas id="worldCanvas" aria-hidden="true"></canvas>
+      <div id="cueNotice" class="cue-notice" hidden></div>
+      <div id="threatIndicator" class="threat-indicator" role="status" aria-live="off" hidden>
+        <span class="threat-beacon" aria-hidden="true">◆</span>
+        <span id="threatText">PURSUER APPROACHING</span>
+      </div>
+      <div id="mathWorking" class="math-working" role="status" aria-live="polite" hidden></div>
+      <div class="choices" id="choices" aria-label="Choose a numbered destination"></div><div id="cc209-equation" role="status" aria-live="polite">Choose a number</div><div id="cc209-start" aria-live="polite">CHOOSE ANY NUMBER TO BEGIN THE CHASE</div>
+    </section>
+    <div class="view-readout" id="viewReadout" role="status">2 UP / 2 DOWN · 1.5× PHYSICAL ROW GAP</div>
+    <div class="status-wrap">
+      <div id="status" class="status" role="status" aria-live="polite">Choose the number that completes the sum.</div>
+      <div id="cellNotice" class="cell-notice" role="status" aria-live="polite" hidden></div>
+      <div id="achievementToast" class="achievement-toast" role="status" aria-live="polite" hidden></div>
+    </div>
+    <div class="controls">
+      <button class="action" id="pulse" type="button" title="Earn from correct landings. Press P to activate." disabled>Pulse 0/4</button>
+      <button class="action" id="pause" type="button">Pause</button>
+      <button class="action" id="restart" type="button">New run</button>
+      <button class="action audio-control" id="soundToggle" type="button" aria-pressed="true">Sound: On</button>
+    </div>
+    <section class="pace-strip" aria-label="Choose a game speed for repeatable playtests">
+      <div class="pace-heading">
+        <div><strong>CHASE PACE</strong><span>Change speed without changing the math seed</span></div>
+        <label for="paceProfile" class="pace-label">Test profile
+          <select id="paceProfile" aria-label="Pursuer and Spark pace">
+            <option value="training">Warm-up · easier to escape</option>
+            <option value="energetic" selected>Energetic · current default</option>
+            <option value="intense">Intense · closer, faster threat</option>
+          </select>
+        </label>
+        <button id="applyPace" type="button" class="pace-apply">Start pace test</button>
+        <button id="downloadPlaytest" type="button" class="pace-export" title="Save real game replay, positions, timing and AI route evidence">Download playtest report</button>
+      </div>
+      <p id="paceDescription" class="pace-description" role="status">Energetic · Spark 24 / bot SEARCH 4.8 / CHASE 6.0 · 2-row spawn</p>
+    </section>
+    <details class="dev-controls">
+      <summary>Developer settings · seed, framing and movement</summary>
+      <p class="dev-note">This is a test candidate. Settings change starts a fresh run. Make target: platform = amount to ADD. Skip count: platform = NEXT EVEN TOTAL. Running addition: carries its solved total until the four-row recharge. Run reports contain source-owned events and deterministic replay.</p>
+      <button class="action" id="export" type="button">Export replay</button>
+      <button class="action" id="endRun" type="button">End run</button>
+      <button class="action" id="reviewSummary" type="button" disabled>Review results</button>
+      <div class="settings">
+        <label>Mode<select id="mode"><option value="climb" selected>Climb</option><option value="practice">Practice</option><option value="challenge">Challenge</option></select></label>
+        <label>Mathematics<select id="curriculum"><option value="makeTarget20" selected>Make target (10, 12 … 20)</option><option value="skip2to10">Skip count by 2 to 10</option><option value="add20">Running addition to 20</option></select></label>
+        <label>Seed<input id="seed" value="cc2-02a-demo" spellcheck="false"></label>
+        <label>Physical world framing (changes routes)<select id="framing"><option>80</option><option>90</option><option selected>100</option><option>110</option><option>120</option></select></label>
+        <label>Movement<select id="movement"><option value="circuit">Circuit</option><option value="hop">Hop</option></select></label>
+      </div>
+    </details>
+    <details class="dev-tuning" id="tuningPanel">
+      <summary>Developer Laboratory · Camera / Spark / Pursuer</summary>
+      <p class="lab-hint">
+        The camera shows at least two row levels above and below Spark. Horizontal tower width stays legible while vertical framing adjusts independently. Future positions are non-clickable architecture, never invented mathematical questions. The zoom value is a maximum; it may auto-reduce to preserve visibility. Camera zoom is visual only and changes live. All other movement and
+        AI parameters take effect when you select <strong>Apply tuning &amp; new run</strong>.
+        A new run is essential for repeatable, fair comparison.
+        <span class="preview-key">Dim rows = structural previews, not generated math questions</span>
+      </p>
+      <fieldset class="lab-group">
+        <legend>Viewport · purely visual</legend>
+        <div class="lab-grid">
+          <label>Maximum zoom <output id="zoomValue" for="cameraZoom">70%</output>
+            <input id="cameraZoom" type="range" min="0.25" max="1" step="0.05" value="0.70">
+          </label>
+          <label>Follow smoothing (0.05–0.50)
+            <input id="cameraFollow" type="number" min="0.05" max="0.50" step="0.01" value="0.13">
+          </label>
+        </div>
+      </fieldset>
+      <fieldset class="lab-group">
+        <legend>Spark · movement and travel</legend>
+        <div class="lab-grid">
+          <label>Physical row spacing (CC2-08C: +25% over previous)
+            <select id="rowGapScale"><option value="1">1× · Legacy</option><option value="1.5">1.5× · Previous</option><option value="2.25">2.25× · Previous</option><option value="2.8125" selected>2.8125× · Extra 25% spacing</option></select>
+          </label>
+          <label>Circuit speed / tick (1–50)
+            <input id="circuitSpeedPerTick" type="number" min="1" max="50" step="1" value="16">
+          </label>
+          <label>Hop duration / ticks (6–90)
+            <input id="hopTicks" type="number" min="6" max="90" step="1" value="18">
+          </label>
+          <label>Return duration / ticks (6–90)
+            <input id="returnTicks" type="number" min="6" max="90" step="1" value="14">
+          </label>
+          <label>Circuit route turns
+            <select id="routeTurns"><option value="6">6</option><option value="8" selected>8</option><option value="10">10</option><option value="12">12</option></select>
+          </label>
+          <label>Landing grace / ticks (0–120)
+            <input id="landingGraceTicks" type="number" min="0" max="120" step="1" value="15">
+          </label>
+          <label class="lab-check"><input id="transitShield" type="checkbox" checked>
+            Shield Spark during automatic travel
+          </label>
+        </div>
+        <p class="lab-hint">The mathematics and destination remain source-owned. Faster or slower motion changes the Pursuer's opportunity to catch Spark, not the answer.</p>
+      </fieldset>
+      <fieldset class="lab-group">
+        <legend>Pursuer · finite sensing and physical motion</legend>
+        <div class="lab-grid">
+          <label>Search strategy (public floor geometry only)
+            <select id="searchStrategy"><option value="frontier">Legacy breadth-first patrol</option><option value="ascending" selected>Ascending tower patrol</option></select>
+          </label>
+          <label>Near sensing radius (50–500)
+            <input id="nearSenseRadius" type="number" min="50" max="500" step="10" value="260">
+          </label>
+          <label>Clear sight radius (50–600)
+            <input id="clearSightRadius" type="number" min="50" max="600" step="10" value="420">
+          </label>
+          <label>Trail sensing radius (0–260)
+            <input id="trailSenseRadius" type="number" min="0" max="260" step="5" value="110">
+          </label>
+          <label>Trail lifetime / ticks (0–1200)
+            <input id="trailLifetimeTicks" type="number" min="0" max="1200" step="10" value="240">
+          </label>
+          <label>Stale contact memory / ticks (0–120)
+            <input id="staleContactTicks" type="number" min="0" max="120" step="1" value="30">
+          </label>
+          <label>Search speed / tick (0.1–10)
+            <input id="speedSearch" type="number" min="0.1" max="10" step="0.1" value="2.6">
+          </label>
+          <label>Pursuit speed / tick (0.1–12)
+            <input id="speedPursuit" type="number" min="0.1" max="12" step="0.1" value="3.7">
+          </label>
+          <label>Bot radius / Spark radius (0.25–0.70)
+            <input id="actorRadiusRatio" type="number" min="0.25" max="0.70" step="0.01" value="0.52">
+          </label>
+          <label>Spawn rows below Spark (1–4)
+            <input id="spawnRowsBelow" type="number" min="1" max="4" step="1" value="2">
+          </label>
+        </div>
+        <p class="lab-hint">Real bot still uses finite observation, memory and collision-safe graph navigation. Controls alter parameter values—not the arithmetic or hidden sensor knowledge.</p>
+        <label for="botReadout">Live physical Pursuer diagnostics (developer-only)</label>
+        <pre id="botReadout" aria-live="off">No chase observations yet.</pre>
+      </fieldset>
+      <fieldset class="lab-group">
+        <legend>Pursuer personality · bounded intelligent behavior</legend>
+        <div class="lab-grid">
+          <label>Personality profile<select id="personalityStyle">
+            <option value="curious" selected>Curious / beginner</option>
+            <option value="relentless">Relentless / classic</option>
+          </select></label>
+          <label>Hesitation probability / minute (0–0.8)
+            <input id="hesitationChance" type="number" min="0" max="0.8" step="0.01" value="0.22">
+          </label>
+          <label>Minimum hesitation / ticks
+            <input id="hesitationMinTicks" type="number" min="0" max="180" step="1" value="18">
+          </label>
+          <label>Maximum hesitation / ticks
+            <input id="hesitationMaxTicks" type="number" min="0" max="180" step="1" value="45">
+          </label>
+          <label>Cooldown / ticks
+            <input id="hesitationCooldownTicks" type="number" min="30" max="1200" step="1" value="130">
+          </label>
+          <label>Surprise reaction / ticks
+            <input id="noticeTicks" type="number" min="0" max="90" step="1" value="18">
+          </label>
+          <label>Side-route curiosity chance
+            <input id="detourChance" type="number" min="0" max="0.75" step="0.01" value="0.15">
+          </label>
+          <label>Side-route maximum / ticks
+            <input id="detourTicks" type="number" min="0" max="180" step="1" value="48">
+          </label>
+          <label>Frustration display / ticks
+            <input id="frustrationTicks" type="number" min="0" max="180" step="1" value="42">
+          </label>
+        </div>
+        <p class="lab-hint">All choices are seed-deterministic, strictly time-limited, and restricted to public, physically reachable graph edges. The bot cannot become permanently stalled by personality decisions.</p>
+      </fieldset>
+      <fieldset class="lab-group">
+        <legend>Event sound and electric visual feedback</legend>
+        <div class="lab-grid">
+          <label class="lab-check"><input id="feedbackEnabled" type="checkbox" checked> Event audio enabled</label>
+          <label>Audio volume (0–1)
+            <input id="feedbackVolume" type="number" min="0" max="1" step="0.05" value="0.24">
+          </label>
+          <label class="lab-check"><input id="vfxEnabled" type="checkbox" checked> Electric response effects</label>
+          <label>Visual intensity (0–1)
+            <input id="vfxIntensity" type="number" min="0" max="1" step="0.05" value="0.70">
+          </label>
+        </div>
+        <p class="lab-hint">Sound starts after your first button press. All tones are short, original Web Audio synthesis. Important game and Pursuer events have matching configurable audio and visual responses; silent and reduced-motion play remains complete.</p>
+        <button class="action" type="button" id="testSound">Play sample sound and effect</button>
+      </fieldset>
+      <div class="lab-action-row">
+        <button class="action" id="applyTuning" type="button">Apply tuning &amp; new run</button>
+        <button class="action" id="resetTuning" type="button">Reset lab defaults</button>
+        <button class="action" id="exportPreset" type="button">Export preset JSON</button>
+        <button class="action" id="importPreset" type="button">Import preset JSON</button>
+      </div>
+      <label for="presetData">Reusable, versioned tuning preset</label>
+      <textarea id="presetData" spellcheck="false" aria-label="Tuning preset JSON"></textarea>
+      <div id="labStatus" class="lab-status" role="status" aria-live="polite">Camera zoom: 70%. Tuning controls use the current run until applied.</div>
+    </details>
+    <details>
+      <summary>Developer: deterministic events and configuration</summary>
+      <pre id="events">No events yet.</pre>
+    </details>
+    <section id="summaryPanel" class="summary-overlay" role="dialog" aria-modal="true" aria-labelledby="summaryTitle" hidden>
+      <div class="summary-card">
+        <div class="summary-header">
+          <h2 id="summaryTitle">Circuit Climb · Run Summary</h2>
+          <button id="summaryClose" type="button">Close</button>
+        </div>
+        <p id="summaryOutcome">Run completed</p>
+        <div id="summaryStats" class="summary-grid"></div>
+        <h3>Achievements earned</h3>
+        <div id="summaryBadges"></div>
+        <h3>Solved equations only</h3>
+        <ol id="summaryEquations"></ol>
+        <p class="summary-footnote">Progress markers describe this run, not academic mastery. Only completed correct landings appear in the equation review.</p>
+        <button class="action" id="summaryRestart" type="button">Start new run</button>
+      </div>
+    </section>
+  </main>
+<div class="cc209-modal" id="cc209-help" hidden role="dialog" aria-modal="true" aria-labelledby="cc209-help-title"><div class="cc209-dialog"><button class="cc209-close" data-close="cc209-help" type="button">Close</button><h2 id="cc209-help-title">How to play</h2><p>Choose the platform that completes the equation. Each selection begins Spark's real zigzag climb. The Pursuer starts moving the moment you make your first choice — even if it is incorrect.</p><p>Stay above the red Pursuer. Correct landings power platforms and earn points. An incorrect landing shorts a platform and returns Spark. Earn and use Circuit Pulse with the P key or the Pulse button to disrupt the Pursuer.</p><p>Use Pause to suspend a run. Settings contains difficulty, sound, mathematical mode, technical settings, and report export.</p><p id="cc209-help-math" aria-live="polite"></p></div></div>
+<div class="cc209-modal" id="cc209-settings" hidden role="dialog" aria-modal="true" aria-labelledby="cc209-settings-title"><div class="cc209-dialog"><button class="cc209-close" data-close="cc209-settings" type="button">Close</button><h2 id="cc209-settings-title">Settings</h2><details open><summary>Game &amp; audio</summary><div id="cc209-sound-slot"></div><div id="cc209-pace-slot"></div></details><details><summary>Progress details</summary><p id="cc209-progress"></p></details><details><summary>Developer tools</summary><div id="cc209-developer-slot"></div></details></div></div>
+<div id="cc209-preend" class="cc209-preend" role="status" aria-live="polite" hidden><div class="cc209-preend-inner"><h2 id="cc209-end-head">RUN COMPLETE</h2><p id="cc209-end-caption">Your climb has finished</p></div></div>
+  <script type="module" src="./cc2-02a.ts"></script>
+
+<!-- CC2-08 spacing qualification: legacy 205 -> prior 307.5 -> experimental 576.5625 world units; speed unchanged. Camera uses former 307.5 gap as reference to show the increase rather than re-shrinking the image. -->
+  <!-- CC2-08: read-only balance qualification layer. This layer does not change engine code. -->
+<style>
+.cc208-lab{max-width:680px;margin:0 auto 20px;padding:12px 14px;color:#e9f6fd;font:13px/1.5 system-ui}
+.cc208-lab details{border:1px solid #467786;background:#102739;border-radius:12px;padding:12px}
+.cc208-lab summary{cursor:pointer;font-weight:750;color:#a4e6db}
+.cc208-lab button{background:#235c67;color:#fff;border:1px solid #8ebec0;border-radius:8px;padding:9px 12px;margin:8px 8px 0 0;font:inherit;cursor:pointer}
+.cc208-lab pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#091a27;padding:10px;border-radius:8px}
+.cc208-lab .caution{color:#fed9a5}
+</style>
+<section class="cc208-lab" aria-label="CC2-08 balance qualification">
+<details id="cc208-panel"><summary>CC2-08 · Balance qualification (read-only)</summary>
+<p>Play normally. This panel reads the real CC2-07E session recorder, without changing Spark, enemy sensors, math, or simulation timing.</p>
+<button id="cc208-refresh" type="button">Analyze current run</button>
+<button id="cc208-save" type="button">Download balance report</button>
+<pre id="cc208-result" aria-live="polite">No analysis yet.</pre>
+<p class="caution">One session cannot certify difficulty or fairness. Compare multiple players and matched seeds before changing speed.</p>
+</details></section>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id);
+function analyze(){
+ const api=window.__CC2_02A__;
+ if(!api?.sessionReport)throw Error('CC2_08_SOURCE_REPORT_UNAVAILABLE');
+ const r=api.sessionReport();
+ if(r.schemaVersion!=='cc2-playtest-report/v1')throw Error('CC2_08_SCHEMA_UNEXPECTED');
+ const s=Array.isArray(r.samples)?r.samples:[];
+ const metrics=r.metrics||{};
+ const replay=r.replay||{};
+ const counted=s.filter(v=>v&&v.bot&&Number.isFinite(v.rangeWorld));
+ const range=counted.map(v=>v.rangeWorld);
+ const rowGap=r.finalState?.world?.geometry?.rowGap;
+ const finiteGap=Number.isFinite(rowGap)&&rowGap>0?rowGap:null;
+ const capture=r.finalState?.endReason==='CAPTURED';
+ const sampleTicks=s.map(v=>v.tick).filter(Number.isFinite);
+ const report={schemaVersion:'cc2-08-balance-snapshot/v1',sourceSchema:r.schemaVersion,
+   engineUnmodified:'CC2-07E',seed:replay.seed??null,
+   pace:{spark:replay.learnerMotion?.circuitSpeedPerTick??null,
+     search:replay.pursuerPreset?.speedSearch??null,
+     pursuit:replay.pursuerPreset?.speedPursuit??null},
+   tickCount:metrics.tickCount??r.finalState?.tick??0,
+   elapsedSimulationSeconds:Number(((metrics.tickCount??r.finalState?.tick??0)/60).toFixed(2)),
+   completedRows:metrics.rowsCompleted??r.finalState?.completedRows??null,
+   ended:r.finalState?.phase==='ended',endReason:r.finalState?.endReason??null,
+   captured:capture,firstSensedTick:metrics.firstSensedTick??null,
+   firstSensedSeconds:Number.isFinite(metrics.firstSensedTick)?Number((metrics.firstSensedTick/60).toFixed(2)):null,
+   meanRangeInTiers:finiteGap&&Number.isFinite(metrics.meanRangeWorld)?Number((metrics.meanRangeWorld/finiteGap).toFixed(2)):null,
+   minRangeInTiers:finiteGap&&Number.isFinite(metrics.minRangeWorld)?Number((metrics.minRangeWorld/finiteGap).toFixed(2)):null,
+   maxRouteFailures:metrics.maxRouteFailures??null,
+   sampleCount:s.length,sampleTickSpan:sampleTicks.length?[sampleTicks[0],sampleTicks.at(-1)]:null,
+   dataQuality:{sourceDigest:r.stateDigest??null,samplingTruncated:s.length>=1200,
+     telemetrySparse:s.length<2,nonMonotonicTicks:sampleTicks.some((v,i)=>i>0&&v<=sampleTicks[i-1])},
+   qualification:'HUMAN_BALANCE_UNPROVEN_SINGLE_SESSION'};
+ return report;
+}
+function refresh(){try{const v=analyze();$('cc208-result').textContent=JSON.stringify(v,null,2);return v}catch(e){$('cc208-result').textContent=String(e);return null}}
+$('cc208-refresh').addEventListener('click',refresh);
+$('cc208-save').addEventListener('click',()=>{const v=refresh();if(!v)return;
+ const url=URL.createObjectURL(new Blob([JSON.stringify(v,null,2)],{type:'application/json'}));
+ const a=document.createElement('a');a.href=url;a.download='CC2-08-BALANCE-SNAPSHOT.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+window.__CC2_08__={analyze};
+})();
+</script>
+
+<!-- CC2-08C owner geometry acceptance candidate. Physical world rowGap 205 * 2.8125 = 576.5625.
+     The unchanged Spark/Pursuer agents traverse the actual larger physical world.
+     Route-variance and legacy audio parity remain separate gated source tasks. -->
+
+<script id="cc209-ui-controller">
+window.addEventListener("DOMContentLoaded", () => {
+
+(()=>{'use strict';
+  const $=id=>document.getElementById(id);
+  const moves=(selector,id)=>document.querySelectorAll(selector).forEach(el=>$(id)?.append(el));
+  moves('main.shell > .pace-strip','cc209-pace-slot');
+  moves('main.shell > .dev-controls, main.shell > .dev-tuning, main.shell > details','cc209-developer-slot');
+  moves('body > .cc208-lab','cc209-developer-slot');
+  const sound=$('soundToggle');if(sound){sound.style.setProperty('display','inline-flex','important');$('cc209-sound-slot').append(sound);}
+  const hiddenHelp=$('cc209-help'),hiddenSettings=$('cc209-settings');
+  const api=()=>window.__CC2_02A__;
+  const open=id=>{
+    if(id==='cc209-help' && api()?.snapshot){
+      const s=api().snapshot(),p=s.currentProblem;
+      $('cc209-help-math').textContent=`Current equation: ${p.incomingValue} + ? = ${p.targetValue}. Choose the amount to add, not the resulting total.`;
+    }
+    if(id==='cc209-settings' && api()?.snapshot){
+      const s=api().snapshot();
+      $('cc209-progress').textContent=`Row ${s.completedRows}; ${s.attempts} attempts; ${s.score} points. Stage, curriculum and cell details remain available in the advanced controls.`;
+    }
+    $(id).hidden=false;
+  };
+  $('cc209-help-btn').addEventListener('click',()=>open('cc209-help'));
+  $('cc209-settings-btn').addEventListener('click',()=>open('cc209-settings'));
+  document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>$(b.dataset.close).hidden=true));
+  [hiddenHelp,hiddenSettings].forEach(el=>el.addEventListener('click',e=>{if(e.target===el)el.hidden=true}));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){hiddenHelp.hidden=true;hiddenSettings.hidden=true;}});
+  // The capture phase precedes the source-owned target click; the input and
+  // its correctness are assessed by the game engine, unchanged.
+  document.addEventListener('click',e=>{
+    const choice=e.target.closest?.('button.choice');
+    if(choice && !choice.disabled && !window.__cc2ChaseStarted){
+      window.__cc2ChaseStarted=true;
+      $('cc209-start').hidden=true;
+      $('pause').disabled=false;
+    }
+  },true);
+  // All run-reset entrances rearm first-click launch. The engine still owns
+  // the new run, math seed, state accounting and capture.
+  ['restart','applyPace','summaryRestart','applyTuning'].forEach(id=>{
+    $(id)?.addEventListener('click',()=>{
+      window.__cc2ChaseStarted=false;
+      $('cc209-start').hidden=false;
+      $('pause').disabled=true;
+      $('cc209-preend').hidden=true;
+    },true);
+  });
+  $('pause').disabled=true;
+  // Keep exactly one essential mathematical expression inside the board.
+  // The deleted metadata header is never restored.
+  let priorEquation='';
+  function refreshEquation(){
+    const s=api()?.snapshot?.();
+    if(!s?.currentProblem)return;
+    const p=s.currentProblem;
+    const eq=p.operation==='skip-count-by-2'
+      ?`Next number after ${p.incomingValue}?`
+      :`${p.incomingValue} + ? = ${p.targetValue}`;
+    if(eq!==priorEquation){$('cc209-equation').textContent=eq;priorEquation=eq;}
+  }
+  refreshEquation();
+  setInterval(refreshEquation,150);
+  const summary=$('summaryPanel');
+  // Short cinematic pre-summary acknowledgment; never mutates the source
+  // terminal state or changes score/rewards.
+  let preendShownFor=null;
+  const observer=new MutationObserver(()=>{
+    if(summary.hidden)return;
+    const state=api()?.snapshot?.();
+    if(!state||state.phase!=='ended')return;
+    const key=state.runId+':'+state.tick;
+    if(preendShownFor===key)return;
+    preendShownFor=key;
+    summary.hidden=true;hiddenHelp.hidden=true;hiddenSettings.hidden=true;
+    const captured=state.endReason==='CAPTURED';
+    $('cc209-end-head').textContent=captured?'CIRCUIT BROKEN':'CLIMB COMPLETE';
+    $('cc209-end-caption').textContent=captured?`The Pursuer caught Spark · ${state.completedRows} rows climbed`:`${state.completedRows} rows climbed · ${state.score} points`;
+    $('cc209-preend').hidden=false;
+    setTimeout(()=>{
+      $('cc209-preend').hidden=true;
+      const now=api()?.snapshot?.();
+      if(now?.runId===state.runId&&now.phase==='ended')summary.hidden=false;
+    },1450);
+  });
+  observer.observe(summary,{attributes:true,attributeFilter:['hidden']});
+  window.__CC2_09_UI__={status:()=>({started:window.__cc2ChaseStarted,settingsOpen:!hiddenSettings.hidden,helpOpen:!hiddenHelp.hidden,camera:api()?.rendererStats?.(),state:api()?.snapshot?.()})};
+})();
+
+});
+</script>
+
+<script id="cc209b-heritage-adapter">
+window.addEventListener("DOMContentLoaded", () => {
+
+/* CC2-09B — Original-surface restoration adapter.
+   Only public, read-only state is observed. The original 07E game runs
+   untouched below this painter; mathematical outcomes and bot AI are never
+   overridden by this file. Offline only; no external requests or media. */
+(()=>{
+  'use strict';
+  const get=id=>document.getElementById(id);
+  const api=()=>window.__CC2_02A__;
+  const board=get('board');
+  const source=get('worldCanvas');
+  const canvas=document.createElement('canvas');
+  canvas.id='cc209b-heritage-canvas';
+  canvas.setAttribute('aria-hidden','true');
+  source.insertAdjacentElement('afterend',canvas);
+  const ctx=canvas.getContext('2d',{alpha:false});
+  const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const ERROR_CAP=200, HISTORY_CAP=400,EVENT_CAP=1200;
+  const log={errors:[],events:[],frames:0,paintFailures:0,missedFrames:0,
+    recordedCornerEvents:0,originalCueEvents:0,screenSizes:[],pathHistory:[],
+    maxObservedSpeed:0,sourceDigestOnLoad:null};
+  let lastTime=0,lastTick=-1,priorTravel=null,lastSeenEvent=0,lastSeenFeatureEvent=0;
+  let lastPos=null,lastLandingRow=0,justLandedAt=0,lastRunId=null;
+  let enabled=true,audioCtx=null,lastSoundAt=0,lastCornerIndex=0;
+  let previousSourceSoundEnabled=null;
+  const audioHistory=[];
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  function rememberError(kind,error){
+    log.errors.push({kind,message:String(error?.message||error),tick:api()?.snapshot?.()?.tick??null,when:Date.now()});
+    if(log.errors.length>ERROR_CAP)log.errors.shift();
+    updateDiagnostics();
+  }
+  window.addEventListener('error',event=>rememberError('window.error',event.error||event.message));
+  window.addEventListener('unhandledrejection',event=>rememberError('unhandledrejection',event.reason));
+  const previousConsoleError=console.error;
+  console.error=function(...args){rememberError('console.error',args.map(String).join(' '));return previousConsoleError.apply(this,args)};
+
+  // The old source's four exact synthesized signatures (and new restrained
+  // event extensions). Browser audio activation happens on a user gesture.
+  function startAudio(){
+    if(!enabled)return null;
+    try{
+      if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      if(audioCtx.state==='suspended')audioCtx.resume().catch(e=>rememberError('audio.resume',e));
+      return audioCtx;
+    }catch(e){rememberError('audio.setup',e);return null;}
+  }
+  function tone(hz,duration=.14,volume=.035,type='sine',delay=0,endHz=null){
+    const a=startAudio();if(!a)return;
+    try{
+      const start=a.currentTime+delay;
+      const osc=a.createOscillator(),gain=a.createGain();
+      osc.type=type;osc.frequency.setValueAtTime(hz,start);
+      if(endHz!==null)osc.frequency.exponentialRampToValueAtTime(Math.max(30,endHz),start+duration);
+      gain.gain.setValueAtTime(.0001,start);
+      gain.gain.exponentialRampToValueAtTime(volume,start+.015);
+      gain.gain.exponentialRampToValueAtTime(.0001,start+duration);
+      osc.connect(gain);gain.connect(a.destination);
+      osc.start(start);osc.stop(start+duration+.03);
+    }catch(e){rememberError('audio.play',e)}
+  }
+  const original={
+    launch(){tone(310,.12,.045,'sine');tone(465,.18,.035,'triangle',.05)},
+    corner(){tone(1300,.04,.018,'triangle')},
+    correct(){tone(392,.36,.05,'sine');tone(494,.38,.045,'sine',.07);tone(659,.48,.05,'sine',.15)},
+    wrong(){tone(230,.28,.055,'sawtooth');tone(174,.35,.045,'triangle',.08)}
+  };
+  const extended={
+    RUN_STARTED(){tone(440,.10,.023,'sine')},
+    LANDING_CONFIRMED(){tone(520,.09,.024,'sine',0,670)},
+    RETURN_FINISHED(){tone(240,.13,.035,'triangle',0,360)},
+    CELL_COMPLETED(){tone(520,.24,.035,'sine');tone(780,.25,.032,'triangle',.09)},
+    VOLTAGE_REBASE(){tone(470,.13,.024,'sine',0,380)},
+    RUN_PAUSED(){tone(350,.09,.02,'sine',0,310)},
+    RUN_RESUMED(){tone(300,.1,.02,'sine',0,435)},
+    RUN_ENDED(){tone(350,.28,.035,'triangle',0,125)},
+    ABILITY_ACTIVATED(){tone(240,.3,.04,'triangle',0,830)},
+    ABILITY_EXPIRED(){tone(470,.15,.02,'sine',0,280)},
+    CHARGE_GAINED(){tone(570,.16,.03,'sine',0,780)},
+    RELAY_CHAIN(){tone(420,.25,.03,'triangle',0,750)},
+    STAGE_REACHED(){tone(400,.27,.032,'sine',0,800)},
+    ACHIEVEMENT_UNLOCKED(){tone(680,.28,.025,'sine',0,950)}
+  };
+  const legacyEventMap={TRAVEL_STARTED:'launch',ROW_COMPLETED:'correct'};
+  function play(type){
+    audioHistory.push({type,tick:api()?.snapshot?.()?.tick??null});
+    if(audioHistory.length>HISTORY_CAP)audioHistory.shift();
+    if(!enabled)return;
+    if(legacyEventMap[type]){original[legacyEventMap[type]]();log.originalCueEvents++;}
+    else if(type==='WRONG_SELECTION'){original.wrong();log.originalCueEvents++;}
+    else extended[type]?.();
+  }
+  function sourceMute(){
+    const src=api();if(!src?.feedbackSettings)return;
+    try{
+      const status=src.feedbackSettings();
+      previousSourceSoundEnabled=status.enabled;
+      if(status.enabled && get('soundToggle'))get('soundToggle').click();
+    }catch(e){rememberError('sound-source-mute',e)}
+  }
+  // Existing CC2 cue engine is retained but muted to prevent duplicate cues;
+  // the dedicated Heritage Audio toggle is the one player-facing sound control.
+  sourceMute();
+  const audioSlot=get('cc209-sound-slot');
+  if(audioSlot){
+    get('soundToggle')?.style.setProperty('display','none','important');
+    const wrapper=document.createElement('div');wrapper.id='cc209b-audio-ui';
+    wrapper.innerHTML='<button id="cc209b-audio-toggle" type="button" aria-pressed="true">Sound on</button><span>Original Circuit Climb sound signatures + new event cues</span><span id="cc209b-test-details">Sound starts after a tap</span>';
+    audioSlot.prepend(wrapper);
+    get('cc209b-audio-toggle').addEventListener('click',()=>{
+      enabled=!enabled;const el=get('cc209b-audio-toggle');
+      el.setAttribute('aria-pressed',String(enabled));el.textContent=enabled?'Sound on':'Sound off';
+      if(enabled)startAudio();
+    });
+  }
+  // Extra diagnostic collection is hidden in Developer Tools, never on board.
+  const dev=get('cc209-developer-slot');
+  if(dev){
+    const section=document.createElement('details');
+    section.innerHTML='<summary>CC2-09B · error and event recorder</summary><p>Read-only local state and playtest history. No network transmission.</p><div class="cc209b-diagnostics"><button type="button" id="cc209b-download">Download diagnostics JSON</button> <button type="button" id="cc209b-update">Refresh</button><pre id="cc209b-diagnostics-data"></pre></div>';
+    dev.prepend(section);
+    get('cc209b-download').addEventListener('click',()=>{
+      const content=JSON.stringify(report(),null,2);
+      const url=URL.createObjectURL(new Blob([content],{type:'application/json'}));
+      const anchor=document.createElement('a');anchor.download='CC2-09B-DIAGNOSTICS.json';anchor.href=url;anchor.click();
+      setTimeout(()=>URL.revokeObjectURL(url),1500);
+    });
+    get('cc209b-update').addEventListener('click',updateDiagnostics);
+  }
+  function updateDiagnostics(){
+    const target=get('cc209b-diagnostics-data');
+    if(target)target.textContent=JSON.stringify({errorCount:log.errors.length,eventCount:log.events.length,originalCueEvents:log.originalCueEvents,cornerEvents:log.recordedCornerEvents,frames:log.frames,paintFailures:log.paintFailures,latestErrors:log.errors.slice(-10)},null,2);
+  }
+  function report(){
+    let source=null;
+    try{source=api()?.sessionReport?.()}catch(e){rememberError('report',e)}
+    return {schemaVersion:'cc2-09b-heritage-diagnostics/v1',version:'CC2-09B',
+      sourceReplay:source?.replay??null,sourceDigest:source?.stateDigest??null,
+      sourceSchema:source?.schemaVersion??null,
+      sourceEvents:source?.events??null,sourceFeatures:source?.featureEvents??null,
+      instrumentation:{...log,screenSizes:[...log.screenSizes]},
+      audioHistory:[...audioHistory],time:Date.now()};
+  }
+  // Optically faithful to original's white grid, faint ring parallax, blue
+  // filaments and green powered-platform micro arcs. All positions from
+  // source-owned world and camera; no physics/collision changes.
+  function roundedRect(c,x,y,w,h,r){c.beginPath();c.roundRect(x,y,w,h,r)}
+  function resize(){
+    const w=source.clientWidth,h=source.clientHeight,dpr=Math.min(window.devicePixelRatio||1,2);
+    if(!w||!h)return [0,0];
+    if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){
+      canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+      canvas.style.width=w+'px';canvas.style.height=h+'px';
+      log.screenSizes.push({w,h,dpr});if(log.screenSizes.length>30)log.screenSizes.shift();
+    }
+    ctx.setTransform(dpr,0,0,dpr,0,0);return[w,h];
+  }
+  const pt=(x,y,r,w)=>({
+    x:w/2+(x-300)*r.horizontalCameraScale*w/600,
+    y:(y-r.cameraY)*r.effectiveZoom*w/600
+  });
+  function parallax(ctx,w,h,t){
+    ctx.fillStyle='#f0f6fc';ctx.fillRect(0,0,w,h);
+    const off=(t*.012)%23;
+    ctx.lineWidth=1;ctx.strokeStyle='#dcebf9';ctx.beginPath();
+    for(let x=8;x<w;x+=23){ctx.moveTo(x,.5);ctx.lineTo(x,h+.5)}
+    for(let y=off;y<h;y+=23){ctx.moveTo(0,y+.5);ctx.lineTo(w,y+.5)}ctx.stroke();
+    ctx.strokeStyle='#d9e9f5';ctx.lineWidth=2;ctx.globalAlpha=.23;
+    for(let j=-1;j<6;j++){
+      let y=(j*190+(t*.005)%190);ctx.beginPath();ctx.arc(w*.18,y+60,55,0,Math.PI*2);ctx.stroke();
+      ctx.beginPath();ctx.arc(w*.82,y+138,73,0,Math.PI*2);ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+    const fade=ctx.createLinearGradient(0,0,0,h);fade.addColorStop(0,'#ffffff00');fade.addColorStop(.5,'#ffffff00');fade.addColorStop(1,'#d6e8f933');ctx.fillStyle=fade;ctx.fillRect(0,0,w,h);
+  }
+  function curve(points,r,w,color='#00a4e6',alpha=1){
+    if(points.length<2)return;
+    ctx.save();ctx.lineJoin='round';ctx.lineCap='round';ctx.globalAlpha=alpha;
+    for(const [thick,ink] of [[13,'#7edbff55'],[7,'#3bbaf997'],[3.5,color],[1.3,'#ffffff']]){
+      ctx.beginPath();const start=pt(points[0].x,points[0].y,r,w);ctx.moveTo(start.x,start.y);
+      for(const p of points.slice(1)){let q=pt(p.x,p.y,r,w);ctx.lineTo(q.x,q.y)}
+      ctx.lineWidth=thick;ctx.strokeStyle=ink;ctx.stroke();
+    }ctx.restore();
+  }
+  function travelPartial(travel){
+    if(!travel?.points?.length)return [];
+    const out=[travel.points[0]];let distance=travel.distance;
+    for(let i=0;i<travel.points.length-1;i++){
+      const a=travel.points[i],b=travel.points[i+1],len=Math.hypot(b.x-a.x,b.y-a.y);
+      if(distance>=len){distance-=len;out.push(b)}
+      else{out.push({x:a.x+(b.x-a.x)*Math.max(0,distance)/Math.max(.0001,len),y:a.y+(b.y-a.y)*Math.max(0,distance)/Math.max(.0001,len)});break}
+    }
+    return out;
+  }
+  function platform(p,r,w,simtime){
+    if(p.row===0&&p.column!==1)return;
+    const pos=pt(p.x,p.y,r,w);const horizontal=r.horizontalCameraScale*w/600,vertical=r.effectiveZoom*w/600;
+    const width=Math.max(49,p.width*horizontal),height=Math.max(13,p.height*vertical);
+    const x=pos.x-width/2,y=pos.y;const powered=p.powered&&!p.dead;
+    const active=p.row===0||p.selected;
+    if(y+height<-30||y>source.clientHeight+30)return;
+    ctx.save();ctx.shadowColor=powered?'#38cf8e82':'#5b7b9620';ctx.shadowBlur=powered?15:7;ctx.shadowOffsetY=powered?0:2;
+    roundedRect(ctx,x,y,width,height,Math.min(8,height/3));ctx.fillStyle=p.dead?'#e4eaf0':powered?'#e0fff0':active?'#f9fdff':'#ffffff';ctx.fill();
+    ctx.shadowBlur=0;ctx.shadowOffsetY=0;ctx.strokeStyle=p.dead?'#cbd5e1':powered?'#1db66a':'#c9d8e6';ctx.lineWidth=powered?2:1.2;ctx.stroke();
+    ctx.fillStyle=powered?'#2bca7c':'#d3e1ea';ctx.fillRect(x+4,y+height-4,width-8,2.5);
+    if(powered){
+      const pulse=reduceMotion?0:Math.sin(simtime*.009+p.row*2.1)*2.1;
+      const centerX=x+width/2,centerY=y+height/2;
+      ctx.save();ctx.strokeStyle='#5defae';ctx.globalAlpha=.7;ctx.lineWidth=1;ctx.beginPath();
+      ctx.moveTo(centerX-width*.4,centerY-2);ctx.lineTo(centerX-width*.13,centerY+3+pulse);ctx.lineTo(centerX+width*.16,centerY-3-pulse);ctx.lineTo(centerX+width*.4,centerY);ctx.stroke();
+      ctx.fillStyle='#ffffff';ctx.shadowColor='#55ff9b';ctx.shadowBlur=9;ctx.beginPath();ctx.arc(centerX,centerY,Math.max(1.8,height*.14),0,Math.PI*2);ctx.fill();ctx.restore();
+    }
+    ctx.restore();
+  }
+  function actor(x,y,value,mode,r,w,t){
+    const pos=pt(x,y,r,w),isBot=mode==='bot-search'||mode==='bot-pursuit',radius=isBot?11:19;
+    const breathing=reduceMotion?0:Math.sin(t*(isBot?.004:.006))*2;
+    ctx.save();ctx.translate(pos.x,pos.y);
+    if(isBot){
+      const searching=mode==='bot-search';
+      ctx.globalAlpha=searching?.8:1;
+      ctx.shadowColor='#fb345a';ctx.shadowBlur=searching?12+breathing:26+breathing*3;
+      ctx.fillStyle='#f03853';ctx.strokeStyle='#a62645';ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.shadowBlur=0;ctx.fillStyle='#fff0f3';ctx.beginPath();ctx.arc(0,0,3.5,0,Math.PI*2);ctx.fill();
+      if(searching&&!reduceMotion){ctx.strokeStyle='#ed728b';ctx.globalAlpha=.5;ctx.beginPath();let a=Math.sin(t*.0017)*1.1;ctx.arc(0,0,radius+7,a-.5,a+.5);ctx.stroke()}
+    }else{
+      ctx.shadowColor='#3bc3ff';ctx.shadowBlur=19+breathing*2;ctx.fillStyle='#1976dc';ctx.strokeStyle='#5cceff';ctx.lineWidth=2.5;
+      ctx.beginPath();ctx.arc(0,0,radius+Math.max(0,breathing),0,Math.PI*2);ctx.fill();ctx.stroke();
+      ctx.shadowBlur=0;ctx.fillStyle='#ffffff';ctx.font='900 19px ui-monospace,monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(String(value),0,1);
+      if(justLandedAt && t-justLandedAt<470&&!reduceMotion){ctx.strokeStyle='#2a94e2';ctx.globalAlpha=clamp(1-(t-justLandedAt)/470,0,.8);ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,radius+5+(t-justLandedAt)*.035,0,Math.PI*2);ctx.stroke()}
+    }
+    ctx.restore();
+  }
+  function detectEvents(state){
+    if(lastRunId!==state.runId){lastRunId=state.runId;lastSeenEvent=0;lastSeenFeatureEvent=0;log.pathHistory=[];priorTravel=null;lastCornerIndex=0;lastLandingRow=0;lastTick=-1;}
+    if(state.tick<lastTick)rememberError('state-clock','Source tick regressed');
+    if(state.tick!==lastTick){
+      let pos=state.spark;
+      if(lastPos&&lastTick>=0&&state.tick-lastTick===1){
+        const d=Math.hypot(pos.x-lastPos.x,pos.y-lastPos.y);
+        if(d>log.maxObservedSpeed)log.maxObservedSpeed=d;
+      }
+      lastPos={x:pos.x,y:pos.y};lastTick=state.tick;
+    }
+    let events=api()?.events?.()||[];
+    if(events.length<lastSeenEvent)lastSeenEvent=0;
+    for(let i=lastSeenEvent;i<events.length;i++){
+      const e=events[i];log.events.push({id:e.id,tick:e.tick,type:e.type,runId:e.runId});
+      if(log.events.length>EVENT_CAP)log.events.shift();
+      if(e.type==='ATTEMPT_EVALUATED'&&e.detail?.correct===false)play('WRONG_SELECTION');
+      else play(e.type);
+      if(e.type==='ROW_COMPLETED'){justLandedAt=performance.now();lastLandingRow=state.completedRows;}
+      if(e.type==='LANDING_CONFIRMED'&&priorTravel?.kind==='outbound'&&priorTravel?.correct){
+        log.pathHistory.push({points:priorTravel.points,born:performance.now()});
+        if(log.pathHistory.length>5)log.pathHistory.shift();
+      }
+    }lastSeenEvent=events.length;
+    let features=api()?.featureEvents?.()||[];
+    if(features.length<lastSeenFeatureEvent)lastSeenFeatureEvent=0;
+    for(let i=lastSeenFeatureEvent;i<features.length;i++){
+      const e=features[i];let name=e.type||e.kind||'FEATURE';log.events.push({tick:e.tick,type:name,kind:'feature'});
+      if(log.events.length>EVENT_CAP)log.events.shift();play(name);
+    }lastSeenFeatureEvent=features.length;
+    if(state.travel){
+      const key=state.travel.attemptId+':'+state.travel.kind;
+      if(priorTravel?.key!==key){lastCornerIndex=0;}
+      const travel=state.travel;
+      let reached=0,cornerIndex=0;
+      for(let i=0;i<travel.points.length-1;i++){
+        reached+=Math.hypot(travel.points[i+1].x-travel.points[i].x,travel.points[i+1].y-travel.points[i].y);
+        if(travel.distance>=reached-1e-6)cornerIndex++;
+      }
+      const now=performance.now();
+      if(key===priorTravel?.key&&cornerIndex>lastCornerIndex&&now-lastSoundAt>45 && state.phase==='outbound'){
+        if(cornerIndex<travel.points.length-1){original.corner();log.recordedCornerEvents++;audioHistory.push({type:'CORNER',tick:state.tick});lastSoundAt=now;}
+      }
+      lastCornerIndex=cornerIndex;
+      priorTravel={key,kind:travel.kind,correct:travel.correct,points:travel.points};
+    }
+  }
+  function render(now){
+    try{
+      const a=api();if(!a?.snapshot)return;
+      const state=a.snapshot(),renderer=a.rendererStats?.(),bot=a.pursuer?.();
+      if(a.feedbackSettings?.()?.enabled)sourceMute();
+      if(!renderer)return;
+      detectEvents(state);
+      const [w,h]=resize();if(!w||!h)return;
+      ctx.save();parallax(ctx,w,h,now);
+      // CC2-09E: no redundant center-screen ghost target. The equation remains in-board.
+      for(const old of log.pathHistory){const age=now-old.born;if(age<25000)curve(old.points,renderer,w,'#00a6e9',clamp(1-age/25000,.16,.9));}
+      log.pathHistory=log.pathHistory.filter(p=>now-p.born<25000);
+      if(state.travel?.movement==='circuit')curve(travelPartial(state.travel),renderer,w);
+      const rows=state.world.rows||[];
+      for(const row of rows)for(const platformItem of row.platforms)platform(platformItem,renderer,w,now);
+      // Source's display interpolation affects visuals only; it never edits
+      // the real Spark/Bot world positions or game physics.
+      const spark=renderer.visualSparkPosition||state.spark;
+      actor(spark.x,spark.y,state.spark.value,'spark',renderer,w,now);
+      const sourceBot=renderer.visualBotPosition||bot?.body;
+      if(sourceBot){const bpos=pt(sourceBot.x,sourceBot.y,renderer,w);if(bpos.y>=-18&&bpos.y<=h+18)
+        actor(sourceBot.x,sourceBot.y,null,bot?.belief?.mode==='SEARCH'?'bot-search':'bot-pursuit',renderer,w,now)}
+      ctx.restore();log.frames++;
+    }catch(e){log.paintFailures++;rememberError('heritage.render',e)}
+  }
+  function frame(now){
+    if(lastTime&&now-lastTime>60)log.missedFrames++;
+    lastTime=now;
+    render(now);
+    requestAnimationFrame(frame);
+  }
+  window.addEventListener('pointerdown',()=>startAudio(),{passive:true});
+  // Public test hook deliberately returns detached summaries; no write methods.
+  window.__CC2_09B__={
+    report,summary:()=>({frames:log.frames,errors:log.errors.length,paintFailures:log.paintFailures,
+      sourceAudioMuted:!api()?.feedbackSettings?.()?.enabled,
+      originalCueEvents:log.originalCueEvents,cornerEvents:log.recordedCornerEvents,
+      sourceDigest:api()?.sessionReport?.()?.stateDigest,screenSizes:[...log.screenSizes],
+      audioHistory:[...audioHistory]}),
+  };
+  requestAnimationFrame(frame);
+})();
+
+
+});
+</script>
+
+<!-- CC2-09C: original intro/pause reproduced around the independent newer CC2 brain. -->
+<section id="cc209c-intro" class="cc209c-screen" role="dialog" aria-modal="true"
+ aria-labelledby="cc209c-intro-title">
+ <div class="cc209c-card">
+   <div class="eyebrow">MathForge · Circuit World</div>
+   <h2 id="cc209c-intro-title">Circuit <em>Climb</em></h2>
+   <p>Choose numbered platforms to complete the equation. Correct landings power the tower; incorrect ones short out and send Spark back.</p>
+   <div class="cc209c-rules">
+     <div class="cc209c-rule"><b>+</b><span>Read Spark's number and solve the equation inside the tower.</span></div>
+     <div class="cc209c-rule"><b>↟</b><span>Tap one of three platforms to climb using the animated circuit route.</span></div>
+     <div class="cc209c-rule"><b>!</b><span>Don't linger. The red Pursuer will start when you choose your first platform.</span></div>
+   </div>
+   <button id="cc209c-enter" class="cc209c-mainbutton" type="button">View the tower</button>
+   <button id="cc209c-intro-help" class="cc209c-secondarybutton" type="button">How to play and power-ups</button>
+   <p class="cc209c-fineprint">Your first platform choice starts the chase — this button does not start the timer.</p>
+ </div>
+</section>
+<section id="cc209c-pause" class="cc209c-screen" role="dialog" aria-modal="true"
+ aria-labelledby="cc209c-pause-title" hidden>
+ <div class="cc209c-card">
+   <div class="eyebrow">Circuit suspended</div>
+   <h2 id="cc209c-pause-title">Paused</h2>
+   <p>The mathematical run and Pursuer are frozen until you resume.</p>
+   <button id="cc209c-resume" class="cc209c-mainbutton" type="button">Resume climb</button>
+   <button id="cc209c-pause-settings" class="cc209c-secondarybutton" type="button">Settings</button>
+   <button id="cc209c-pause-restart" class="cc209c-secondarybutton" type="button">Restart climb</button>
+ </div>
+</section>
+<div id="cc209c-toast" role="status" aria-live="polite" data-kind="normal" hidden></div>
+
+<script id="cc209c-restoration-controller">
+/* CC2-09C presentation adapter:
+ * read-only CC2 ledger and feature snapshots;
+ * only sends existing user-facing Pause/Restart clicks at explicit gestures.
+ * No mathematical calculation, enemy sensing, pathfinding or score mutation.
+ */
+window.addEventListener('DOMContentLoaded',function(){
+  'use strict';
+  const byId=id=>document.getElementById(id);
+  const api=()=>window.__CC2_02A__;
+  const intro=byId('cc209c-intro'),pauseScreen=byId('cc209c-pause');
+  const toast=byId('cc209c-toast'),settings=byId('cc209-settings');
+  const enter=()=>{intro.hidden=true;document.body.removeAttribute('data-cc209c-intro-open');byId('cc209c-enter').blur();};
+  let viewSeen=false,seenFeatures=0,seenCore=0,previousRun=null;
+  let displayQueue=[],shownUntil=0,pauseBeforeSettings=false;
+  const records={frames:0,sourceEventCount:0,featureEventCount:0,alerts:[],errors:[]};
+  const maxRecords=300;
+  function track(message,kind,sourceTick){
+    records.alerts.push({message,kind,tick:sourceTick});
+    if(records.alerts.length>maxRecords)records.alerts.shift();
+  }
+  function announce(message,kind='normal',tick=null){
+    displayQueue.push({message,kind,tick});
+    if(displayQueue.length>12)displayQueue.splice(0,displayQueue.length-12);
+    track(message,kind,tick);
+  }
+  function summarizeFeatures(){
+    const a=api(),f=a?.features?.(),s=a?.snapshot?.();
+    if(!f||!s)return;
+    const container=byId('cc209c-progress-card');
+    if(container){
+      const rows=(s.completedRows%4),cells=Math.floor(s.completedRows/4);
+      container.innerHTML='<strong>Current run</strong><div class="cc209c-detail">'
+       +'<span>Rows climbed <strong>'+s.completedRows+'</strong></span>'
+       +'<span>Power cells <strong>'+cells+'</strong></span>'
+       +'<span>Pulse charge <strong>'+f.charge+' / '+f.capacity+'</strong></span>'
+       +'<span>Stage <strong>'+f.stage+'</strong></span></div>'
+       +'<p>'+rows+' of 4 rows in this cell. Next row: <strong>'+f.nextModifier+'</strong>.'
+       +' Pulse is available only when fully charged, grounded and outside Practice.</p>';
+    }
+  }
+  function renderHighlights(){
+    const s=api()?.snapshot?.(),ev=api()?.featureEvents?.()||[];
+    const result=api()?.summary?.(),place=byId('cc209c-highlights');
+    if(!place||!result||!result.ended||!s)return;
+    let pulses=ev.filter(e=>e.type==='ABILITY_ACTIVATED').length;
+    let capacitors=ev.filter(e=>e.type==='CHARGE_GAINED'&&e.detail?.modifier==='CAPACITOR').length;
+    let relays=ev.filter(e=>e.type==='RELAY_CHAIN').length;
+    const entries=[
+      ['Power cells',result.powerCells],
+      ['Circuit Pulses',pulses],
+      ['Capacitors powered',capacitors],
+      ['Relays powered',relays]
+    ];
+    place.replaceChildren();
+    for(const [label,value] of entries){
+      const box=document.createElement('div'),strong=document.createElement('strong');
+      strong.textContent=String(value);box.append(strong,document.createTextNode(label));place.append(box);
+    }
+  }
+  const stats=byId('summaryStats');
+  if(stats){
+    const highlights=document.createElement('div');
+    highlights.id='cc209c-highlights';
+    highlights.setAttribute('aria-label','Run power-ups and special cases');
+    stats.after(highlights);
+  }
+  const panel=byId('cc209-settings');
+  const progress=document.createElement('section');progress.id='cc209c-progress-card';
+  const progressTarget=byId('cc209-progress');
+  if(progressTarget){progressTarget.after(progress);progressTarget.hidden=true;}
+  const guide=document.createElement('div');guide.id='cc209c-special-guide';
+  guide.innerHTML='<strong>Power-ups and special rows</strong><p><strong>Circuit Pulse:</strong> earn charge through correct landings; activate while grounded to slow the nearby Pursuer for a limited time. If the Pursuer is out of range, charge is spent without slowing it.</p>'
+   +'<p><strong>Capacitor row:</strong> when solved, earns two charge units instead of one. All three choices are marked alike.</p>'
+   +'<p><strong>Relay row:</strong> a correct landing lights the existing solved circuit. It does not change the equation.</p>'
+   +'<p><strong>Stages & achievements:</strong> earned only from recorded completed rows and source events.</p>';
+  const help=byId('cc209-help');
+  const helpText=byId('cc209-help-math');
+  if(helpText)helpText.after(guide);
+  byId('cc209c-enter').addEventListener('click',()=>{viewSeen=true;enter();});
+  byId('cc209c-intro-help').addEventListener('click',()=>{
+    viewSeen=true;enter();byId('cc209-help-btn')?.click();
+  });
+  byId('cc209c-resume').addEventListener('click',()=>{
+    if(api()?.snapshot?.()?.paused)byId('pause')?.click();
+  });
+  byId('cc209c-pause-restart').addEventListener('click',()=>{
+    pauseScreen.hidden=true;byId('restart')?.click();
+  });
+  byId('cc209c-pause-settings').addEventListener('click',()=>{
+    pauseScreen.hidden=true;byId('cc209-settings-btn')?.click();
+  });
+  // Opening Settings freezes a live run. Closing restores the prior pause
+  // state rather than inadvertently starting or advancing the enemy.
+  byId('cc209-settings-btn')?.addEventListener('click',()=>{
+    const s=api()?.snapshot?.();
+    pauseBeforeSettings=Boolean(s&&!s.paused&&s.phase!=='ended'&&window.__cc2ChaseStarted);
+    if(pauseBeforeSettings)byId('pause')?.click();
+    summarizeFeatures();
+  });
+  const modalObserver=new MutationObserver(()=>{
+    if(!settings.hidden)return;
+    if(pauseBeforeSettings){
+      pauseBeforeSettings=false;
+      if(api()?.snapshot?.()?.paused)byId('pause')?.click();
+    }
+  });
+  modalObserver.observe(settings,{attributes:true,attributeFilter:['hidden']});
+  // New run resets review-only notifications, never the engine's event stream.
+  function resetView(run){
+    previousRun=run;seenFeatures=0;seenCore=0;displayQueue=[];
+    pauseScreen.hidden=true;toast.hidden=true;shownUntil=0;
+  }
+  function updateChoiceLanguage(s,f){
+    const buttons=document.querySelectorAll('button.choice:not([hidden])');
+    const modifier=f?.nextModifier||'NORMAL';
+    const safeModifier=['NORMAL','CAPACITOR','RELAY'].includes(modifier)?modifier:'NORMAL';
+    buttons.forEach(button=>{
+      if(button.dataset.modifier!==safeModifier)button.dataset.modifier=safeModifier;
+      const original=button.getAttribute('aria-label')||'Choose a platform';
+      const clean=original.replace(/; special row:.*$/,'');
+      const descriptor=safeModifier==='CAPACITOR'?'Capacitor row: a correct choice earns extra Pulse charge'
+        :safeModifier==='RELAY'?'Relay row: correct choice energizes the existing circuit'
+        :'Standard mathematical row';
+      const text=clean+'; special row: '+descriptor;
+      if(button.getAttribute('aria-label')!==text)button.setAttribute('aria-label',text);
+    });
+  }
+  function updateEvents(s){
+    const a=api();if(!a)return;
+    const core=a.events?.()||[],features=a.featureEvents?.()||[];
+    if(core.length<seenCore)seenCore=0;
+    for(const event of core.slice(seenCore)){
+      if(event.type==='PLATFORM_SHORTED')announce('SHORT CIRCUIT · Try another platform','danger',event.tick);
+      if(event.type==='CELL_COMPLETED')announce('CELL CHARGED · Four rows powered','pulse',event.tick);
+    }
+    seenCore=core.length;records.sourceEventCount=core.length;
+    if(features.length<seenFeatures)seenFeatures=0;
+    for(const event of features.slice(seenFeatures)){
+      if(event.type==='CHARGE_GAINED'&&event.detail?.modifier==='CAPACITOR')
+        announce('CAPACITOR · Bonus Pulse charge','capacitor',event.tick);
+      else if(event.type==='RELAY_CHAIN')
+        announce('RELAY POWERED · Circuit energized','relay',event.tick);
+      else if(event.type==='STAGE_REACHED')
+        announce('STAGE '+event.detail?.stage+' · Tower rising','stage',event.tick);
+      else if(event.type==='ABILITY_ACTIVATED')
+        announce(event.detail?.affected?'CIRCUIT PULSE · Pursuer slowed':'PULSE SPENT · Pursuer out of range',
+          event.detail?.affected?'pulse':'danger',event.tick);
+      else if(event.type==='ABILITY_EXPIRED')
+        announce('CIRCUIT PULSE · Effect ended','normal',event.tick);
+      else if(event.type==='CHARGE_GAINED'&&event.detail?.charge===a.features?.()?.capacity)
+        announce('CIRCUIT PULSE READY','pulse',event.tick);
+    }
+    seenFeatures=features.length;records.featureEventCount=features.length;
+  }
+  let lastPaused=null,lastHighlights=null;
+  function frame(now){
+    try{
+      const a=api(),s=a?.snapshot?.(),f=a?.features?.();
+      if(s){
+        if(s.runId!==previousRun)resetView(s.runId);
+        if(lastPaused!==s.paused){
+          lastPaused=s.paused;
+        }
+        // The original required a start button before any game. In the modern
+        // contract, View tower dismisses the intro but the first platform
+        // selection remains the ONLY simulation start.
+        if(window.__cc2ChaseStarted&& !intro.hidden){viewSeen=true;enter();}
+        const canShowPause=s.paused&&s.phase!=='ended'&&settings.hidden&&help.hidden&&intro.hidden&&window.__cc2ChaseStarted;
+        if(pauseScreen.hidden===canShowPause)pauseScreen.hidden=!canShowPause;
+        updateChoiceLanguage(s,f);
+        updateEvents(s);
+        if(s.phase==='ended'&&lastHighlights!==s.runId+':'+s.tick){
+          lastHighlights=s.runId+':'+s.tick;
+          const preend=byId('cc209-end-head');
+          if(preend){
+            if(s.endReason==='CAPTURED')preend.textContent='CIRCUIT BROKEN';
+            else if(s.endReason==='CHALLENGE_GOAL'||s.endReason==='PRACTICE_GOAL')preend.textContent='CLIMB COMPLETE';
+            else preend.textContent='RUN ENDED';
+          }
+          renderHighlights();
+        }
+      }
+      if(!intro.hidden&&viewSeen)enter();
+      if(displayQueue.length>0&&now>=shownUntil){
+        const next=displayQueue.shift();
+        toast.textContent=next.message;toast.dataset.kind=next.kind;toast.hidden=false;
+        shownUntil=now+1800;
+      }else if(!toast.hidden&&now>=shownUntil){toast.hidden=true;}
+      records.frames++;
+    }catch(error){
+      records.errors.push({kind:'presentation',message:String(error?.message||error)});
+      if(records.errors.length>100)records.errors.shift();
+    }
+    requestAnimationFrame(frame);
+  }
+  window.__CC2_09C__={
+    summary:()=>({schema:'cc2-09c-presentation/v1',frames:records.frames,
+      errors:records.errors.length,sourceEventCount:records.sourceEventCount,
+      featureEventCount:records.featureEventCount,alerts:[...records.alerts],
+      introOpen:!intro.hidden,pauseOpen:!pauseScreen.hidden,
+      settingsOpen:!settings.hidden}),
+    powerupEvidence:()=>({source:api()?.features?.(),events:api()?.featureEvents?.()}),
+  };
+  requestAnimationFrame(frame);
+});
+</script>
+<script defer src="./cc2-09e-presentation.js"></script>
+<script defer src="./cc2-12-presentation.js"></script>
+<script type="module" src="./cc2-13-15.ts"></script>
+<script defer src="./cc2-16a-integrity.js"></script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+name: CC2-16A Pursuer Ascending Lost-Contact Integrity
+on:
+  push:
+    branches: [feature/cc2-16a-ascending-pursuer-integrity]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pursuer-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Lock protected original, learner math and Pursuer sensors/physics
+        shell: bash
+        run: |
+          set -euo pipefail
+          original=0a6f138f229119bc6b6c15ee1f658046c7075f50
+          while IFS= read -r file; do
+            test "$(git rev-parse "HEAD:$file")" = "$(git rev-parse "$original:$file")"
+          done < <(git ls-tree -r --name-only "$original" src/games/circuit-climb/)
+          accepted=efd05ec9ba67f5005eddc2178ade3c0980af77b2
+          git diff --exit-code "$accepted" HEAD -- \
+            src/games/circuit-climb-2/core/ \
+            src/games/circuit-climb-2/math/ \
+            src/games/circuit-climb-2/world/ \
+            src/games/circuit-climb-2/config/ \
+            src/games/circuit-climb-2/features/ \
+            src/games/circuit-climb-2/learning/ \
+            src/games/circuit-climb-2/music/ \
+            src/games/circuit-climb-2/pursuer/perception.ts \
+            src/games/circuit-climb-2/pursuer/chassis.ts \
+            src/games/circuit-climb-2/pursuer/pursuitGraph.ts \
+            src/games/circuit-climb-2/pursuer/pursuerController.ts \
+            src/games/circuit-climb-2/pursuer/CircuitClimbChaseCore.ts \
+            src/games/circuit-climb-2/pursuer/pursuerPreset.ts \
+            src/games/circuit-climb-2/pursuer/personality.ts
+          echo "Only lost-contact brain search, source export, new tests and optional presentation files change."
+      - run: npm ci
+      - name: TypeScript contracts compile
+        run: npm run lint
+      - name: Reproduce owner regression + four rapid moves + finite-sense firewall
+        run: npx vitest run src/games/circuit-climb-2/tests/pursuerAscending16A.test.ts
+      - name: All historical unit tests and 100 scenario reacquisition challenge
+        run: npm test
+      - name: Production source build
+        run: npm run build
+      - name: Accepted 07E Pursuer and math browser regression
+        run: node src/games/circuit-climb-2/devtools/cc2-07e-browser-smoke.mjs
+      - name: CC2-15 adaptive music, real math and ability browser regression
+        run: node src/games/circuit-climb-2/devtools/cc2-15-browser-smoke.mjs
+      - name: CC2-16A true owner-case browser and QA lab across five viewports
+        run: node src/games/circuit-climb-2/devtools/cc2-16a-browser-smoke.mjs
+      - name: Build integrated offline standalone
+        run: node src/games/circuit-climb-2/devtools/buildPortable16A.mjs
+      - name: Exact offline full-session export and blocked-network game
+        run: node src/games/circuit-climb-2/devtools/cc2-16a-portable-smoke.mjs
+      - name: Upload source-built playable
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-16A-Pursuer-Integrity-Playable
+          path: cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html
+          retention-days: 30
+      - name: Upload QA screenshots and scenario evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-16A-Pursuer-Regression-Evidence
+          path: cc2-16a-evidence/
+          if-no-files-found: warn
+          retention-days: 30

@@ -1,0 +1,32 @@
+/* CC2-16A diagnostic UI. No overlay on the game board. */
+#cc216-pursuer-lab{
+ border-top:1px solid #c6dbe8;margin-top:10px;padding-top:10px;
+ color:#24465f;font:13px/1.5 system-ui,sans-serif;
+}
+#cc216-pursuer-lab>summary{
+ cursor:pointer;min-height:43px;border:1px solid #a7c5da;
+ border-radius:10px;background:#eaf4fc;color:#153f62;
+ padding:11px;font-weight:800;
+}
+#cc216-pursuer-lab p{color:#305674!important;
+ font:12px/1.5 system-ui,sans-serif;margin:9px 0}
+#cc216-download,#cc216-qa-actions button{
+ display:block;width:100%;margin:7px 0;padding:10px 12px;
+ min-height:44px;border:1.5px solid #8ab2cf;border-radius:10px;
+ background:#e8f4ff;color:#153d64;font:800 12px/1.25 system-ui;
+ cursor:pointer;text-align:center
+}
+#cc216-download{background:#125c90;color:#fff;border-color:#125c90}
+#cc216-pursuer-lab button:disabled{opacity:.55;cursor:wait}
+#cc216-pursuer-lab button:focus-visible{outline:3px solid #1e6cc5;
+ outline-offset:2px}
+#cc216-pursuer-lab .cc216-note{color:#3e5a72!important}
+#cc216-status{
+ max-height:205px;overflow:auto;white-space:pre-wrap;
+ overflow-wrap:anywhere;color:#24445e;background:#f4f8fc;
+ border:1px solid #c6d8e5;border-radius:10px;
+ padding:10px;font:11px/1.5 ui-monospace,SFMono-Regular,monospace
+}
+@media(prefers-reduced-motion:reduce){
+ #cc216-pursuer-lab *{animation:none!important;transition:none!important}
+}
