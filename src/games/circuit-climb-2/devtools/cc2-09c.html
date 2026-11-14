@@ -602,6 +602,23 @@ body{background:#e7f1fa!important;color:#0e1b33!important}
   .cc209c-card h2{font-size:28px}#cc209c-toast{bottom:14%;font-size:12px}
   #cc209c-highlights{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+/* The earlier dark summary tiles survived inside the new light summary card.
+   Force their real backgrounds as well as text colours; otherwise a dark
+   caption on an inherited navy metric fails WCAG despite nominal text tokens. */
+.summary-metric{background:#f0f7fd!important;border-color:#b9d0e4!important}
+.summary-metric strong{color:#153d66!important}
+.summary-metric span{color:#31516c!important;font-size:12px!important}
+#summaryEquations{background:#f7fbff!important;border-color:#c4d9e8!important;color:#254867!important}
+#summaryEquations li{color:#254867!important}
+.summary-achievement{background:#f1eaff!important;border-color:#ab95ce!important;color:#44326c!important}
+.summary-footnote{font-size:12px!important;color:#3c5872!important}
+.brand-eyebrow{font-size:11px!important;color:#31597a!important}
+#cc209b-test-details{font-size:12px!important;color:#375a79!important}
+.cc209-dialog .pace-strip,.cc209-dialog .dev-controls,.cc209-dialog .dev-tuning{color:#23465f!important}
+.cc209-dialog .pace-strip button,.cc209-dialog .dev-controls button,
+.cc209-dialog .dev-tuning button{background:#edf6fc!important;color:#183e63!important;
+ border:1px solid #9cb9d0!important}
+.cc209-dialog pre,.cc209-dialog code{color:#183c5d!important;background:#e9f2f8!important}
 @media(prefers-reduced-motion:reduce){.cc209c-screen *,#cc209c-toast{animation:none!important;transition:none!important}}
 </style>
 </head>
