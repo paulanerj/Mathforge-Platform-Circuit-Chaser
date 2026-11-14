@@ -205,7 +205,9 @@
      routeFailures:p?.routeFailures,downhill:maxDownhill,
      seenContact,contactLosses,peakWake,
      evaluated:(completed>=3&&p?.routeFailures===0&&
-       maxDownhill<=state.world.geometry.rowGap*1.12)};
+       maxDownhill<=state.world.geometry.rowGap*1.12&&
+       (p?.belief.reacquisitions>0||state.endReason==='CAPTURED'||
+        range()<=state.world.geometry.rowGap))};
  }
  async function scenarioOriginal(){
    await reset();
