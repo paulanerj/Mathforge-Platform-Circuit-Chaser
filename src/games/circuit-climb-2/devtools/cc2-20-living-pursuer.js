@@ -335,6 +335,51 @@
       ctx.fill();
     }
   }
+  // A translucent cohesive membrane joins the stable source core to the
+  // inertia-delayed outer plasma. Without this bridge, a sharp turn can make
+  // the material read as a second detached pink organism: explicitly forbid
+  // that visual interpretation even during maximum overshoot.
+  function drawMembraneBridge(s,project,now,diameter,intensity){
+    const a=project(s.source),b=project(s.outer);
+    if(!a||!b)return;
+    const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);
+    if(len<1)return;
+    const nx=dx/len,ny=dy/len,px=-ny,py=nx;
+    const m=config.material;
+    for(let layer=2;layer>=0;layer--){
+      const width=diameter*(.27+layer*.07)*m.plasmaDensity;
+      const curl=reduced()?0:Math.sin(now*.0015+layer)*diameter*
+        m.turbulence*.3;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(a.x+px*width,a.y+py*width);
+      ctx.bezierCurveTo(
+        lerp(a.x,b.x,.31)+px*(width+curl),
+        lerp(a.y,b.y,.31)+py*(width+curl),
+        lerp(a.x,b.x,.72)+px*width*.8,
+        lerp(a.y,b.y,.72)+py*width*.8,
+        b.x+px*width*.78,b.y+py*width*.78
+      );
+      ctx.quadraticCurveTo(
+        b.x+nx*width*.22,b.y+ny*width*.22,
+        b.x-px*width*.78,b.y-py*width*.78
+      );
+      ctx.bezierCurveTo(
+        lerp(a.x,b.x,.72)-px*width*.8,
+        lerp(a.y,b.y,.72)-py*width*.8,
+        lerp(a.x,b.x,.31)-px*(width-curl),
+        lerp(a.y,b.y,.31)-py*(width-curl),
+        a.x-px*width,a.y-py*width
+      );
+      ctx.closePath();
+      ctx.fillStyle=color(layer===0?m.hot:layer===1?m.shell:m.smoke,
+        (.12+layer*.10)*intensity);
+      ctx.shadowColor=m.edge;
+      ctx.shadowBlur=(4+layer*5)*config.performance.glowQuality;
+      ctx.fill();
+      ctx.restore();
+    }
+  }
   function drawEnvelope(s,project,now,diameter,intensity,personality){
     const p=project(s.outer),core=project(s.source);
     if(!p||!core)return;
@@ -475,6 +520,7 @@
     if(!s)return;
     const intensity=personaIntensity;
     drawWake(s,project,now,diam,intensity);
+    drawMembraneBridge(s,project,now,diam,intensity);
     drawEnvelope(s,project,now,diam,intensity,persona);
     drawMotes(s,project,now,diam,intensity);
     drawSparkReaction(screenSpark,sourceSpark,s.speed);
