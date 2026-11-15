@@ -134,6 +134,7 @@
     visualAttachment=null,
     sample=null,frameIndex=0,lastRenderAt=0,visualErrors=[],
     history=[],audioCtx=null,hum=null,lastSfxAt=-1e9,
+    canvasRegion=null,
     audioUnlocked=false,visible=false,liveCount=0,captureCount=0,
     captureAuthorized=false,phase='none',sceneSnapshot=null,labRaf=0;
   let randomState=202020,ornaments=[];
@@ -261,23 +262,53 @@
     const w=root?.clientWidth||390,h=root?.clientHeight||570;
     return {x:p.x/600*w,y:(p.y-260)/460*h+h*.49};
   }
-  function sizeCanvas(){
-    const w=Math.max(1,root?.clientWidth||1);
-    const h=Math.max(1,root?.clientHeight||1);
+  /**
+   * CC2-23-BLACKOUT-02: The living-plasma renderer must NEVER allocate a
+   * full-viewport accelerated canvas. That extra composited surface can
+   * exhaust or invalidate the opaque Heritage canvas backing on affected
+   * browsers after the first platform tap.
+   *
+   * Keep the plasma painter in a small square around its ACTUAL source bot.
+   * The context transform preserves all existing world/board coordinate
+   * mathematics, and the accepted red membrane looks unchanged. Fading wake
+   * outside the bounded region is clipped rather than creating a second
+   * full-viewport GPU surface. Under no circumstances fill black pixels.
+   */
+  function sizeCanvas(center=null,diameter=55){
+    const parentW=Math.max(1,root?.clientWidth||1);
+    const parentH=Math.max(1,root?.clientHeight||1);
+    const size=clamp(Math.max(220,diameter*6.2),220,360);
+    const cx=Number.isFinite(center?.x)?center.x:(
+      canvasRegion?.centerX??parentW/2);
+    const cy=Number.isFinite(center?.y)?center.y:(
+      canvasRegion?.centerY??parentH/2);
+    const left=Math.round(cx-size/2);
+    const top=Math.round(cy-size/2);
     const scale=Math.min(config.performance.maxDpr,
       window.devicePixelRatio||1)*config.performance.resolutionScale;
-    const px=Math.max(1,Math.floor(w*scale));
-    const py=Math.max(1,Math.floor(h*scale));
-    if(canvas.width!==px||canvas.height!==py){
-      canvas.width=px;canvas.height=py;
+    const px=Math.max(1,Math.floor(size*scale));
+    canvas.style.left=left+'px';
+    canvas.style.top=top+'px';
+    canvas.style.width=size+'px';
+    canvas.style.height=size+'px';
+    if(canvas.width!==px||canvas.height!==px){
+      canvas.width=px;
+      canvas.height=px;
     }
-    canvasWidth=w;canvasHeight=h;dpr=scale;
+    canvasWidth=size;canvasHeight=size;dpr=scale;
+    canvasRegion={
+      left,top,width:size,height:size,centerX:cx,centerY:cy,
+      maxDimension:360,boardWidth:parentW,boardHeight:parentH
+    };
+    // Always reset to identity before clearing: the previous drawing was
+    // translated into global BOARD coordinates.
     ctx.setTransform(scale,0,0,scale,0,0);
+    ctx.clearRect(0,0,size,size);
+    ctx.setTransform(scale,0,0,scale,-left*scale,-top*scale);
   }
-  function clear(){
+  function clear(center=null,diameter=55){
     if(!canvas)return;
-    sizeCanvas();
-    ctx.clearRect(0,0,canvasWidth,canvasHeight);
+    sizeCanvas(center,diameter);
   }
   function color(hex,alpha){
     const n=parseInt(hex.slice(1),16);
@@ -531,7 +562,7 @@
     if(s.acceleration>900&&s.speed>50)cue('acceleration');
   }
   function paintScene(s,project,now,diam,screenSpark,sourceSpark){
-    clear();
+    clear(s?project(s.source):null,diam);
     if(!s)return;
     const intensity=personaIntensity;
     drawWake(s,project,now,diam,intensity);
@@ -559,7 +590,7 @@
     canvas.setAttribute('aria-hidden','true');
     canvas.style.pointerEvents='none';
     root.insertBefore(canvas,shell);
-    ctx=canvas.getContext('2d',{alpha:true,desynchronized:true});
+    ctx=canvas.getContext('2d',{alpha:true,desynchronized:false});
     if(!ctx)throw Error('CC220_CANVAS_CONTEXT_UNAVAILABLE');
     root.dataset.cc220='on';
     root.dataset.cc220Mode='normal';
@@ -737,8 +768,8 @@
     root.dataset.cc220Mode='capture';
     root.dataset.cc220Persona='CAPTURED';
     root.dataset.cc220Reduced=reduced()?'yes':'no';
-    clear();
     const d=diameter||55;
+    clear(bot,d);
     const core={source:bot,outer:bot,velocity:{x:0,y:0},
       speed:0,angular:0,turn:0,trail:[]};
     const identity=x=>x;
@@ -1129,6 +1160,7 @@
       liveFrames:liveCount,captureFrames:captureCount,
       lab:lab?.active?{scenario:lab.scenario,elapsed:lab.elapsed,
         paused:lab.paused,speed:lab.speed}:null,
+      canvasRegion:canvasRegion?clone(canvasRegion):null,
       sample:sample?{lagDistance:sample.lagDistance,
         velocity:sample.velocity,turn:sample.turn,
         angular:sample.angular,trailCount:sample.trail.length,
