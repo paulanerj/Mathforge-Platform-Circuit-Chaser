@@ -29,11 +29,18 @@ import {buildRunSummary,type RunSummaryV1} from '../progression/runSummary';
 import {defaultPursuerPersonality,validatePursuerPersonality,
   type PursuerPersonalityV1} from './personality';
 import {defaultLearnerMotionPreset,validateLearnerMotionPreset,type LearnerMotionPresetV1} from '../config/learnerMotionPreset';
+import {
+  SecondaryEnemyDirector,validateSecondaryConfig,
+  type SecondaryConfigV1,type SecondarySnapshotV1,
+  type SecondaryEnemyEventV1,
+} from '../enemies/secondaryEnemies';
 
 export interface ChaseSnapshotV1 {
   learner:EngineStateV1;
   pursuer:PursuerSnapshot;
   features:FeatureSnapshotV1;
+  /** Absent entirely for the exact accepted single-Pursuer baseline. */
+  secondary?:SecondarySnapshotV1;
 }
 export type ChaseCommandV1={
   tick:number;
@@ -51,6 +58,8 @@ export interface ChaseReplayV1 {
   /** Optional for backwards-compatible replay loading; default preserves old motion. */
   learnerMotion?:LearnerMotionPresetV1;
   personality?:PursuerPersonalityV1;
+  /** Only present in explicit experimental enemy-enabled replays. */
+  secondaryConfig?:SecondaryConfigV1;
   commands:ChaseCommandV1[];
   finalTick:number;
 }
@@ -63,6 +72,8 @@ export class CircuitClimbChaseCore {
   readonly featureConfig:FeatureConfigV1;
   readonly learnerMotion:LearnerMotionPresetV1;
   readonly personality:PursuerPersonalityV1;
+  readonly secondaryConfig:SecondaryConfigV1|null;
+  private secondary:SecondaryEnemyDirector|null=null;
   private core:CircuitClimbCore;
   private pursuer:PursuerController;
   private features:FeatureProgression;
@@ -72,18 +83,26 @@ export class CircuitClimbChaseCore {
     preset:PursuerPresetV1=defaultPursuerPreset(),
     featureConfig:FeatureConfigV1=defaultFeatureConfig(),
     learnerMotion:LearnerMotionPresetV1=defaultLearnerMotionPreset(),
-    personality:PursuerPersonalityV1=defaultPursuerPersonality()){
+    personality:PursuerPersonalityV1=defaultPursuerPersonality(),
+    secondaryConfig?:SecondaryConfigV1){
     this.seed=seed;
     this.config=Object.freeze(validateRunConfig(config));
     this.pursuerPreset=Object.freeze(validatePursuerPreset(preset));
     this.featureConfig=Object.freeze(validateFeatureConfig(featureConfig));
     this.learnerMotion=Object.freeze(validateLearnerMotionPreset(learnerMotion));
     this.personality=Object.freeze(validatePursuerPersonality(personality));
+    const secondary=secondaryConfig?validateSecondaryConfig(secondaryConfig):null;
+    this.secondaryConfig=secondary&&secondary.mode!=='off'
+      ?Object.freeze(secondary):null;
     this.core=new CircuitClimbCore(seed,this.config,this.learnerMotion);
     this.pursuer=new PursuerController(this.core.snapshot().world,
       this.pursuerPreset,this.personality,this.seed);
     this.features=new FeatureProgression(this.featureConfig);
     this.features.consume(this.core.eventLog());
+    if(this.secondaryConfig){
+      this.secondary=new SecondaryEnemyDirector(
+        this.core.snapshot().runId,this.secondaryConfig);
+    }
   }
   private record(type:ChaseCommandV1['type'],platformId?:string){
     this.commands.push({tick:this.core.snapshot().tick,
@@ -96,7 +115,10 @@ export class CircuitClimbChaseCore {
     const captured=this.core.adjudicatePursuerCapture(bot.body.x,bot.body.y,bot.radius);
     // A contact before a user action or before a simulation tick may end
     // the run. Consume terminal evidence immediately in every path.
-    if(captured)this.features.consume(this.core.eventLog());
+    if(captured){
+      this.features.consume(this.core.eventLog());
+      this.secondary?.terminate(this.core.snapshot().runId);
+    }
     return captured;
   }
   selectPlatform(platformId:string):SelectionResultV1{
@@ -134,6 +156,7 @@ export class CircuitClimbChaseCore {
   quit():void{
     this.record('QUIT');this.core.quit();
     this.features.consume(this.core.eventLog());
+    this.secondary?.terminate(this.core.snapshot().runId);
   }
   restart():void{
     this.record('RESTART');
@@ -144,6 +167,7 @@ export class CircuitClimbChaseCore {
     const ledger=this.core.eventLog();
     this.features=new FeatureProgression(this.featureConfig,ledger.length-1);
     this.features.consume(ledger);
+    if(this.secondary)this.secondary.reset(this.core.snapshot().runId);
   }
   /** The same world remains paused/terminal without hidden chase advances. */
   advanceTicks(ticks:number):void{
@@ -156,9 +180,26 @@ export class CircuitClimbChaseCore {
       const after=this.core.snapshot();
       this.features.consume(this.core.eventLog());
       this.features.advance(after.tick);
-      if(after.phase==='ended')return; // authored practice/challenge goal won
+      if(after.phase==='ended'){
+        this.secondary?.terminate(after.runId);
+        return;
+      } // authored practice/challenge goal won
+      // The secondary ecosystem only reads this tick's world and physically
+      // observed Spark. It cannot direct capture, influence mathematical RNG,
+      // or leak a correct platform. Its boost does not reveal Spark to the
+      // primary Pursuer; primary sensing remains independently authoritative.
+      const priorPrimary=this.pursuer.snapshot();
+      const primaryLive=priorPrimary.sensed&&
+        priorPrimary.belief.mode==='PURSUIT';
+      const secondary=this.secondary?.advance({
+        runId:after.runId,tick:after.tick,phase:after.phase,
+        mode:this.config.mode,completedRows:after.completedRows,
+        world:after.world,spark:after.spark,
+      });
+      const pressure=this.secondary&&secondary
+        ?this.secondary.pressureFor(primaryLive):1;
       this.pursuer.step(after.world,after.spark,after.tick,
-        this.features.speedMultiplier(after.tick));
+        this.features.speedMultiplier(after.tick)*pressure);
       if(this.adjudicate())this.features.consume(this.core.eventLog());
       // Physical contact is authoritative; ability never edits the Spark.
     }
@@ -170,7 +211,8 @@ export class CircuitClimbChaseCore {
       state.spark.y-bot.body.y);
     return {learner:state,pursuer:bot,
       features:this.features.snapshot(state.tick,this.config.mode,
-        state.phase,state.paused,separation)};
+        state.phase,state.paused,separation),
+      ...(this.secondary?{secondary:this.secondary.snapshot()}:{})};
   }
   /** Compatibility for the CC2 learner board's existing source API. */
   learnerSnapshot():EngineStateV1{return this.core.snapshot();}
@@ -188,6 +230,13 @@ export class CircuitClimbChaseCore {
     return this.features.snapshot(state.tick,this.config.mode,
       state.phase,state.paused,separation);
   }
+  /** Secondary threats expose only their own finite-sensing events. */
+  secondarySnapshot():SecondarySnapshotV1|null{
+    return this.secondary?.snapshot()??null;
+  }
+  secondaryEvents():SecondaryEnemyEventV1[]{
+    return this.secondary?.snapshot().events.slice()??[];
+  }
   diagnostics():PursuerDiagnostic[]{return this.pursuer.diagnostics();}
   devGraph(){return this.pursuer.devGraph();}
   stateDigest():string{return digestState(this.snapshot());}
@@ -198,6 +247,7 @@ export class CircuitClimbChaseCore {
       featureConfig:clone(this.featureConfig),
       learnerMotion:clone(this.learnerMotion),
       personality:clone(this.personality),
+      ...(this.secondaryConfig?{secondaryConfig:clone(this.secondaryConfig)}:{}),
       commands:clone(this.commands),finalTick:this.core.snapshot().tick,
     };
   }
@@ -208,7 +258,8 @@ export function replayChase(trace:ChaseReplayV1):CircuitClimbChaseCore{
   const game=new CircuitClimbChaseCore(trace.seed,trace.config,trace.pursuerPreset,
     trace.featureConfig??defaultFeatureConfig(),
     trace.learnerMotion??defaultLearnerMotionPreset(),
-    trace.personality??defaultPursuerPersonality());
+    trace.personality??defaultPursuerPersonality(),
+    trace.secondaryConfig);
   let lastOrdinal=0;
   for(const cmd of trace.commands){
     if(!Number.isInteger(cmd.tick)||!Number.isInteger(cmd.ordinal)||

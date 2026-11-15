@@ -1,0 +1,101 @@
+name: CC2-23 Secondary Enemy Ecosystem Candidate
+
+on:
+  push:
+    branches: [feature/cc2-23-secondary-enemy-ecosystem]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-integrity-and-real-enemies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Preserve exact accepted CC2-22 baseline and math/AI authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=ab40fe048d459d270c68e361be659f578b1a723b
+          git cat-file -e "$parent^{commit}"
+          git merge-base --is-ancestor "$parent" HEAD
+          while IFS= read -r path; do
+            case "$path" in
+              src/games/circuit-climb-2/enemies/*|\
+              src/games/circuit-climb-2/pursuer/CircuitClimbChaseCore.ts|\
+              src/games/circuit-climb-2/devtools/cc2-02a.ts|\
+              src/games/circuit-climb-2/devtools/cc2-16a.html|\
+              src/games/circuit-climb-2/devtools/cc2-23-*|\
+              src/games/circuit-climb-2/devtools/buildPortable16A.mjs|\
+              docs/circuit-climb-2/CC2-23-SECONDARY-ENEMIES.md|\
+              .github/workflows/cc2-23-secondary-enemies.yml)
+                echo "APPROVED_EXPERIMENTAL_DIFF: $path";;
+              *) echo "CC2_23_UNAUTHORIZED_SOURCE_DIFF: $path" >&2; exit 1;;
+            esac
+          done < <(git diff --name-only "$parent" HEAD)
+          git diff --exit-code "$parent" HEAD -- \
+            src/games/circuit-climb-2/core/ \
+            src/games/circuit-climb-2/math/ \
+            src/games/circuit-climb-2/world/ \
+            src/games/circuit-climb-2/config/ \
+            src/games/circuit-climb-2/features/ \
+            src/games/circuit-climb-2/learning/ \
+            src/games/circuit-climb-2/music/ \
+            src/games/circuit-climb-2/pursuer/brain.ts \
+            src/games/circuit-climb-2/pursuer/pursuerController.ts \
+            src/games/circuit-climb-2/pursuer/perception.ts
+          mkdir -p cc2-23-evidence
+          {
+            echo "parent_commit=$parent"
+            echo "candidate_commit=$(git rev-parse HEAD)"
+            echo "protected_math_and_primary_ai=UNCHANGED"
+            echo "enabled_by_default=ZERO"
+            git diff --name-only "$parent" HEAD
+          } | tee cc2-23-evidence/source-custody.txt
+      - name: Install frozen dependencies and verify JavaScript
+        run: |
+          npm ci
+          npm run lint
+          node --check src/games/circuit-climb-2/devtools/cc2-23-secondary-enemies.js
+          node --check src/games/circuit-climb-2/devtools/cc2-23-browser-smoke.mjs
+      - name: All historical plus CC2-23 enemy source tests
+        run: npx vitest run src/games/circuit-climb-2/
+      - name: Real Scout/Sentry browser playtest and enemy-off baseline
+        run: node src/games/circuit-climb-2/devtools/cc2-23-browser-smoke.mjs
+      - name: Accepted living-pursuer and capture regression
+        run: |
+          node src/games/circuit-climb-2/devtools/cc2-20-browser-smoke.mjs
+          node src/games/circuit-climb-2/devtools/cc2-21-cohesion-smoke.mjs
+      - name: Actual platform input, landing and replay
+        run: node src/games/circuit-climb-2/devtools/cc2-16b-input-smoke.mjs
+      - name: Offline portable gameplay, new enemies included
+        run: |
+          node src/games/circuit-climb-2/devtools/buildPortable16A.mjs
+          node src/games/circuit-climb-2/devtools/cc2-16a-portable-smoke.mjs
+          cp cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html \
+            cc2-standalone/CC2-23-Secondary-Enemies-Playable.html
+          sha256sum cc2-standalone/CC2-23-Secondary-Enemies-Playable.html \
+            | tee cc2-23-evidence/portable-sha256.txt
+      - name: Vite compile
+        run: npm run build
+      - name: Upload owner review playable and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-23-Secondary-Enemy-Owner-Review
+          path: |
+            cc2-23-evidence/
+            cc2-20-evidence/
+            cc2-21-evidence/
+            cc2-standalone/CC2-23-Secondary-Enemies-Playable.html
+          retention-days: 90
+          if-no-files-found: warn

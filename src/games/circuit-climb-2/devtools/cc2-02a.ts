@@ -9,6 +9,9 @@ import {
   CircuitClimbCore,type EngineStateV1,type GameEventV1,type SelectionResultV1,
 } from '../core/CircuitClimbCore';
 import { CircuitClimbChaseCore } from '../pursuer/CircuitClimbChaseCore';
+import {defaultSecondaryConfig,type SecondaryConfigV1,
+  type SecondarySnapshotV1,type SecondaryEnemyEventV1,
+} from '../enemies/secondaryEnemies';
 import type { PursuerSnapshot,PursuerDiagnostic } from '../pursuer/pursuerController';
 import type { FeatureSnapshotV1, FeatureEventV1 } from '../features/progression';
 import type { RunSummaryV1 } from '../progression/runSummary';
@@ -115,6 +118,8 @@ interface SurfaceEngine {
   pause():void;resume():void;
   stateDigest():string;replayExport():unknown;
   bot():PursuerSnapshot|null;
+  secondary():SecondarySnapshotV1|null;
+  secondaryEvents():SecondaryEnemyEventV1[];
   /** Read-only source trace, limited to the Pursuer controller's bounded window. */
   botDiagnostics():PursuerDiagnostic[];
   devGraph():ReturnType<CircuitClimbChaseCore['devGraph']>|null;
@@ -125,6 +130,15 @@ interface SurfaceEngine {
   summary():RunSummaryV1|null;
 }
 const botEnabled=document.body.dataset.pursuer==='on';
+// CC2-23 is opt-in from an isolated owner test URL. A normal CC2 link has
+// zero secondary enemies and EXACTLY the historic replay/digest shape.
+const cc223Params=new URLSearchParams(location.search);
+const cc223Mode=cc223Params.get('cc223');
+const cc223Choice=cc223Mode==='scout'||cc223Mode==='sentry'||
+  cc223Mode==='both'?cc223Mode:'off';
+const cc223Config:SecondaryConfigV1|undefined=cc223Choice==='off'
+  ?undefined:{...defaultSecondaryConfig(),mode:cc223Choice,
+    demoEarlySpawn:cc223Params.get('cc223Demo')==='1'};
 const featuresEnabled=document.body.dataset.features==='on';
 const summaryEnabled=document.body.dataset.summary==='on';
 const manualQA=featuresEnabled && new URLSearchParams(location.search).get('manual')==='1';
@@ -151,7 +165,7 @@ function makeSurfaceEngine(
 ):SurfaceEngine{
   if(botEnabled){
     const game=new CircuitClimbChaseCore(seed,config,pursuerPreset,
-      defaultFeatureConfig(),learnerMotion,personality);
+      defaultFeatureConfig(),learnerMotion,personality,cc223Config);
     return {
       snapshot:()=>game.learnerSnapshot(),
       eventLog:()=>game.eventLog(),
@@ -161,6 +175,8 @@ function makeSurfaceEngine(
       stateDigest:()=>game.stateDigest(),
       replayExport:()=>game.replayExport(),
       bot:()=>game.snapshot().pursuer,
+      secondary:()=>game.secondarySnapshot(),
+      secondaryEvents:()=>game.secondaryEvents(),
       botDiagnostics:()=>game.diagnostics(),
       devGraph:()=>game.devGraph(),
       features:()=>game.featureSnapshot(),
@@ -180,6 +196,8 @@ function makeSurfaceEngine(
     stateDigest:()=>game.stateDigest(),
     replayExport:()=>game.replayExport(),
     bot:()=>null,
+    secondary:()=>null,
+    secondaryEvents:()=>[],
     botDiagnostics:()=>[],
     devGraph:()=>null,
     features:()=>null,
@@ -1488,6 +1506,10 @@ document.addEventListener('visibilitychange', () => {
     sourceSparkPosition:{...engine.snapshot().spark},
     framingPercent:engine.snapshot().world.geometry.rowGap}),
   pursuer: () => engine.bot(),
+  secondary: () => engine.secondary(),
+  secondaryEvents: () => engine.secondaryEvents(),
+  secondaryMode:()=>cc223Choice,
+  secondaryConfig:()=>cc223Config?{...cc223Config}:null,
   /** CC2-16A read-only full-session diagnostic export; no bot steering. */
   pursuerTrace: () => engine.botDiagnostics(),
   devGraph: () => engine.devGraph(),
