@@ -144,10 +144,13 @@ try {
       return{canvas:true,visiblePixels,
         shellVisibility:getComputedStyle(shell).visibility,
         canvasVisibility:getComputedStyle(canvas).visibility,
+        sourceActorCanvasOpacity:getComputedStyle(
+          document.querySelector('#worldCanvas')).opacity,
         canvasHeight:canvas.getBoundingClientRect().height};
     });
     assert(labVisual.canvas&&labVisual.visiblePixels>20&&
       labVisual.shellVisibility==='visible'&&
+      labVisual.sourceActorCanvasOpacity==='0'&&
       labVisual.canvasHeight>150,
       'living material and original board are actually visible in visual lab',
       labVisual);
