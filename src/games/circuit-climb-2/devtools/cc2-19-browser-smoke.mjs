@@ -131,7 +131,7 @@ try {
       exact.present.captureEventId===receipts[0].id&&
       exact.present.captureEvidence.solvedRows===exact.source.completedRows,
       'capture receipt belongs to this run and actual solved rows');
-    const allPhases=window=>window.__CC2_19__.report().history.filter(e=>e.type==='PHASE').map(e=>e.phase);
+    const allPhases=()=>window.__CC2_19__.report().history.filter(e=>e.type==='PHASE').map(e=>e.phase);
     const phases=await page.evaluate(allPhases);
     assert(phases.includes('contact')||phases.includes('aperture')||
       phases.includes('hold'),
