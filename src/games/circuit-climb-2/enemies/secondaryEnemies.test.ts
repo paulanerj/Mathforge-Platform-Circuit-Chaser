@@ -51,7 +51,7 @@ describe('CC2-23 safe secondary configuration',()=>{
   it('returns snapshot clones rather than writable source references',()=>{
     const d=start('scout');
     const a=d.advance(input(1));
-    (a.actors as {id:string}[])[0].id='evil';
+    (a.actors as unknown as {id:string}[])[0].id='evil';
     expect(d.snapshot().actors[0].id).toBe('scout');
     expect(d.advance(input(1)).events).toHaveLength(d.snapshot().events.length);
   });
