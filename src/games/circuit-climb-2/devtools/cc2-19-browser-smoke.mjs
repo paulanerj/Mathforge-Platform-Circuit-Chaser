@@ -89,7 +89,8 @@ try {
         document.querySelector('#cc219-shield').hidden&&
         document.querySelector('#summaryPanel').hidden),
         'preview cleanup and unchanged summary '+w);
-      await page.locator('#cc209c-enter').click().catch(()=>{});
+      if(await page.locator('#cc209c-enter').isVisible())
+        await page.locator('#cc209c-enter').click();
       const pid=await page.evaluate(()=>
         window.__CC2_02A__.snapshot().currentProblem.correctPlatformId);
       const button=page.locator('button.choice[data-platform-id="'+pid+'"]');
