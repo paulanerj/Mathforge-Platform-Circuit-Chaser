@@ -208,7 +208,7 @@ try {
       window.__CC2_02A__?.snapshot,null,{timeout:20000});
     await practice.locator('#cc209c-enter').click();
     await practice.evaluate(()=>{
-      const mode=document.querySelector('#modeSelect');
+      const mode=document.querySelector('#mode');
       mode.value='practice';
       mode.dispatchEvent(new Event('change',{bubbles:true}));
     });
