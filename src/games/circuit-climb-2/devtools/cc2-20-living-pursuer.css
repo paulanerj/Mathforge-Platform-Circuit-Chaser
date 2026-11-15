@@ -85,6 +85,12 @@ body.cc220-lab-active #cc209c-intro{
   visibility:hidden!important;
   pointer-events:none!important;
 }
+/* The existing intro normally hides the entire playable shell. The visual
+ * laboratory reveals only its presentation, leaving the source clock and
+ * game state at tick zero. */
+body.cc220-lab-active[data-cc209c-intro-open="on"] .shell{
+  visibility:visible!important;
+}
 body.cc220-lab-active #cc209-preend,
 body.cc220-lab-active #summaryPanel{
   visibility:hidden!important;
