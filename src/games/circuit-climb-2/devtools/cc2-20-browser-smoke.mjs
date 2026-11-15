@@ -270,6 +270,7 @@ try {
     await page.evaluate(()=>window.__CC2_19__.resetPreset());
     const living=await page.evaluate(()=>{
       const a=window.__CC2_VIS20__,next=a.config();
+      const sourceBefore=window.__CC2_02A__.sessionReport().stateDigest;
       next.physics.envelopeMass=3.4;
       const changed=a.loadConfig(next);
       const invalid=a.config();invalid.capture.engulf=5000;
@@ -277,9 +278,10 @@ try {
       try{a.loadConfig(invalid)}catch{rejected=true}
       a.reset();
       return{changed,rejected,restored:a.config().physics.envelopeMass===2.2,
-        sourceDigest:window.__CC2_02A__.sessionReport().stateDigest};
+        sourceUnchanged:
+          window.__CC2_02A__.sessionReport().stateDigest===sourceBefore};
     });
-    assert(living.rejected&&living.restored&&living.sourceDigest===exact.session.stateDigest,
+    assert(living.rejected&&living.restored&&living.sourceUnchanged,
       'editable visual presets validate and reset without game changes',living);
     assert(await page.evaluate(()=>window.__CC2_19__.preset().look.shellMid==='#B92B62'),
       'reset restores original visual preset');
