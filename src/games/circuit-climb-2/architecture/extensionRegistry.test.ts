@@ -90,7 +90,7 @@ describe('CC2-22 extension information firewall', () => {
   it('does not mutate caller input during validation', () => {
     const source=frame(),copy=structuredClone(source);
     const validated=validateExtensionFrame(source);
-    validated.signal!.x=1;
+    (validated.signal as {x:number}).x=1;
     expect(source).toEqual(copy);
   });
 });
