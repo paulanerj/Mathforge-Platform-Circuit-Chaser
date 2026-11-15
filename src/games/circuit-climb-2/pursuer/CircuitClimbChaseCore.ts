@@ -115,7 +115,10 @@ export class CircuitClimbChaseCore {
     const captured=this.core.adjudicatePursuerCapture(bot.body.x,bot.body.y,bot.radius);
     // A contact before a user action or before a simulation tick may end
     // the run. Consume terminal evidence immediately in every path.
-    if(captured)this.features.consume(this.core.eventLog());
+    if(captured){
+      this.features.consume(this.core.eventLog());
+      this.secondary?.terminate(this.core.snapshot().runId);
+    }
     return captured;
   }
   selectPlatform(platformId:string):SelectionResultV1{
@@ -153,6 +156,7 @@ export class CircuitClimbChaseCore {
   quit():void{
     this.record('QUIT');this.core.quit();
     this.features.consume(this.core.eventLog());
+    this.secondary?.terminate(this.core.snapshot().runId);
   }
   restart():void{
     this.record('RESTART');
@@ -176,7 +180,10 @@ export class CircuitClimbChaseCore {
       const after=this.core.snapshot();
       this.features.consume(this.core.eventLog());
       this.features.advance(after.tick);
-      if(after.phase==='ended')return; // authored practice/challenge goal won
+      if(after.phase==='ended'){
+        this.secondary?.terminate(after.runId);
+        return;
+      } // authored practice/challenge goal won
       // The secondary ecosystem only reads this tick's world and physically
       // observed Spark. It cannot direct capture, influence mathematical RNG,
       // or leak a correct platform. Its boost does not reveal Spark to the
