@@ -1,0 +1,68 @@
+name: CC2-16B Verified Owner Playtest Copy
+
+on:
+  push:
+    branches: [release/cc2-16b-playtest-copy]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  standalone:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Protect accepted gameplay source
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline=80565bf50d0c177da194a71bfb44a0c2d4a40aca
+          git diff --exit-code "$baseline" HEAD -- src/games/circuit-climb-2/core/             src/games/circuit-climb-2/math/ src/games/circuit-climb-2/world/             src/games/circuit-climb-2/pursuer/ src/games/circuit-climb-2/features/             src/games/circuit-climb-2/music/ src/games/circuit-climb-2/learning/             src/games/circuit-climb-2/config/ src/games/circuit-climb-2/devtools/cc2-02a.ts             src/games/circuit-climb-2/devtools/cc2-16a-integrity.js
+      - name: Install exact dependencies
+        run: npm ci
+      - name: Compile contracts
+        run: npm run lint
+      - name: Build exact self-contained game
+        shell: bash
+        run: |
+          set -euo pipefail
+          node src/games/circuit-climb-2/devtools/buildPortable16A.mjs
+          cp cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html             cc2-standalone/Circuit-Climb-CC2-16B-Playable-Offline.html
+          sha256sum cc2-standalone/Circuit-Climb-CC2-16B-Playable-Offline.html             > cc2-standalone/SHA256SUMS.txt
+      - name: Prove true offline game playback with real pointer clicks
+        run: |
+          node src/games/circuit-climb-2/devtools/cc2-16a-portable-smoke.mjs
+          node src/games/circuit-climb-2/devtools/cc2-16b-offline-copy-smoke.mjs
+      - name: Bundle owner playtest copy
+        shell: bash
+        run: |
+          cat > cc2-standalone/README.txt <<'END'
+          MathForge Circuit Climb 2.0 — CC2-16B Owner Playtest Copy
+          ========================================================
+          Open Circuit-Climb-CC2-16B-Playable-Offline.html in a browser.
+          It is an entirely self-contained HTML file: no CDN or network required.
+          This snapshot includes the tested clock/input fix and ascending Pursuer.
+          Normal mode starts after choosing View the tower, then a platform.
+          For detailed Pursuer replay, use Settings > Developer and download JSON.
+          Preserve SHA256SUMS.txt for byte-exact verification.
+          Source baseline: 80565bf50d0c177da194a71bfb44a0c2d4a40aca
+          A Playwright browser suite verified real Spark movement and landing.
+          This build is a playtest candidate; no production merge was performed.
+          END
+      - name: Upload tested offline HTML for owner
+        uses: actions/upload-artifact@v4
+        with:
+          name: Circuit-Climb-CC2-16B-Offline-Playable
+          path: |
+            cc2-standalone/Circuit-Climb-CC2-16B-Playable-Offline.html
+            cc2-standalone/SHA256SUMS.txt
+            cc2-standalone/README.txt
+          retention-days: 90
