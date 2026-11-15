@@ -131,6 +131,7 @@
     optionsPanel,devReadout,labButton,prevPresentation=null;
   let lab=null,initialized=false,canvasWidth=0,canvasHeight=0,dpr=1,
     runToken=null,mode='IDLE',persona='SEARCHING',personaIntensity=.35,
+    visualAttachment=null,
     sample=null,frameIndex=0,lastRenderAt=0,visualErrors=[],
     history=[],audioCtx=null,hum=null,lastSfxAt=-1e9,
     audioUnlocked=false,visible=false,liveCount=0,captureCount=0,
@@ -335,116 +336,130 @@
       ctx.fill();
     }
   }
-  // A translucent cohesive membrane joins the stable source core to the
-  // inertia-delayed outer plasma. Without this bridge, a sharp turn can make
-  // the material read as a second detached pink organism: explicitly forbid
-  // that visual interpretation even during maximum overshoot.
-  function drawMembraneBridge(s,project,now,diameter,intensity){
-    const a=project(s.source),b=project(s.outer);
-    if(!a||!b)return;
-    const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);
-    if(len<1)return;
-    const nx=dx/len,ny=dy/len,px=-ny,py=nx;
-    const m=config.material;
-    for(let layer=2;layer>=0;layer--){
-      const width=diameter*(.27+layer*.07)*m.plasmaDensity;
-      const curl=reduced()?0:Math.sin(now*.0015+layer)*diameter*
-        m.turbulence*.3;
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(a.x+px*width,a.y+py*width);
-      ctx.bezierCurveTo(
-        lerp(a.x,b.x,.31)+px*(width+curl),
-        lerp(a.y,b.y,.31)+py*(width+curl),
-        lerp(a.x,b.x,.72)+px*width*.8,
-        lerp(a.y,b.y,.72)+py*width*.8,
-        b.x+px*width*.78,b.y+py*width*.78
-      );
-      ctx.quadraticCurveTo(
-        b.x+nx*width*.22,b.y+ny*width*.22,
-        b.x-px*width*.78,b.y-py*width*.78
-      );
-      ctx.bezierCurveTo(
-        lerp(a.x,b.x,.72)-px*width*.8,
-        lerp(a.y,b.y,.72)-py*width*.8,
-        lerp(a.x,b.x,.31)-px*(width-curl),
-        lerp(a.y,b.y,.31)-py*(width-curl),
-        a.x-px*width,a.y-py*width
-      );
-      ctx.closePath();
-      ctx.fillStyle=color(layer===0?m.hot:layer===1?m.shell:m.smoke,
-        (.12+layer*.10)*intensity);
-      ctx.shadowColor=m.edge;
-      ctx.shadowBlur=(4+layer*5)*config.performance.glowQuality;
-      ctx.fill();
-      ctx.restore();
-    }
+  /**
+   * Visually tether the material to the source bot.
+   *
+   * The motion simulation is allowed to preserve a large virtual offset for
+   * inertia diagnostics, but the shell is NOT another physical object.
+   * A large world-space lag must NEVER translate the whole cloud off the bot.
+   * We take the direction and magnitude of that lag as deformation INPUT,
+   * clamp the actual rendered center to <=13% of body diameter, and stretch
+   * only the rear membrane and wake. The same rule applies in the lab and game.
+   */
+  function envelopePose(s,project,diameter) {
+    const core=project(s?.source),desired=project(s?.outer);
+    if(!core||!desired)return null;
+    const dx=desired.x-core.x,dy=desired.y-core.y;
+    const virtualGap=Math.hypot(dx,dy);
+    const cap=diameter*.13;
+    const ratio=virtualGap>cap?cap/virtualGap:1;
+    const center={x:core.x+dx*ratio,y:core.y+dy*ratio};
+    return {core,center,dx,dy,virtualGap,
+      gap:Math.hypot(center.x-core.x,center.y-core.y),
+      maxAllowed:cap,diameter,clamped:virtualGap>cap};
   }
-  function drawEnvelope(s,project,now,diameter,intensity,personality){
-    const p=project(s.outer),core=project(s.source);
-    if(!p||!core)return;
-    const m=config.material;
-    const speed=clamp(s.speed/230,0,1.4);
-    const lag={x:p.x-core.x,y:p.y-core.y};
-    const mag=Math.hypot(lag.x,lag.y);
-    const vx=s.velocity.x,vy=s.velocity.y;
-    const vmag=Math.hypot(vx,vy)||1;
-    const back={x:-vx/vmag,y:-vy/vmag};
-    const ang=now*.001;
-    const r=diameter*.50*m.envelopeRadius;
-    const deformation=clamp((mag/Math.max(1,diameter))*.85+
-      speed*.075,0,.4);
-    const fill=ctx.createRadialGradient(core.x-diameter*.12,
-      core.y-diameter*.16,diameter*.07,p.x,p.y,r*1.6);
-    fill.addColorStop(0,color(m.hot,.22*m.internalGlow*intensity));
-    fill.addColorStop(.34,color(m.shell,.74*m.membraneOpacity));
-    fill.addColorStop(.68,color(m.smoke,.48*m.membraneOpacity));
-    fill.addColorStop(1,color(m.edge,.07*m.membraneOpacity));
+
+  /** The core and the membrane share one center region, not two blobs. */
+  function drawMembraneBridge(s,project,now,diameter,intensity){
+    const pose=envelopePose(s,project,diameter);
+    if(!pose||pose.gap<.3)return;
+    const {core,center}=pose,m=config.material;
+    const dx=center.x-core.x,dy=center.y-core.y;
+    const length=Math.hypot(dx,dy)||1;
+    const nx=dx/length,ny=dy/length,px=-ny,py=nx;
     ctx.save();
     ctx.beginPath();
+    const width=diameter*.39*m.plasmaDensity;
+    ctx.moveTo(core.x+px*width,core.y+py*width);
+    ctx.quadraticCurveTo(center.x+px*width*.93,
+      center.y+py*width*.93,
+      center.x+nx*width*.32,center.y+ny*width*.32);
+    ctx.quadraticCurveTo(center.x-px*width*.93,
+      center.y-py*width*.93,
+      core.x-px*width,core.y-py*width);
+    ctx.closePath();
+    ctx.fillStyle=color(m.shell,.24+.21*intensity);
+    ctx.shadowColor=m.edge;ctx.shadowBlur=diameter*.13;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /** Living shell contour anchored to core; lag warps its trailing rim. */
+  function drawEnvelope(s,project,now,diameter,intensity,personality){
+    const pose=envelopePose(s,project,diameter);
+    if(!pose)return;
+    const {center,core,virtualGap}=pose;
+    const m=config.material;
+    const speed=clamp(s.speed/230,0,1.4);
+    const velocity=Math.hypot(s.velocity.x,s.velocity.y)||1;
+    // Rear direction is derived from the source velocity. At a direction
+    // reversal, shell inertia retains the previous direction through pose.
+    const nx=virtualGap>1?pose.dx/virtualGap:-s.velocity.x/velocity;
+    const ny=virtualGap>1?pose.dy/virtualGap:-s.velocity.y/velocity;
+    const ang=now*.001;
+    const r=diameter*.50*m.envelopeRadius;
+    const deformation=clamp(
+      (virtualGap/Math.max(1,diameter))*.42+speed*.085,0,.31);
+    const gradient=ctx.createRadialGradient(
+      core.x-diameter*.10,core.y-diameter*.13,diameter*.05,
+      center.x,center.y,r*1.18);
+    gradient.addColorStop(0,color(m.hot,.19*m.internalGlow*intensity));
+    gradient.addColorStop(.29,color(m.shell,.41*m.membraneOpacity));
+    gradient.addColorStop(.65,color(m.smoke,.27*m.membraneOpacity));
+    gradient.addColorStop(1,color(m.edge,.025*m.membraneOpacity));
+    ctx.save();ctx.beginPath();
+    // One organic perimeter enclosing the ACTUAL bot. Not a circle moving
+    // in parallel with a separate source core.
     const points=56;
     for(let i=0;i<=points;i++){
-      const theta=i%points/points*TWO,
-        c=Math.cos(theta),ss=Math.sin(theta);
-      const rear=Math.max(0,c*back.x+ss*back.y);
-      const front=Math.max(0,-(c*back.x+ss*back.y));
-      const ripples=reduced()?0:
-        Math.sin(theta*3-ang*1.12+s.angular)*m.turbulence*.36+
-        Math.sin(theta*5+ang*.66)*m.turbulence*.19+
-        Math.sin(theta*7-ang*.4)*m.turbulence*.095;
-      const shape=1+rear*deformation*.48-front*deformation*.2+ripples;
-      const xx=p.x+c*r*shape+lag.x*.10;
-      const yy=p.y+ss*r*shape+lag.y*.10;
+      const theta=i%points/points*TWO;
+      const ux=Math.cos(theta),uy=Math.sin(theta);
+      const rear=Math.max(0,ux*nx+uy*ny);
+      const front=Math.max(0,-ux*nx-uy*ny);
+      const ripple=reduced()?0:
+        Math.sin(theta*3-ang*.92+s.angular)*m.turbulence*.22+
+        Math.sin(theta*5+ang*.53)*m.turbulence*.13+
+        Math.sin(theta*7-ang*.32)*m.turbulence*.06;
+      const shape=1+rear*deformation*.43-front*deformation*.17+ripple;
+      const xx=center.x+ux*r*shape;
+      const yy=center.y+uy*r*shape;
       if(i===0)ctx.moveTo(xx,yy);else ctx.lineTo(xx,yy);
     }
     ctx.closePath();
-    ctx.shadowColor=m.edge;ctx.shadowBlur=diameter*.17*
-      config.performance.glowQuality*intensity;
-    ctx.fillStyle=fill;ctx.fill();
-    ctx.lineWidth=m.shellThickness;
-    ctx.strokeStyle=color(m.edge,.24+.37*intensity);
+    ctx.fillStyle=gradient;
+    ctx.shadowColor=m.edge;
+    ctx.shadowBlur=diameter*.12*config.performance.glowQuality*intensity;
+    ctx.fill();
+    ctx.lineWidth=m.shellThickness*.85;
+    ctx.strokeStyle=color(m.edge,.2+.2*intensity);
     ctx.stroke();
     ctx.restore();
 
-    // Coherent inner plasma vortices, never decorative rotating metal rings.
+    // Local vortices stay inside this body. Procedural movement is subtle;
+    // visible detached clouds are reserved for the thin dissipating wake.
     for(let i=0;i<m.filamentCount;i++){
-      const r0=r*(.25+i*.09),a0=i*2.13+ang*(i%2?-.38:.49);
-      const x0=core.x+Math.cos(a0)*r0*.48,y0=core.y+Math.sin(a0)*r0*.48;
-      ctx.save();ctx.globalAlpha=(.27+.17*intensity)*m.internalGlow;
+      const r0=r*(.15+i*.07),a0=i*2.13+ang*(i%2?-.3:.39);
+      const x0=core.x+Math.cos(a0)*r0*.45;
+      const y0=core.y+Math.sin(a0)*r0*.45;
+      ctx.save();
+      ctx.globalAlpha=(.19+.10*intensity)*m.internalGlow;
       ctx.beginPath();ctx.moveTo(x0,y0);
       ctx.bezierCurveTo(
-        core.x+Math.cos(a0+1.1)*r*.8,core.y+Math.sin(a0+1.1)*r*.7,
-        p.x+Math.cos(a0+2.1)*r*.8,p.y+Math.sin(a0+2.1)*r*.8,
-        p.x+Math.cos(a0+3)*r0,p.y+Math.sin(a0+3)*r0);
-      ctx.lineWidth=.8+(i%3)*.4;
-      ctx.strokeStyle=i%2?m.hot:m.edge;
-      ctx.shadowColor=m.hot;ctx.shadowBlur=3;
+        core.x+Math.cos(a0+1.1)*r*.62,
+        core.y+Math.sin(a0+1.1)*r*.62,
+        center.x+Math.cos(a0+2.1)*r*.57,
+        center.y+Math.sin(a0+2.1)*r*.57,
+        center.x+Math.cos(a0+3)*r0,
+        center.y+Math.sin(a0+3)*r0);
+      ctx.lineWidth=.7+(i%3)*.3;ctx.strokeStyle=i%2?m.hot:m.edge;
+      ctx.shadowColor=m.hot;ctx.shadowBlur=2;
       ctx.stroke();ctx.restore();
     }
   }
   function drawMotes(s,project,now,diameter,intensity){
     if(reduced())return;
-    const p=project(s.outer);if(!p)return;
+    const pose=envelopePose(s,project,diameter);
+    const p=pose?.center;if(!p)return;
     const m=config.material;
     const count=Math.min(m.particleBudget,
       canvasWidth<500?20:48,ornaments.length);
@@ -524,6 +539,13 @@
     drawEnvelope(s,project,now,diam,intensity,persona);
     drawMotes(s,project,now,diam,intensity);
     drawSparkReaction(screenSpark,sourceSpark,s.speed);
+    const pose=envelopePose(s,project,diam);
+    visualAttachment=pose?{
+      centerDistancePx:pose.gap,maxAllowedPx:pose.maxAllowed,
+      virtualLagPx:pose.virtualGap,bodyDiameterPx:diam,
+      tethered:pose.gap<=pose.maxAllowed+.001,
+      source:{...pose.core},materialCenter:{...pose.center}
+    }:null;
     sample=s;visible=true;frameIndex++;lastRenderAt=now;
   }
   function ensure(){
@@ -1077,6 +1099,7 @@
         angular:sample.angular,trailCount:sample.trail.length,
         peakLag:sample.peakLag,source:sample.source,outer:sample.outer}:null,
       captureAuthorized,phase,
+      visualAttachment:visualAttachment?clone(visualAttachment):null,
       gameDigest:game()?.sessionReport?.()?.stateDigest??null,
       sourceTick:game()?.snapshot?.()?.tick??null,
       errorCount:visualErrors.length};
