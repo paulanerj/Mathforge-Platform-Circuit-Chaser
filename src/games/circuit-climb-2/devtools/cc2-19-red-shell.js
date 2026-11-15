@@ -220,8 +220,8 @@
     status=$('cc219-status');skip=$('cc219-skip');again=$('cc219-again');
     skip.addEventListener('click',()=>finish('skip'));
     again.addEventListener('click',()=>{if(previewActive)open(true);else if(capture)open(false);});
-    const summary=$('summaryPanel');
-    const header=summary?.querySelector('.summary-header');
+    const summaryPanelElement=$('summaryPanel');
+    const header=summaryPanelElement?.querySelector('.summary-header');
     if(header){
       summaryReplay=document.createElement('button');
       summaryReplay.type='button';summaryReplay.id='cc219-summary-replay';
@@ -231,8 +231,9 @@
         if(capture&&game()?.snapshot?.()?.endReason==='CAPTURED')open(false);
       });
     }
-    if(summary)new MutationObserver(()=>{if(!summary.hidden)observe();})
-      .observe(summary,{attributes:true,attributeFilter:['hidden']});
+    if(summaryPanelElement)new MutationObserver(()=>{
+      if(!summaryPanelElement.hidden)observe();
+    }).observe(summaryPanelElement,{attributes:true,attributeFilter:['hidden']});
     document.addEventListener('keydown',e=>{
       if(e.key==='Escape'&&controls&&!controls.hidden){
         e.preventDefault();e.stopImmediatePropagation();finish('escape');
