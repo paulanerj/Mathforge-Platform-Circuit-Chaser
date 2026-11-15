@@ -1,0 +1,81 @@
+name: CC2-VIS-20 Inertial Plasma + Decisive Swallow
+
+on:
+  push:
+    branches: [feature/cc2-vis20-living-pursuer]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  living-pursuer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Verify exact CC2-19 parent and protected source invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=2f0926001ffafd19e562acb70f7e5e6955bb1a02
+          source=80565bf50d0c177da194a71bfb44a0c2d4a40aca
+          git merge-base --is-ancestor "$parent" HEAD
+          git diff --exit-code "$parent" HEAD -- \
+            src/games/circuit-climb/ \
+            src/games/circuit-climb-2/core/ \
+            src/games/circuit-climb-2/math/ \
+            src/games/circuit-climb-2/world/ \
+            src/games/circuit-climb-2/config/ \
+            src/games/circuit-climb-2/features/ \
+            src/games/circuit-climb-2/learning/ \
+            src/games/circuit-climb-2/music/ \
+            src/games/circuit-climb-2/pursuer/ \
+            src/games/circuit-climb-2/devtools/cc2-02a.ts \
+            src/games/circuit-climb-2/devtools/cc2-16a-integrity.js
+          git diff --exit-code "$source" HEAD -- \
+            src/games/circuit-climb-2/core/ \
+            src/games/circuit-climb-2/math/ \
+            src/games/circuit-climb-2/world/ \
+            src/games/circuit-climb-2/pursuer/ \
+            src/games/circuit-climb-2/music/
+      - name: Install exact dependencies and compile contracts
+        run: |
+          npm ci
+          npm run lint
+          node --check src/games/circuit-climb-2/devtools/cc2-20-plasma-physics.js
+          node --check src/games/circuit-climb-2/devtools/cc2-20-living-pursuer.js
+          node --check src/games/circuit-climb-2/devtools/cc2-19-red-shell.js
+          node --check src/games/circuit-climb-2/devtools/cc2-20-browser-smoke.mjs
+      - name: Browser and deterministic living-matter acceptance
+        run: node src/games/circuit-climb-2/devtools/cc2-20-browser-smoke.mjs
+      - name: Preserve accepted real input, movement and landing
+        run: node src/games/circuit-climb-2/devtools/cc2-16b-input-smoke.mjs
+      - name: Fully portable single-file game and offline smoke
+        run: |
+          node src/games/circuit-climb-2/devtools/buildPortable16A.mjs
+          node src/games/circuit-climb-2/devtools/cc2-16a-portable-smoke.mjs
+          cp cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html \
+            cc2-standalone/CC2-20-Living-Pursuer-Playable.html
+          sha256sum cc2-standalone/CC2-20-Living-Pursuer-Playable.html \
+            > cc2-standalone/CC2-20-SHA256SUMS.txt
+      - name: Vite production build
+        run: npm run build
+      - name: Retain owner playable file and full QA screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-VIS20-Living-Pursuer-Owner-Review
+          path: |
+            cc2-20-evidence/
+            cc2-standalone/CC2-20-Living-Pursuer-Playable.html
+            cc2-standalone/CC2-20-SHA256SUMS.txt
+          if-no-files-found: warn
+          retention-days: 90
