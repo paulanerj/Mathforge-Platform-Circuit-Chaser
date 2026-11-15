@@ -8,7 +8,7 @@ import {resolve,dirname} from 'node:path';
 import {createHash} from 'node:crypto';
 const dir=resolve('src/games/circuit-climb-2/devtools');
 const source=await readFile(resolve(dir,'cc2-16a.html'),'utf8');
-const [css,fx,glow,phaseCss,phaseJs,learnCss,integrityCss,integrityJs]=await Promise.all([
+const [css,fx,glow,phaseCss,phaseJs,learnCss,integrityCss,integrityJs,eclipseCss,eclipseJs]=await Promise.all([
  readFile(resolve(dir,'cc2-09d-presentation.css'),'utf8'),
  readFile(resolve(dir,'cc2-09e-presentation.js'),'utf8'),
  readFile(resolve(dir,'cc2-09e-presentation.css'),'utf8'),
@@ -17,6 +17,8 @@ const [css,fx,glow,phaseCss,phaseJs,learnCss,integrityCss,integrityJs]=await Pro
  readFile(resolve(dir,'cc2-13-15.css'),'utf8'),
  readFile(resolve(dir,'cc2-16a-integrity.css'),'utf8'),
  readFile(resolve(dir,'cc2-16a-integrity.js'),'utf8'),
+ readFile(resolve(dir,'cc2-18-circuit-eclipse.css'),'utf8'),
+ readFile(resolve(dir,'cc2-18-circuit-eclipse.js'),'utf8'),
 ]);
 const entry='<script type="module" src="./cc2-02a.ts"></script>';
 const cssTag='<link rel="stylesheet" href="./cc2-09d-presentation.css">';
@@ -28,7 +30,9 @@ const learnCssTag='<link rel="stylesheet" href="./cc2-13-15.css">';
 const learnJsTag='<script type="module" src="./cc2-13-15.ts"></script>';
 const integrityCssTag='<link rel="stylesheet" href="./cc2-16a-integrity.css">';
 const integrityJsTag='<script defer src="./cc2-16a-integrity.js"></script>';
-for(const m of [entry,cssTag,fxTag,glowTag,phaseCssTag,phaseJsTag,learnCssTag,learnJsTag,integrityCssTag,integrityJsTag])
+const eclipseCssTag='<link rel="stylesheet" href="./cc2-18-circuit-eclipse.css">';
+const eclipseJsTag='<script defer src="./cc2-18-circuit-eclipse.js"></script>';
+for(const m of [entry,cssTag,fxTag,glowTag,phaseCssTag,phaseJsTag,learnCssTag,learnJsTag,integrityCssTag,integrityJsTag,eclipseCssTag,eclipseJsTag])
  if(source.split(m).length!==2)throw Error('CC2_16A_MARKER_MISSING_OR_DUPLICATED: '+m);
 const result=await build({entryPoints:[resolve(dir,'cc2-02a.ts')],bundle:true,
  write:false,format:'iife',target:['es2022'],platform:'browser',
@@ -50,9 +54,11 @@ const html=source.replace(entry,'<script>\n/* source-authoritative CC2 engine */
  .replace(learnJsTag,'<script id="cc215-source-app">\n'+escapeScript(extraBundle)+'\n</script>')
  .replace(integrityCssTag,'<style id="cc216a-integrity-style">\n'+integrityCss+'\n</style>')
  .replace(integrityJsTag,'<script id="cc216a-integrity-lab">\n'+escapeScript(integrityJs)+'\n</script>')
+ .replace(eclipseCssTag,'<style id="cc218a-eclipse-style">\n'+eclipseCss+'\n</style>')
+ .replace(eclipseJsTag,'<script id="cc218a-eclipse-controller">\n'+escapeScript(eclipseJs)+'\n</script>')
  .replace(fxTag,'<script id="cc209d-source-presentation">\n'+escapeScript(fx)+'</script>');
-if(html.includes(entry)||html.includes(cssTag)||html.includes(fxTag)||html.includes(glowTag)||html.includes(phaseCssTag)||html.includes(phaseJsTag)||html.includes(learnCssTag)||html.includes(learnJsTag)||html.includes(integrityCssTag)||html.includes(integrityJsTag)||
- html.length<100000||html.length>4000000||!html.includes('cc209d-source-presentation')||!html.includes('cc209e-target-style')||!html.includes('cc212-source-presentation')||!html.includes('cc215-source-app')||!html.includes('cc216a-integrity-lab'))
+if(html.includes(entry)||html.includes(cssTag)||html.includes(fxTag)||html.includes(glowTag)||html.includes(phaseCssTag)||html.includes(phaseJsTag)||html.includes(learnCssTag)||html.includes(learnJsTag)||html.includes(integrityCssTag)||html.includes(integrityJsTag)||html.includes(eclipseCssTag)||html.includes(eclipseJsTag)||
+ html.length<100000||html.length>4000000||!html.includes('cc209d-source-presentation')||!html.includes('cc209e-target-style')||!html.includes('cc212-source-presentation')||!html.includes('cc215-source-app')||!html.includes('cc216a-integrity-lab')||!html.includes('cc218a-eclipse-controller')||!html.includes('cc218a-eclipse-style'))
  throw Error('CC2_15_OFFLINE_ASSEMBLY_INVALID');
 const file=resolve('cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html');
 await mkdir(dirname(file),{recursive:true});
