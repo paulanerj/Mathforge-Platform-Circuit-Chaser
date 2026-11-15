@@ -1,0 +1,78 @@
+/* CC2-23: secondary threats rendered from source-owned world coordinates. */
+#cc223-secondary-canvas{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  z-index:7;
+  pointer-events:none!important;
+  display:block;
+  mix-blend-mode:normal;
+}
+#cc223-mode-banner{
+  position:absolute;
+  left:9px;
+  bottom:9px;
+  z-index:9;
+  pointer-events:none!important;
+  padding:4px 8px;
+  border-radius:7px;
+  color:#695235;
+  background:#fff9eae8;
+  border:1px solid #dccca5;
+  box-shadow:0 2px 8px #374e6221;
+  font:800 9px/1.3 system-ui;
+  letter-spacing:.07em;
+}
+#cc223-panel{
+  margin:9px 0;
+  padding:10px;
+  color:#264969;
+  background:#f4f9fc;
+  border:1px solid #bed4e4;
+  border-radius:11px;
+  font:500 12px/1.4 system-ui;
+}
+#cc223-panel summary{
+  cursor:pointer;
+  font:800 12px/1.5 system-ui;
+  color:#21597c;
+}
+#cc223-panel p{margin:6px 0;}
+#cc223-panel .cc223-buttons{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;
+  margin:9px 0;
+}
+#cc223-panel button{
+  min-height:42px;
+  appearance:none;
+  cursor:pointer;
+  border:1px solid #adccdd;
+  border-radius:9px;
+  padding:7px 9px;
+  font:800 11px/1.3 system-ui;
+  background:white;
+  color:#2d5b7e;
+}
+#cc223-panel button[aria-pressed="true"]{
+  background:#d9ecfa;
+  outline:2px solid #75b4df;
+  outline-offset:-3px;
+}
+#cc223-panel button:focus-visible{
+  outline:3px solid #1674b9;
+  outline-offset:2px;
+}
+#cc223-panel #cc223-readout{
+  color:#666082;
+  font-size:11px;
+}
+@media(max-width:380px){
+  #cc223-panel .cc223-buttons{grid-template-columns:1fr}
+  #cc223-mode-banner{font-size:8px;padding:3px 6px}
+}
+@media(prefers-reduced-motion:reduce){
+  #cc223-secondary-canvas{transition:none!important;animation:none!important}
+}
