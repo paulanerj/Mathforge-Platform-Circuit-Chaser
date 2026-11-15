@@ -38,9 +38,9 @@
       continuousEnclosingShell:true,innerEyeCenterOffsetMaxRadiusRatio:.06,
       innerEyeDiameterToOuterDiameter:.38,maxCaptureShellScale:1.1,
       blueCoreMustBeClippedWithinOuterShell:true,externalSecondSparkInFinal:false},
-    timelineMs:{contactEnd:160,apertureEnd:420,swallowEnd:900,
-      internalPopEnd:1220,reformEnd:1850,livingHoldEnd:2550,
-      reducedMotionTotal:420},
+    timelineMs:{contactEnd:100,apertureEnd:280,swallowEnd:500,
+      internalPopEnd:750,reformEnd:1250,livingHoldEnd:1850,
+      reducedMotionTotal:400},
     look:{shellInner:'#6F183B',shellMid:'#B92B62',
       shellRim:'#F34B95',hotFilament:'#FF95D5',
       innerEyeDark:'#143FA7',innerEyeCore:'#31C4FF',
@@ -269,12 +269,12 @@
       d.appendChild(bar);
       const fields=document.createElement('div');fields.className='cc219-fields';
       const parameters=[
-        ['timelineMs','contactEnd',100,300,10],
-        ['timelineMs','apertureEnd',300,700,10],
-        ['timelineMs','swallowEnd',700,1400,10],
-        ['timelineMs','internalPopEnd',1100,1800,10],
-        ['timelineMs','reformEnd',1600,2400,10],
-        ['timelineMs','livingHoldEnd',2200,4000,10],
+        ['timelineMs','contactEnd',50,170,10],
+        ['timelineMs','apertureEnd',170,400,10],
+        ['timelineMs','swallowEnd',350,700,10],
+        ['timelineMs','internalPopEnd',600,1000,10],
+        ['timelineMs','reformEnd',950,1550,10],
+        ['timelineMs','livingHoldEnd',1450,3000,10],
         ['geometry','innerEyeDiameterToOuterDiameter',.35,.42,.005],
         ['geometry','maxCaptureShellScale',1,1.1,.005],
         ['pursuitVisuals','normalGlow',0,1,.05],
@@ -435,6 +435,8 @@
     stage.dataset.proximity=proximity;
   }
   function drawLive(now){
+    // A visual lab must not compete with source-owned chase projection.
+    if(window.__CC2_VIS20__?.isLabActive?.())return;
     if(!preset.enabled||!controls.hidden||!shell||!stage)return;
     const state=game()?.snapshot?.();
     if(!state||state.phase==='ended'||!window.__cc2ChaseStarted){
@@ -458,7 +460,17 @@
       stage.appendChild(spark);eyeNested=false;
     }
     spark.hidden=true;
-    paintParticles(now,c.bot.x,c.bot.y,d,false);
+    const cc220=window.__CC2_VIS20__;
+    if(cc220?.projectLive?.({now,
+      botWorld:c.botState.body,screenBot:c.bot,
+      screenSpark:c.spark,source:c.source,botState:c.botState,
+      diameter:d,proximity})){
+      // The living-fluid controller now owns the *ornamental* particles.
+      if(particles.childElementCount)particles.replaceChildren();
+      shell.style.scale=String(cc220.config().material.coreScale);
+    }else{
+      paintParticles(now,c.bot.x,c.bot.y,d,false);
+    }
   }
   function paintParticles(now,x,y,diam,ingesting){
     const cap=($('board')?.clientWidth||390)<500?
@@ -540,6 +552,9 @@
       reform:'Red shell reforming',hold:'One creature · blue eye enclosed'
     }[next]||'Capture sequence';
     remember('PHASE',{phase,old,elapsedMs});
+    // CC2-20 receives a presentation cue, never a command to change capture.
+    window.__CC2_VIS20__?.capturePhase?.(next,previewActive,
+      !previewActive&&Boolean(capture)&&realCaptureShown);
     if(next==='contact')sound('contact');
     if(next==='swallow')sound('swallow');
     if(next==='pop')sound('pop');
@@ -567,12 +582,14 @@
     if(!stage||controls.hidden)return;
     elapsedMs=ms;
     const time=preset.timelineMs;
-    const done=ms>=time.livingHoldEnd||isReduced()&&ms>=time.reducedMotionTotal;
+    const fast=isReduced();
+    const done=ms>=time.livingHoldEnd||
+      fast&&ms>=time.reducedMotionTotal;
     const points=capturePoint(),bot=points.bot,s=points.spark;
     const diameter=shellDiameter();
     const origSpark=diameter/preset.pursuitVisuals.normalBodyToSparkDiameterRatio;
     const eyeSize=diameter*preset.geometry.innerEyeDiameterToOuterDiameter;
-    const name=isReduced()?'hold':
+    const name=fast?'hold':
       ms<time.contactEnd?'contact':
       ms<time.apertureEnd?'aperture':
       ms<time.swallowEnd?'swallow':
@@ -583,35 +600,53 @@
     shell.style.width=diameter+'px';shell.style.height=diameter+'px';
     stage.style.setProperty('--cc219-diameter',diameter+'px');
     stage.style.setProperty('--cc219-pressure','1');
-    const swell=isReduced()?1:
-      ms>=time.apertureEnd&&ms<time.reformEnd?
-        1+(preset.geometry.maxCaptureShellScale-1)*
-          Math.sin(Math.PI*clamp((ms-time.apertureEnd)/
-            (time.reformEnd-time.apertureEnd),0,1)):1;
+    // Preserve the source-owned bot center. Only visual plasma flares.
+    const swell=fast?1:ms>=time.apertureEnd&&ms<time.reformEnd?
+      1+(preset.geometry.maxCaptureShellScale-1)*
+        Math.sin(Math.PI*clamp((ms-time.apertureEnd)/
+          (time.reformEnd-time.apertureEnd),0,1)):1;
     shell.style.scale=String(swell);
     position(shell,bot.x,bot.y);
+
+    // CRITICAL: the SAME blue DOM element must be tracked from the outside
+    // to the inside. At 280 ms it is already surrounded by red material;
+    // there is no 900 ms side-by-side drift/dance and no second blue object.
     if(!eyeNested){
       spark.hidden=false;
-      const t=isReduced()?1:smooth((ms-time.apertureEnd)/
-        (time.swallowEnd-time.apertureEnd));
-      const ex=lerp(s.x,bot.x,t),ey=lerp(s.y,bot.y,t);
-      const size=lerp(origSpark,eyeSize,t);
+      const snap=fast?1:smooth((ms-time.contactEnd)/
+        (time.apertureEnd-time.contactEnd));
+      const amount=fast?1:snap*.92;
+      const px=lerp(s.x,bot.x,amount);
+      const py=lerp(s.y,bot.y,amount);
+      const size=lerp(origSpark,eyeSize*1.16,snap);
       spark.style.width=spark.style.height=size+'px';
-      position(spark,ex,ey);
-      if(isReduced()||ms>=time.swallowEnd){
-        relocateEye();
-      }
+      position(spark,px,py);
+      if(fast||ms>=time.apertureEnd)relocateEye();
     }
     if(eyeNested){
       spark.hidden=false;
-      spark.style.width=spark.style.height=eyeSize+'px';
-      spark.style.left='50%';spark.style.top='50%';
+      const transfer=fast?1:smooth((ms-time.apertureEnd)/
+        (time.swallowEnd-time.apertureEnd));
+      const dx=s.x-bot.x,dy=s.y-bot.y;
+      const angle=Math.atan2(dy,dx);
+      const offset=fast?0:diameter*.13*(1-transfer);
+      const innerSize=eyeSize*(1+.16*(1-transfer));
+      spark.style.width=spark.style.height=innerSize+'px';
+      // A real clipped internal eye crosses the membrane and travels inward.
+      spark.style.left='calc(50% + '+(Math.cos(angle)*offset).toFixed(3)+'px)';
+      spark.style.top='calc(50% + '+(Math.sin(angle)*offset).toFixed(3)+'px)';
       spark.style.transform='translate(-50%,-50%)';
     }
-    paintParticles(now,bot.x,bot.y,diameter,
-      !isReduced()&&ms<time.reformEnd);
+    const vis=window.__CC2_VIS20__;
+    if(vis?.renderCapture){
+      vis.renderCapture({ms,now,phase:name,bot,spark:s,
+        diameter,eyeNested,demo:previewActive,
+        verified:!previewActive&&Boolean(capture)&&realCaptureShown});
+      if(particles.childElementCount)particles.replaceChildren();
+    }else{
+      paintParticles(now,bot.x,bot.y,diameter,!fast&&ms<time.reformEnd);
+    }
     if(name==='hold'){
-      // A real nested blue eye inside exactly one circular red shell.
       finalGeometry=geometry();
     }
     if(done){
@@ -673,6 +708,7 @@
     shell.style.scale='1';
     releaseEye();spark.hidden=true;
     previewActive=false;
+    window.__CC2_VIS20__?.captureEnded?.();
     remember('PRESENTATION_CLOSE',{reason,demo:wasDemo,
       unchangedDigest:baselineDigest===null||baselineDigest===currentDigest()});
     if(!wasDemo&&baselineDigest!==null&&baselineDigest!==currentDigest())
