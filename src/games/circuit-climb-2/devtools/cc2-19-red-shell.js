@@ -67,7 +67,7 @@
     baselineDigest=null,firstCaptureTick=null,firstCaptureRun=null,
     captureEpoch=0,sourceEpoch=0,priorPhase=null,priorTick=0,
     focusBefore=null,eyeNested=false,firstTerminalPaint=false,
-    playerAudioUnlocked=false,audioContext=null;
+    playerAudioUnlocked=false,audioContext=null,qaFrozenMs=null;
   const history=[],errors=[],warnings=[];
   let particleSeed=1919001,particleGeometry=[];
   const remember=(type,detail={})=>{
@@ -317,7 +317,8 @@
       // Step is a VISUAL clock only, never an engine tick or capture override.
       visualSeekForQA:ms=>{
         if(controls.hidden)throw Error('CC219_NO_ACTIVE_PRESENTATION');
-        paintCapture(clamp(ms,0,preset.timelineMs.livingHoldEnd),performance.now());
+        qaFrozenMs=clamp(ms,0,preset.timelineMs.livingHoldEnd-1);
+        paintCapture(qaFrozenMs,performance.now());
         return summary();
       }
     });
@@ -597,7 +598,7 @@
     if(demo&&game()?.snapshot?.()?.tick>0&&game()?.snapshot?.()?.phase!=='ended'){
       uiText('Start a fresh run for the visual preview');return;
     }
-    epoch++;cancelAnimationFrame(animationId);
+    epoch++;cancelAnimationFrame(animationId);qaFrozenMs=null;
     releaseEye();spark.hidden=false;finalGeometry=null;
     focusBefore=document.activeElement;
     previewActive=demo;
@@ -620,7 +621,7 @@
     const tick=now=>{
       if(token!==epoch||controls.hidden)return;
       const delta=now-startedAt;
-      paintCapture(delta,now);
+      if(qaFrozenMs===null)paintCapture(delta,now);
       if(token===epoch&&!controls.hidden)animationId=requestAnimationFrame(tick);
     };
     animationId=requestAnimationFrame(tick);
