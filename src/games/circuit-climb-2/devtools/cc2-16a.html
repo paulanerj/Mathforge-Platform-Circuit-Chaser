@@ -1388,11 +1388,25 @@ window.addEventListener("DOMContentLoaded", () => {
       for(const row of rows)for(const platformItem of row.platforms)platform(platformItem,renderer,w,now);
       // Source's display interpolation affects visuals only; it never edits
       // the real Spark/Bot world positions or game physics.
-      const spark=renderer.visualSparkPosition||state.spark;
-      actor(spark.x,spark.y,state.spark.value,'spark',renderer,w,now);
-      const sourceBot=renderer.visualBotPosition||bot?.body;
-      if(sourceBot){const bpos=pt(sourceBot.x,sourceBot.y,renderer,w);if(bpos.y>=-18&&bpos.y<=h+18)
-        actor(sourceBot.x,sourceBot.y,null,bot?.belief?.mode==='SEARCH'?'bot-search':'bot-pursuit',renderer,w,now)}
+      // CC2-19 presentation ownership: during a VERIFIED visual assimilation
+      // (or clearly labeled demo), the new in-board observer paints exactly
+      // one source-positioned red shell and one continuous blue Spark proxy.
+      // Suppress only these two HERITAGE CANVAS actor drawings while the
+      // observer owns the presentation, so no original blue ghost remains
+      // outside the final shell. All board, paths and platforms still render.
+      // This does not touch the source-owned worldCanvas/gameplay renderer.
+      const assimilationVisible=document.body.classList.contains('cc219-active');
+      if(!assimilationVisible){
+        const spark=renderer.visualSparkPosition||state.spark;
+        actor(spark.x,spark.y,state.spark.value,'spark',renderer,w,now);
+        const sourceBot=renderer.visualBotPosition||bot?.body;
+        if(sourceBot){
+          const bpos=pt(sourceBot.x,sourceBot.y,renderer,w);
+          if(bpos.y>=-18&&bpos.y<=h+18)
+            actor(sourceBot.x,sourceBot.y,null,
+              bot?.belief?.mode==='SEARCH'?'bot-search':'bot-pursuit',renderer,w,now);
+        }
+      }
       ctx.restore();log.frames++;
     }catch(e){log.paintFailures++;rememberError('heritage.render',e)}
   }
