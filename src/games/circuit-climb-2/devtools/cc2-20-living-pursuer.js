@@ -517,6 +517,7 @@
     p.timelineMs.reformEnd=t.recovery;
     p.timelineMs.livingHoldEnd=t.hold;
     p.timelineMs.reducedMotionTotal=t.reduceMotionTotal;
+    p.performance.reducedMotion=reduced()?'force-reduce':'final-pose-hold';
     a.loadPreset(p);
     log('CAPTURE_TIMING_LINKED',{duration:t.hold});
   }
@@ -553,8 +554,11 @@
     selectPersona(data,s);
     const d=data.diameter||55;
     const r=$('cc219-shell');
-    if(r)r.style.setProperty('--cc220-core-scale',
-      String(config.material.coreScale));
+    if(r){
+      r.style.scale=String(config.material.coreScale);
+      r.style.setProperty('--cc220-core-scale',String(config.material.coreScale));
+    }
+    mode='PURSUIT';
     root.dataset.cc220Mode='pursuit';
     root.dataset.cc220Persona=persona;
     root.dataset.cc220Reduced=reduced()?'yes':'no';
@@ -617,6 +621,7 @@
       log('REJECTED_UNVERIFIED_CAPTURE_RENDER');
       return;
     }
+    mode='CAPTURE';
     root.dataset.cc220Mode='capture';
     root.dataset.cc220Persona='CAPTURED';
     root.dataset.cc220Reduced=reduced()?'yes':'no';
@@ -666,6 +671,7 @@
   function captureEnded(){
     captureAuthorized=false;
     if(root)root.dataset.cc220Mode=lab?.active?'lab':'normal';
+    mode=lab?.active?'LAB':'IDLE';
     humGain(0);
     log('CAPTURE_PRESENTATION_CLOSED');
   }
@@ -686,6 +692,7 @@
   function labDraw(){
     if(!lab?.active||!ensure())return;
     root.dataset.active='true';
+    mode='LAB';
     root.dataset.cc220Mode='lab';
     document.body.classList.add('cc220-lab-active');
     const {s,bot,eye}=labScene(lab.scenario,lab.elapsed);
@@ -693,6 +700,7 @@
     const shell=$('cc219-shell'),spark=$('cc219-spark');
     if(shell){
       shell.style.width='55px';shell.style.height='55px';
+      shell.style.scale=String(config.material.coreScale);
       shell.style.transform='translate3d('+screenBot.x+'px,'+
         screenBot.y+'px,0) translate(-50%,-50%)';
     }
@@ -761,6 +769,7 @@
     lab.active=false;
     document.body.classList.remove('cc220-lab-active');
     labUi.hidden=true;
+    mode='IDLE';
     if(root){
       root.dataset.cc220Mode='normal';
       root.dataset.active='false';
