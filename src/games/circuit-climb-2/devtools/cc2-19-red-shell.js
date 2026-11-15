@@ -413,9 +413,13 @@
     return {spark:worldPoint(sparkWorld.x,sparkWorld.y),
       bot:worldPoint(botWorld.x,botWorld.y),source:s,botState:b};
   }
-  function position(node,x,y){
+  function position(node,x,y,localScale=1){
+    // Translation must remain in board coordinates. Combining a
+    // standalone CSS scale with absolute translate3d displaced the whole
+    // organism by tens of pixels (owner screenshot CC2-VIS-20 defect).
+    node.style.scale='1';
     node.style.transform='translate3d('+x.toFixed(3)+'px,'+y.toFixed(3)+
-      'px,0) translate(-50%,-50%)';
+      'px,0) translate(-50%,-50%) scale('+localScale+')';
   }
   function shellDiameter(){
     return ($('board')?.clientWidth||390)<500?55:65;
@@ -608,8 +612,8 @@
       1+(preset.geometry.maxCaptureShellScale-1)*
         Math.sin(Math.PI*clamp((ms-time.apertureEnd)/
           (time.reformEnd-time.apertureEnd),0,1)):1;
-    shell.style.scale=String(swell);
-    position(shell,bot.x,bot.y);
+    shell.style.scale='1';
+    position(shell,bot.x,bot.y,swell);
 
     // CRITICAL: the SAME blue DOM element must be tracked from the outside
     // to the inside. At 280 ms it is already surrounded by red material;
