@@ -400,6 +400,22 @@ body.cc219-active #cc209-start{
   #cc219-controls #cc219-status{font-size:9px}
   #cc219-lab .cc219-fields{grid-template-columns:1fr}
 }
+#cc219-lab select{
+  display:block;
+  margin:6px 0;
+  width:100%;
+  min-height:38px;
+  border:1px solid #a5c3d9;
+  border-radius:7px;
+  background:#fff;
+  color:#254d6b;
+  font:700 12px system-ui;
+}
+#cc219-stage[data-reduced="true"] *,
+#cc219-stage[data-reduced="true"] *::before,
+#cc219-stage[data-reduced="true"] *::after{
+  animation:none!important;transition:none!important;
+}
 @media(prefers-reduced-motion:reduce){
   #cc219-stage *,
   #cc219-stage *::before,#cc219-stage *::after{
