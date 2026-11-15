@@ -85,6 +85,20 @@ try{
       check(finished.digest===starting.digest&&finished.tick===0&&
         finished.terminal===null,
         'visual-only animation is state-digest identical '+width,finished);
+      if(width===320){
+        const buttons=await page.evaluate(()=>{
+          const selectors=['#cc218-skip','#cc218-replay'];
+          return selectors.map(selector=>{
+            const e=document.querySelector(selector);
+            const box=e.getBoundingClientRect();
+            return{selector,visible:box.width>0&&box.height>=44,
+              inViewport:box.top>=0&&box.bottom<=innerHeight,
+              left:box.left,right:box.right,bottom:box.bottom};
+          });
+        });
+        check(buttons.every(b=>b.visible&&b.inViewport),
+          'both preview actions visible above the fold on 320x568',buttons);
+      }
       await page.screenshot({path:dir+'/cc2-18-preview-'+width+'.png'});
       if(width===390){
         await page.locator('#cc218-replay').click();
