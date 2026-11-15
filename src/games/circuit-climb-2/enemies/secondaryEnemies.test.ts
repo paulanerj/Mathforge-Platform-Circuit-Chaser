@@ -96,7 +96,9 @@ describe('CC2-23 finite sensing and telegraphed support pressure',()=>{
     const d=start('sentry');
     const no=d.advance(input(1,{x:440,y:250}));
     expect(no.summary.detections).toBe(0);
-    for(let tick=2;tick<45;tick++)d.advance(input(tick,{x:440,y:-25}));
+    const sentry=d.snapshot().actors[0];
+    for(let tick=2;tick<45;tick++)
+      d.advance(input(tick,{x:sentry.x,y:sentry.y-35}));
     const yes=d.snapshot();
     expect(yes.summary.detections).toBeGreaterThan(0);
     expect(yes.summary.alerts).toBe(1);
