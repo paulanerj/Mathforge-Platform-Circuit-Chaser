@@ -1,0 +1,65 @@
+name: CC2-18A Isolated Circuit Eclipse Prototype
+
+on:
+  push:
+    branches:
+      - feature/cc2-18-circuit-eclipse-prototype
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  circuit-eclipse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Lock all accepted gameplay, movement, inputs and music
+        shell: bash
+        run: |
+          set -euo pipefail
+          baseline=80565bf50d0c177da194a71bfb44a0c2d4a40aca
+          git diff --exit-code "$baseline" HEAD -- \
+            src/games/circuit-climb/ \
+            src/games/circuit-climb-2/core/ \
+            src/games/circuit-climb-2/math/ \
+            src/games/circuit-climb-2/world/ \
+            src/games/circuit-climb-2/config/ \
+            src/games/circuit-climb-2/features/ \
+            src/games/circuit-climb-2/learning/ \
+            src/games/circuit-climb-2/music/ \
+            src/games/circuit-climb-2/pursuer/ \
+            src/games/circuit-climb-2/devtools/cc2-02a.ts \
+            src/games/circuit-climb-2/devtools/cc2-16a-integrity.js
+      - name: Install pinned dependencies
+        run: npm ci
+      - name: TypeScript contracts
+        run: npm run lint
+      - name: Circuit Eclipse browser scenario and visual evidence
+        run: node src/games/circuit-climb-2/devtools/cc2-18-browser-smoke.mjs
+      - name: Retain CC2-16B actual pointer behavior
+        run: node src/games/circuit-climb-2/devtools/cc2-16b-input-smoke.mjs
+      - name: Exact self-contained build with injected presentation modules
+        run: |
+          node src/games/circuit-climb-2/devtools/buildPortable16A.mjs
+          node src/games/circuit-climb-2/devtools/cc2-16a-portable-smoke.mjs
+      - name: Vite production build
+        run: npm run build
+      - name: Save prototype and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-18A-Circuit-Eclipse-Playable-Evidence
+          path: |
+            cc2-18-evidence/
+            cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html
+          if-no-files-found: warn
+          retention-days: 60
