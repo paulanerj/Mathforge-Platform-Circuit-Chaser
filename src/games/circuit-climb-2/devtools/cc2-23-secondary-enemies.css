@@ -1,13 +1,73 @@
 /* CC2-23: secondary threats rendered from source-owned world coordinates. */
-#cc223-secondary-canvas{
+/*
+ * CC2-23-BLACKOUT-01:
+ * Never allocate another full-board composited canvas for two small enemies.
+ * Bounding boxes are local, transparent, and cannot paint an opaque viewport.
+ */
+#cc223-secondary-layer{
   position:absolute;
   inset:0;
-  width:100%;
-  height:100%;
   z-index:7;
   pointer-events:none!important;
+  background:transparent!important;
+  isolation:auto;
+  overflow:visible;
+}
+#cc223-secondary-layer[hidden]{display:none!important}
+#cc223-secondary-layer *,
+#cc223-secondary-layer *::before,
+#cc223-secondary-layer *::after{
+  pointer-events:none!important;
+  box-sizing:border-box;
+}
+#cc223-secondary-layer .cc223-actor{
+  position:absolute;
+  left:0;
+  top:0;
+  width:70px;
+  height:77px;
+  transform-origin:center center;
+  display:none;
+  contain:layout style;
+  background:transparent!important;
+}
+#cc223-secondary-layer .cc223-body{
+  width:54px;
+  height:54px;
+  margin:0 auto;
+  display:grid;
+  place-items:center;
+  filter:drop-shadow(0 1px 4px #263c6055);
+}
+#cc223-secondary-layer .cc223-body svg{
   display:block;
-  mix-blend-mode:normal;
+  width:54px;
+  height:54px;
+  overflow:visible;
+}
+#cc223-secondary-layer .cc223-label{
+  display:block;
+  text-align:center;
+  font:800 9px/1.3 system-ui;
+  letter-spacing:.045em;
+  color:#7b4922;
+  text-shadow:0 1px #ffffffbb;
+}
+#cc223-secondary-layer .cc223-actor[data-kind="sentry"] .cc223-label{
+  color:#6a4079;
+}
+#cc223-secondary-layer .cc223-warning-ring{
+  opacity:0;
+}
+#cc223-secondary-layer .cc223-actor[data-phase="TELEGRAPH"] .cc223-warning-ring,
+#cc223-secondary-layer .cc223-actor[data-phase="ALERT"] .cc223-warning-ring{
+  opacity:1;
+}
+#cc223-secondary-layer .cc223-actor[data-phase="ALERT"] .cc223-hull{
+  filter:drop-shadow(0 0 3px #cf9eda);
+}
+#cc223-secondary-layer .cc223-actor[data-kind="scout"][data-phase="ALERT"] .cc223-hull{
+  filter:drop-shadow(0 0 3px #f6ca83);
 }
 #cc223-mode-banner{
   position:absolute;
@@ -74,5 +134,5 @@
   #cc223-mode-banner{font-size:8px;padding:3px 6px}
 }
 @media(prefers-reduced-motion:reduce){
-  #cc223-secondary-canvas{transition:none!important;animation:none!important}
+  #cc223-secondary-layer .cc223-actor{transition:none!important;animation:none!important}
 }

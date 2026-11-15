@@ -1,0 +1,94 @@
+name: CC2-23 First-Click Blackout Fix Qualification
+on:
+  push:
+    branches: [fix/cc2-23-first-click-blackout]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-renderer-fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Protect accepted CC2-23 and all gameplay/core files
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=3794889d22a0e65bfb142eb269830d5a8d6c4c09
+          git cat-file -e "$parent^{commit}"
+          git merge-base --is-ancestor "$parent" HEAD
+          while IFS= read -r file; do
+            case "$file" in
+              src/games/circuit-climb-2/devtools/cc2-23-secondary-enemies.js|\
+              src/games/circuit-climb-2/devtools/cc2-23-secondary-enemies.css|\
+              src/games/circuit-climb-2/devtools/cc2-23-browser-smoke.mjs|\
+              src/games/circuit-climb-2/devtools/cc2-23-blackout-repro.mjs|\
+              .github/workflows/cc2-23-first-click-blackout.yml|\
+              .github/workflows/cc2-23-blackout-fix-qualification.yml)
+                echo "ISOLATED_RENDERER_FIX: $file" ;;
+              *)
+                echo "PROTECTED_GAMEPLAY_CHANGED: $file" >&2;exit 1;;
+            esac
+          done < <(git diff --name-only "$parent" HEAD)
+          git diff --exit-code "$parent" HEAD -- \
+            src/games/circuit-climb-2/core/ \
+            src/games/circuit-climb-2/pursuer/ \
+            src/games/circuit-climb-2/enemies/secondaryEnemies.ts \
+            src/games/circuit-climb-2/world/ \
+            src/games/circuit-climb-2/config/ \
+            src/games/circuit-climb-2/math/ \
+            src/games/circuit-climb-2/features/ \
+            src/games/circuit-climb-2/progression/ \
+            src/games/circuit-climb-2/devtools/cc2-19-red-shell.js \
+            src/games/circuit-climb-2/devtools/cc2-20-living-pursuer.js
+          mkdir -p cc2-23-blackout-evidence
+          { echo "accepted_parent=$parent"; echo "candidate=$(git rev-parse HEAD)";
+            git diff --name-only "$parent" HEAD;
+            echo "protected gameplay=IDENTICAL"; } \
+            | tee cc2-23-blackout-evidence/source-custody.txt
+      - name: Frozen dependencies and source correctness
+        run: |
+          npm ci
+          npm run lint
+          npx vitest run src/games/circuit-climb-2/
+          node --check src/games/circuit-climb-2/devtools/cc2-23-secondary-enemies.js
+      - name: Scout/Sentry actual gameplay on mobile/tablet/desktop
+        run: node src/games/circuit-climb-2/devtools/cc2-23-browser-smoke.mjs
+      - name: First-click screenshot pixels over time and capture
+        run: node src/games/circuit-climb-2/devtools/cc2-23-blackout-repro.mjs
+      - name: Original capture material and input regression
+        run: |
+          node src/games/circuit-climb-2/devtools/cc2-20-browser-smoke.mjs
+          node src/games/circuit-climb-2/devtools/cc2-21-cohesion-smoke.mjs
+          node src/games/circuit-climb-2/devtools/cc2-16b-input-smoke.mjs
+      - name: Portable single-file source and browser test
+        run: |
+          node src/games/circuit-climb-2/devtools/buildPortable16A.mjs
+          node src/games/circuit-climb-2/devtools/cc2-16a-portable-smoke.mjs
+          cp cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html \
+            cc2-standalone/CC2-23-Blackout-Fix-Playable.html
+          sha256sum cc2-standalone/CC2-23-Blackout-Fix-Playable.html \
+            | tee cc2-23-blackout-evidence/portable-sha256.txt
+      - name: Production build
+        run: npm run build
+      - name: Upload source proof, screenshots, portable game
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-23-Blackout-Fix-Owner-Review
+          path: |
+            cc2-23-blackout-evidence/
+            cc2-23-evidence/
+            cc2-20-evidence/
+            cc2-21-evidence/
+            cc2-standalone/CC2-23-Blackout-Fix-Playable.html
+          if-no-files-found: warn
+          retention-days: 90

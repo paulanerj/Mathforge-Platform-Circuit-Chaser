@@ -1,0 +1,32 @@
+name: CC2-23 First Click Blackout Visual Reproduction
+on:
+  push:
+    branches: [fix/cc2-23-first-click-blackout]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  visual-reproduction:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install pinned packages
+        run: npm ci
+      - name: Screenshot every first-click phase in all four enemy configurations
+        run: node src/games/circuit-climb-2/devtools/cc2-23-blackout-repro.mjs
+      - name: Retain PNGs and in-browser compositing diagnosis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-23-First-Click-Blackout-Reproduction
+          path: cc2-23-blackout-evidence/
+          if-no-files-found: warn
+          retention-days: 30
