@@ -467,7 +467,6 @@
       diameter:d,proximity})){
       // The living-fluid controller now owns the *ornamental* particles.
       if(particles.childElementCount)particles.replaceChildren();
-      shell.style.scale=String(cc220.config().material.coreScale);
     }else{
       paintParticles(now,c.bot.x,c.bot.y,d,false);
     }
