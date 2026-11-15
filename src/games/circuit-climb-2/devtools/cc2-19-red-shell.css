@@ -246,7 +246,8 @@
 #cc219-shield[hidden],#cc219-controls[hidden],
 #cc219-again[hidden],#cc219-summary-replay[hidden]{display:none!important}
 body.cc219-active #summaryPanel,
-body.cc219-active #cc209-preend{
+body.cc219-active #cc209-preend,
+body.cc219-active #cc209-start{
   visibility:hidden!important;
   pointer-events:none!important;
 }
