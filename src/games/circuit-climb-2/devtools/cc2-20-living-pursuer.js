@@ -300,11 +300,11 @@
     const m=config.material;
     // Three translucent smoke layers with independent curl frequencies.
     for(let layer=2;layer>=0;layer--){
-      const thickness=diameter*(.20+layer*.13)*m.plasmaDensity;
+      const thickness=diameter*(.16+layer*.09)*m.plasmaDensity;
       for(let i=1;i<steps.length;i++){
         const a=steps[i-1],b=steps[i];
         const age=(a.age+b.age)*.5;
-        const alpha=(1-age)*(1-age)*(.10+layer*.05)*intensity;
+        const alpha=(1-age)*(1-age)*(.08+layer*.035)*intensity;
         if(alpha<.002)continue;
         const time=now*.001;
         const curl=Math.sin(i*.83+time*(.56+layer*.24)+layer*1.35)*
@@ -327,12 +327,12 @@
     for(let i=0;i<steps.length-1;i+=2){
       const item=steps[i],fade=(1-item.age)**2;
       if(fade<.06)continue;
-      const t=now*.001,rad=diameter*(.11+.17*fade);
+      const t=now*.001,rad=diameter*(.025+.065*fade);
       ctx.beginPath();
       ctx.ellipse(item.p.x+Math.sin(t*.83+i)*rad*.7,
         item.p.y+Math.cos(t*.71+i*.3)*rad*.7,
         rad*(1+item.age),rad*.7,item.heading,0,TWO);
-      ctx.fillStyle=color(config.material.smoke,.13*fade*intensity);
+      ctx.fillStyle=color(config.material.smoke,.075*fade*intensity);
       ctx.fill();
     }
   }
@@ -466,7 +466,7 @@
     for(let i=0;i<count;i++){
       const dot=ornaments[i],a=dot.angle+now*.0005*dot.rate,
         curl=Math.sin(now*.001*dot.rate+dot.offset);
-      const reach=diameter*(.40+dot.radius*.28)+curl*diameter*.075;
+      const reach=diameter*(.39+dot.radius*.19)+curl*diameter*.055;
       const x=p.x+Math.cos(a)*reach,y=p.y+Math.sin(a)*reach;
       const alpha=.10+Math.abs(curl)*.24*intensity;
       ctx.beginPath();ctx.arc(x,y,dot.size*.68,0,TWO);
