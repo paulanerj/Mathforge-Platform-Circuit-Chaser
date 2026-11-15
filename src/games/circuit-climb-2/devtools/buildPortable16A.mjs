@@ -17,8 +17,8 @@ const [css,fx,glow,phaseCss,phaseJs,learnCss,integrityCss,integrityJs,eclipseCss
  readFile(resolve(dir,'cc2-13-15.css'),'utf8'),
  readFile(resolve(dir,'cc2-16a-integrity.css'),'utf8'),
  readFile(resolve(dir,'cc2-16a-integrity.js'),'utf8'),
- readFile(resolve(dir,'cc2-18-circuit-eclipse.css'),'utf8'),
- readFile(resolve(dir,'cc2-18-circuit-eclipse.js'),'utf8'),
+ readFile(resolve(dir,'cc2-19-red-shell.css'),'utf8'),
+ readFile(resolve(dir,'cc2-19-red-shell.js'),'utf8'),
 ]);
 const entry='<script type="module" src="./cc2-02a.ts"></script>';
 const cssTag='<link rel="stylesheet" href="./cc2-09d-presentation.css">';
@@ -30,8 +30,8 @@ const learnCssTag='<link rel="stylesheet" href="./cc2-13-15.css">';
 const learnJsTag='<script type="module" src="./cc2-13-15.ts"></script>';
 const integrityCssTag='<link rel="stylesheet" href="./cc2-16a-integrity.css">';
 const integrityJsTag='<script defer src="./cc2-16a-integrity.js"></script>';
-const eclipseCssTag='<link rel="stylesheet" href="./cc2-18-circuit-eclipse.css">';
-const eclipseJsTag='<script defer src="./cc2-18-circuit-eclipse.js"></script>';
+const eclipseCssTag='<link rel="stylesheet" href="./cc2-19-red-shell.css">';
+const eclipseJsTag='<script defer src="./cc2-19-red-shell.js"></script>';
 for(const m of [entry,cssTag,fxTag,glowTag,phaseCssTag,phaseJsTag,learnCssTag,learnJsTag,integrityCssTag,integrityJsTag,eclipseCssTag,eclipseJsTag])
  if(source.split(m).length!==2)throw Error('CC2_16A_MARKER_MISSING_OR_DUPLICATED: '+m);
 const result=await build({entryPoints:[resolve(dir,'cc2-02a.ts')],bundle:true,

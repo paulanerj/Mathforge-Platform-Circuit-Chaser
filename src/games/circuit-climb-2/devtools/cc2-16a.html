@@ -676,7 +676,7 @@ body[data-cc209c-intro-open="on"] .shell{visibility:hidden!important}
 <link rel="stylesheet" href="./cc2-12-presentation.css">
 <link rel="stylesheet" href="./cc2-13-15.css">
 <link rel="stylesheet" href="./cc2-16a-integrity.css">
-<link rel="stylesheet" href="./cc2-18-circuit-eclipse.css">
+<link rel="stylesheet" href="./cc2-19-red-shell.css">
 </head>
 <body data-pursuer="on" data-features="on" data-summary="on" data-cc209b="on" data-cc209c="on" data-cc209d="on" data-cc209e="on" data-cc212="on" data-cc215="on" data-cc216a="on" data-cc209c-intro-open="on">
   <main class="shell">
@@ -1388,11 +1388,25 @@ window.addEventListener("DOMContentLoaded", () => {
       for(const row of rows)for(const platformItem of row.platforms)platform(platformItem,renderer,w,now);
       // Source's display interpolation affects visuals only; it never edits
       // the real Spark/Bot world positions or game physics.
-      const spark=renderer.visualSparkPosition||state.spark;
-      actor(spark.x,spark.y,state.spark.value,'spark',renderer,w,now);
-      const sourceBot=renderer.visualBotPosition||bot?.body;
-      if(sourceBot){const bpos=pt(sourceBot.x,sourceBot.y,renderer,w);if(bpos.y>=-18&&bpos.y<=h+18)
-        actor(sourceBot.x,sourceBot.y,null,bot?.belief?.mode==='SEARCH'?'bot-search':'bot-pursuit',renderer,w,now)}
+      // CC2-19 presentation ownership: during a VERIFIED visual assimilation
+      // (or clearly labeled demo), the new in-board observer paints exactly
+      // one source-positioned red shell and one continuous blue Spark proxy.
+      // Suppress only these two HERITAGE CANVAS actor drawings while the
+      // observer owns the presentation, so no original blue ghost remains
+      // outside the final shell. All board, paths and platforms still render.
+      // This does not touch the source-owned worldCanvas/gameplay renderer.
+      const assimilationVisible=document.body.classList.contains('cc219-active');
+      if(!assimilationVisible){
+        const spark=renderer.visualSparkPosition||state.spark;
+        actor(spark.x,spark.y,state.spark.value,'spark',renderer,w,now);
+        const sourceBot=renderer.visualBotPosition||bot?.body;
+        if(sourceBot){
+          const bpos=pt(sourceBot.x,sourceBot.y,renderer,w);
+          if(bpos.y>=-18&&bpos.y<=h+18)
+            actor(sourceBot.x,sourceBot.y,null,
+              bot?.belief?.mode==='SEARCH'?'bot-search':'bot-pursuit',renderer,w,now);
+        }
+      }
       ctx.restore();log.frames++;
     }catch(e){log.paintFailures++;rememberError('heritage.render',e)}
   }
@@ -1659,6 +1673,6 @@ window.addEventListener('DOMContentLoaded',function(){
 <script defer src="./cc2-12-presentation.js"></script>
 <script type="module" src="./cc2-13-15.ts"></script>
 <script defer src="./cc2-16a-integrity.js"></script>
-<script defer src="./cc2-18-circuit-eclipse.js"></script>
+<script defer src="./cc2-19-red-shell.js"></script>
 </body>
 </html>

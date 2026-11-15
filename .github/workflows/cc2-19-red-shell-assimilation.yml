@@ -1,0 +1,80 @@
+name: CC2-19 Red Shell Assimilation Owner Preview
+
+on:
+  push:
+    branches: [feature/cc2-19-red-shell-assimilation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  red-shell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Preserve source custody and protected gameplay files
+        shell: bash
+        run: |
+          set -euo pipefail
+          source=800ce47808a28985ccdacd3f46aa7d1461eae9c9
+          protected=80565bf50d0c177da194a71bfb44a0c2d4a40aca
+          git merge-base --is-ancestor "$source" HEAD
+          git diff --exit-code "$source" HEAD -- \
+            src/games/circuit-climb/ \
+            src/games/circuit-climb-2/core/ \
+            src/games/circuit-climb-2/math/ \
+            src/games/circuit-climb-2/world/ \
+            src/games/circuit-climb-2/config/ \
+            src/games/circuit-climb-2/features/ \
+            src/games/circuit-climb-2/learning/ \
+            src/games/circuit-climb-2/music/ \
+            src/games/circuit-climb-2/pursuer/ \
+            src/games/circuit-climb-2/devtools/cc2-02a.ts \
+            src/games/circuit-climb-2/devtools/cc2-16a-integrity.js
+          git diff --exit-code "$protected" HEAD -- \
+            src/games/circuit-climb-2/core/ \
+            src/games/circuit-climb-2/math/ \
+            src/games/circuit-climb-2/world/ \
+            src/games/circuit-climb-2/pursuer/ \
+            src/games/circuit-climb-2/music/
+      - name: Install exact pinned dependencies
+        run: npm ci
+      - name: TypeScript and module checks
+        run: |
+          npm run lint
+          node --check src/games/circuit-climb-2/devtools/cc2-19-red-shell.js
+          node --check src/games/circuit-climb-2/devtools/cc2-19-browser-smoke.mjs
+      - name: Actual capture, mobile, geometry and designer QA
+        run: node src/games/circuit-climb-2/devtools/cc2-19-browser-smoke.mjs
+      - name: Accepted real pointer and Spark movement regression
+        run: node src/games/circuit-climb-2/devtools/cc2-16b-input-smoke.mjs
+      - name: Portable single-file build and real offline gameplay
+        run: |
+          node src/games/circuit-climb-2/devtools/buildPortable16A.mjs
+          node src/games/circuit-climb-2/devtools/cc2-16a-portable-smoke.mjs
+          cp cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html \
+            cc2-standalone/CC2-19-Red-Shell-Assimilation-Playable.html
+          sha256sum cc2-standalone/CC2-19-Red-Shell-Assimilation-Playable.html \
+            > cc2-standalone/CC2-19-SHA256SUMS.txt
+      - name: Vite production build
+        run: npm run build
+      - name: Save owner prototype and visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-19-Red-Shell-Owner-Review
+          path: |
+            cc2-19-evidence/
+            cc2-standalone/CC2-19-Red-Shell-Assimilation-Playable.html
+            cc2-standalone/CC2-19-SHA256SUMS.txt
+          if-no-files-found: warn
+          retention-days: 90
