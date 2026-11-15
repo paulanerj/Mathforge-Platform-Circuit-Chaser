@@ -160,6 +160,15 @@ export class SecondaryEnemyDirector {
     this.events.length=0;
     this.createActors();
   }
+  /** Drop all live threats at a source-authoritative terminal outcome. */
+  terminate(runId:string):void{
+    if(runId!==this.runId)throw Error('CC2_SECONDARY_RUN_SCOPE');
+    this.multiplier=1;
+    for(const a of this.actors){
+      a.eligible=false;a.phase='PATROL';a.priorSensed=false;
+      a.source=null;a.lastSignal=null;a.warningAt=-1;a.until=-1;
+    }
+  }
   private emit(type:SecondaryEnemyEventV1['type'],a:InternalActor,
     detail:Record<string,string|number|boolean>={}):void{
     this.events.push({
@@ -203,7 +212,11 @@ export class SecondaryEnemyDirector {
     // Duplicate ticks are idempotent, never another detection or event.
     if(input.tick===this.lastTick)return this.snapshot();
     this.lastTick=input.tick;this.tick=input.tick;
-    if(input.phase==='ended'||input.mode==='practice'){
+    if(input.phase==='ended'){
+      this.terminate(input.runId);
+      return this.snapshot();
+    }
+    if(input.mode==='practice'){
       this.multiplier=1;
       return this.snapshot();
     }
