@@ -299,11 +299,11 @@
     const m=config.material;
     // Three translucent smoke layers with independent curl frequencies.
     for(let layer=2;layer>=0;layer--){
-      const thickness=diameter*(.13+layer*.09)*m.plasmaDensity;
+      const thickness=diameter*(.20+layer*.13)*m.plasmaDensity;
       for(let i=1;i<steps.length;i++){
         const a=steps[i-1],b=steps[i];
         const age=(a.age+b.age)*.5;
-        const alpha=(1-age)*(1-age)*(.075+layer*.035)*intensity;
+        const alpha=(1-age)*(1-age)*(.10+layer*.05)*intensity;
         if(alpha<.002)continue;
         const time=now*.001;
         const curl=Math.sin(i*.83+time*(.56+layer*.24)+layer*1.35)*
@@ -326,12 +326,12 @@
     for(let i=0;i<steps.length-1;i+=2){
       const item=steps[i],fade=(1-item.age)**2;
       if(fade<.06)continue;
-      const t=now*.001,rad=diameter*(.08+.12*fade);
+      const t=now*.001,rad=diameter*(.11+.17*fade);
       ctx.beginPath();
       ctx.ellipse(item.p.x+Math.sin(t*.83+i)*rad*.7,
         item.p.y+Math.cos(t*.71+i*.3)*rad*.7,
         rad*(1+item.age),rad*.7,item.heading,0,TWO);
-      ctx.fillStyle=color(config.material.smoke,.085*fade*intensity);
+      ctx.fillStyle=color(config.material.smoke,.13*fade*intensity);
       ctx.fill();
     }
   }
@@ -352,8 +352,8 @@
     const fill=ctx.createRadialGradient(core.x-diameter*.12,
       core.y-diameter*.16,diameter*.07,p.x,p.y,r*1.6);
     fill.addColorStop(0,color(m.hot,.22*m.internalGlow*intensity));
-    fill.addColorStop(.34,color(m.shell,.66*m.membraneOpacity));
-    fill.addColorStop(.68,color(m.smoke,.35*m.membraneOpacity));
+    fill.addColorStop(.34,color(m.shell,.74*m.membraneOpacity));
+    fill.addColorStop(.68,color(m.smoke,.48*m.membraneOpacity));
     fill.addColorStop(1,color(m.edge,.07*m.membraneOpacity));
     ctx.save();
     ctx.beginPath();
