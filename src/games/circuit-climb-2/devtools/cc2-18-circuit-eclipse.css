@@ -347,10 +347,31 @@
   #cc218-eclipse .cc218-stat{min-width:75px;padding:8px 5px;border-radius:9px}
   #cc218-eclipse .cc218-stat span{font-size:9px}
   #cc218-eclipse .cc218-stage-label{bottom:9px;right:10px;font-size:8px}
+  /* Keep both cinematic controls together in the 320 px phone viewport. */
+  #cc218-eclipse .cc218-actions{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:7px;
+    width:100%;
+    max-width:300px;
+    margin-left:auto;
+    margin-right:auto;
+  }
+  #cc218-eclipse .cc218-actions button{
+    min-width:0;
+    width:100%;
+    padding:9px 5px;
+    font-size:12px;
+  }
+  #cc218-eclipse .cc218-actions button:only-child{
+    grid-column:1 / -1;
+    width:min(230px,100%);
+    justify-self:center;
+  }
 }
 @media(max-height:640px){
-  #cc218-eclipse .cc218-layout{min-height:100%;grid-template-rows:auto minmax(176px,43dvh) auto;gap:6px}
-  #cc218-eclipse .cc218-stage{min-height:176px}
+  #cc218-eclipse .cc218-layout{min-height:100%;grid-template-rows:auto minmax(165px,32dvh) auto;gap:6px}
+  #cc218-eclipse .cc218-stage{min-height:165px}
   #cc218-eclipse .cc218-caption{margin:3px auto 6px}
   #cc218-eclipse .cc218-stat{padding:7px}
   #cc218-eclipse .cc218-trace{margin:6px}
