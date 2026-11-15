@@ -467,7 +467,25 @@ body{background:#e7f1fa!important;color:#0e1b33!important}
 .cc209-actions button:hover{background:#e7f4ff!important}
 #worldCanvas{opacity:0!important}
 #cc209b-heritage-canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;display:block}
-.board{background:#f0f6fc!important;border:1px solid #c2d7e8!important;border-radius:18px!important;box-shadow:0 15px 40px #1f47672c,inset 0 0 35px #ffffffaa!important}
+.board{
+  /*
+   * CC2-23-BLACKOUT-02: static, non-canvas ceramic grid fallback.
+   * Even when all 2D backing stores disappear, the board MUST NOT go black.
+   * Heritage draws the exact accepted grid over these lightweight CSS lines.
+   */
+  background-color:#f0f6fc!important;
+  background-image:
+    linear-gradient(to right,rgba(202,223,241,.48) 1px,transparent 1px),
+    linear-gradient(to bottom,rgba(202,223,241,.48) 1px,transparent 1px)!important;
+  background-size:23px 23px!important;
+  background-position:8px 0!important;
+  border:1px solid #c2d7e8!important;
+  border-radius:18px!important;
+  box-shadow:0 15px 40px #1f47672c,inset 0 0 35px #ffffffaa!important;
+}
+#board[data-cc223-renderer-fallback] #cc209b-heritage-canvas{
+  visibility:hidden!important;
+}
 .board:after{display:none!important}
 .choices{z-index:4!important}
 .choice{border-radius:14px!important;border:1.5px solid #c6dcf0!important;background:linear-gradient(180deg,#ffffff,#eef6fc)!important;color:#0e1b33!important;text-shadow:none!important;box-shadow:0 7px 20px #234b701c,inset 0 1px 0 #fff!important;min-width:57px!important;min-height:48px!important}
@@ -1106,7 +1124,27 @@ window.addEventListener("DOMContentLoaded", () => {
   canvas.id='cc209b-heritage-canvas';
   canvas.setAttribute('aria-hidden','true');
   source.insertAdjacentElement('afterend',canvas);
-  const ctx=canvas.getContext('2d',{alpha:false});
+  /*
+   * CC2-23-BLACKOUT-02: NEVER allocate the accepted pale Heritage painter as
+   * an opaque canvas. Some accelerated browsers expose an opaque 2D backing
+   * that clears to solid black when it is evicted or loses its surface.
+   * Transparent backing instead reveals the permanent pale grid underneath.
+   * Normal frames are unchanged: parallax() paints their entire background.
+   */
+  const ctx=canvas.getContext('2d',{alpha:true,desynchronized:false});
+  if(!ctx)throw Error('CC223_HERITAGE_CANVAS_CONTEXT_UNAVAILABLE');
+  canvas.dataset.fallback='ready';
+  canvas.addEventListener('contextlost',event=>{
+    event.preventDefault();
+    canvas.dataset.fallback='context-lost';
+    document.getElementById('board')?.setAttribute(
+      'data-cc223-renderer-fallback','context-lost');
+  });
+  canvas.addEventListener('contextrestored',()=>{
+    canvas.dataset.fallback='ready';
+    document.getElementById('board')?.removeAttribute(
+      'data-cc223-renderer-fallback');
+  });
   const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const ERROR_CAP=200, HISTORY_CAP=400,EVENT_CAP=1200;
   const log={errors:[],events:[],frames:0,paintFailures:0,missedFrames:0,
