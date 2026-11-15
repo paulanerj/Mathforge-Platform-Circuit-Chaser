@@ -656,7 +656,11 @@
     const nx=dirX/length,ny=dirY/length;
     const px=-ny,py=nx;
     const snap=clamp((ms-t.anticipation)/(t.engulf-t.anticipation),0,1);
-    const strength=ease(snap)*config.capture.snapIntensity;
+    const compression=clamp((ms-t.engulf)/(t.swallow-t.engulf),0,1);
+    // The red membrane extends ONCE, then contracts around Spark and folds
+    // into the existing bot. It never holds an extended second red lobe.
+    const strength=ease(snap)*(1-ease(compression))*
+      config.capture.snapIntensity;
     const tip={x:lerp(bot.x,spark.x,strength),
       y:lerp(bot.y,spark.y,strength)};
     const red=ctx.createRadialGradient(bot.x,bot.y,2,
@@ -688,6 +692,31 @@
     ctx.closePath();ctx.fillStyle=red;ctx.fill();
     ctx.strokeStyle=color(m.hot,.42*strength);ctx.lineWidth=1.5;
     ctx.stroke();
+    // Two closing membrane lips wrap the SAME blue Spark. They fold toward
+    // the bot's center rather than two objects drifting together.
+    if(snap>.28){
+      const close=ease(clamp((ms-t.anticipation)/
+        (t.swallow-t.anticipation),0,1));
+      const mouthGap=d*.18*(1-close);
+      const mouthCenter={
+        x:lerp(spark.x,bot.x,close),
+        y:lerp(spark.y,bot.y,close)
+      };
+      const length=d*.24*(1-close*.65);
+      ctx.lineWidth=Math.max(1.4,2.6*(1-close));
+      ctx.lineCap='round';
+      ctx.strokeStyle=color(m.hot,.72*(1-close));
+      for(const sign of [-1,1]){
+        ctx.beginPath();
+        ctx.moveTo(bot.x+px*sign*d*.23,bot.y+py*sign*d*.23);
+        ctx.quadraticCurveTo(
+          mouthCenter.x+px*sign*(mouthGap+length*.7),
+          mouthCenter.y+py*sign*(mouthGap+length*.7),
+          mouthCenter.x+px*sign*mouthGap,
+          mouthCenter.y+py*sign*mouthGap);
+        ctx.stroke();
+      }
+    }
     ctx.restore();
   }
   function renderCapture(blob){
