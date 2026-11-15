@@ -677,6 +677,7 @@ body[data-cc209c-intro-open="on"] .shell{visibility:hidden!important}
 <link rel="stylesheet" href="./cc2-13-15.css">
 <link rel="stylesheet" href="./cc2-16a-integrity.css">
 <link rel="stylesheet" href="./cc2-19-red-shell.css">
+<link rel="stylesheet" href="./cc2-20-living-pursuer.css">
 </head>
 <body data-pursuer="on" data-features="on" data-summary="on" data-cc209b="on" data-cc209c="on" data-cc209d="on" data-cc209e="on" data-cc212="on" data-cc215="on" data-cc216a="on" data-cc209c-intro-open="on">
   <main class="shell">
@@ -1395,7 +1396,8 @@ window.addEventListener("DOMContentLoaded", () => {
       // observer owns the presentation, so no original blue ghost remains
       // outside the final shell. All board, paths and platforms still render.
       // This does not touch the source-owned worldCanvas/gameplay renderer.
-      const assimilationVisible=document.body.classList.contains('cc219-active');
+      const assimilationVisible=document.body.classList.contains('cc219-active')||
+        document.body.classList.contains('cc220-lab-active');
       if(!assimilationVisible){
         const spark=renderer.visualSparkPosition||state.spark;
         actor(spark.x,spark.y,state.spark.value,'spark',renderer,w,now);
@@ -1674,5 +1676,7 @@ window.addEventListener('DOMContentLoaded',function(){
 <script type="module" src="./cc2-13-15.ts"></script>
 <script defer src="./cc2-16a-integrity.js"></script>
 <script defer src="./cc2-19-red-shell.js"></script>
+<script defer src="./cc2-20-plasma-physics.js"></script>
+<script defer src="./cc2-20-living-pursuer.js"></script>
 </body>
 </html>
