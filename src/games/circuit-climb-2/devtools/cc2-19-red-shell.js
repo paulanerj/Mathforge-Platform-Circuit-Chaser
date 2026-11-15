@@ -22,6 +22,7 @@
   const lerp = (a,b,t) => a + (b-a)*t;
   const smooth = t => { t=clamp(t,0,1); return t*t*(3-2*t); };
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const isReduced=()=>reduced||preset.performance.reducedMotion==='force-reduce';
   const clone = o => JSON.parse(JSON.stringify(o));
   const defaults = {
     schema:API,
@@ -128,7 +129,8 @@
     for(const [k,v] of Object.entries(raw.audio)){
       if(typeof v==='number'&&(v<0||v>1))throw Error('CC219_AUDIO_RANGE_'+k);
     }
-    if(raw.performance.mobileParticleCap<0||raw.performance.mobileParticleCap>36||
+    if(!['final-pose-hold','force-reduce'].includes(raw.performance.reducedMotion)||
+      raw.performance.mobileParticleCap<0||raw.performance.mobileParticleCap>36||
       raw.performance.desktopParticleCap<0||raw.performance.desktopParticleCap>60||
       raw.dev.seed<1||raw.dev.seed>2147483647)
       throw Error('CC219_PERFORMANCE_OR_SEED');
@@ -156,6 +158,7 @@
     stage?.style.setProperty('--cc219-blue',preset.look.innerEyeCore);
     stage?.style.setProperty('--cc219-blue-white',preset.look.eyeHighlight);
     stage?.style.setProperty('--cc219-glow',String(preset.look.outerGlowOpacity));
+    if(stage)stage.dataset.reduced=isReduced()?'true':'false';
     particleSeed=preset.dev.seed|0;
     particleGeometry=Array.from({length:60},()=>({
       angle:seeded()*Math.PI*2,
@@ -273,8 +276,14 @@
         ['timelineMs','reformEnd',1600,2400,10],
         ['timelineMs','livingHoldEnd',2200,4000,10],
         ['geometry','innerEyeDiameterToOuterDiameter',.35,.42,.005],
+        ['geometry','maxCaptureShellScale',1,1.1,.005],
         ['pursuitVisuals','normalGlow',0,1,.05],
         ['pursuitVisuals','criticalGlow',0,1,.05],
+        ['pursuitVisuals','normalParticleRatePerSecond',0,20,1],
+        ['pursuitVisuals','criticalParticleRatePerSecond',0,36,1],
+        ['idleMotion','breathingScaleAmplitude',0,.03,.002],
+        ['performance','mobileParticleCap',0,36,1],
+        ['performance','desktopParticleCap',0,60,1],
         ['look','shellMid',0,0,0],['look','shellRim',0,0,0],
         ['look','innerEyeCore',0,0,0],
         ['audio','contactTickGain',0,1,.05],
@@ -299,6 +308,19 @@
         fields.appendChild(label);
       }
       d.appendChild(fields);
+      const motionLabel=document.createElement('label');
+      motionLabel.textContent='Reduced motion · system setting or force static pose';
+      const motion=document.createElement('select');
+      motion.innerHTML='<option value="final-pose-hold">Respect system preference</option>'+
+        '<option value="force-reduce">Force reduced motion</option>';
+      motion.value=preset.performance.reducedMotion;
+      motion.addEventListener('change',()=>{
+        const candidate=clone(preset);
+        candidate.performance.reducedMotion=motion.value;
+        try{setPreset(candidate);uiText('Motion setting applied');}
+        catch(e){uiText(String(e.message||e));}
+      });
+      motionLabel.appendChild(motion);d.appendChild(motionLabel);
       const txt=document.createElement('textarea');txt.id='cc219-preset-json';
       txt.rows=6;txt.setAttribute('aria-label','Red Shell preset JSON');
       d.appendChild(txt);importArea=txt;
@@ -441,8 +463,13 @@
   function paintParticles(now,x,y,diam,ingesting){
     const cap=($('board')?.clientWidth||390)<500?
       preset.performance.mobileParticleCap:preset.performance.desktopParticleCap;
-    const count=clamp(ingesting?18:
-      proximity==='NORMAL'?4:proximity==='LOCKED_ON'?9:15,0,cap);
+    const pv=preset.pursuitVisuals;
+    const desired=ingesting?pv.criticalParticleRatePerSecond*.9:
+      proximity==='NORMAL'?pv.normalParticleRatePerSecond*.7:
+      proximity==='LOCKED_ON'?(pv.normalParticleRatePerSecond+
+        pv.criticalParticleRatePerSecond)*.36:
+        pv.criticalParticleRatePerSecond*.75;
+    const count=clamp(Math.round(desired),0,cap);
     const t=now/1000;
     while(particles.children.length<count){
       const item=document.createElement('span');
@@ -540,12 +567,12 @@
     if(!stage||controls.hidden)return;
     elapsedMs=ms;
     const time=preset.timelineMs;
-    const done=ms>=time.livingHoldEnd||reduced&&ms>=time.reducedMotionTotal;
+    const done=ms>=time.livingHoldEnd||isReduced()&&ms>=time.reducedMotionTotal;
     const points=capturePoint(),bot=points.bot,s=points.spark;
     const diameter=shellDiameter();
     const origSpark=diameter/preset.pursuitVisuals.normalBodyToSparkDiameterRatio;
     const eyeSize=diameter*preset.geometry.innerEyeDiameterToOuterDiameter;
-    const name=reduced?'hold':
+    const name=isReduced()?'hold':
       ms<time.contactEnd?'contact':
       ms<time.apertureEnd?'aperture':
       ms<time.swallowEnd?'swallow':
@@ -556,7 +583,7 @@
     shell.style.width=diameter+'px';shell.style.height=diameter+'px';
     stage.style.setProperty('--cc219-diameter',diameter+'px');
     stage.style.setProperty('--cc219-pressure','1');
-    const swell=reduced?1:
+    const swell=isReduced()?1:
       ms>=time.apertureEnd&&ms<time.reformEnd?
         1+(preset.geometry.maxCaptureShellScale-1)*
           Math.sin(Math.PI*clamp((ms-time.apertureEnd)/
@@ -565,13 +592,13 @@
     position(shell,bot.x,bot.y);
     if(!eyeNested){
       spark.hidden=false;
-      const t=reduced?1:smooth((ms-time.apertureEnd)/
+      const t=isReduced()?1:smooth((ms-time.apertureEnd)/
         (time.swallowEnd-time.apertureEnd));
       const ex=lerp(s.x,bot.x,t),ey=lerp(s.y,bot.y,t);
       const size=lerp(origSpark,eyeSize,t);
       spark.style.width=spark.style.height=size+'px';
       position(spark,ex,ey);
-      if(reduced||ms>=time.swallowEnd){
+      if(isReduced()||ms>=time.swallowEnd){
         relocateEye();
       }
     }
@@ -582,7 +609,7 @@
       spark.style.transform='translate(-50%,-50%)';
     }
     paintParticles(now,bot.x,bot.y,diameter,
-      !reduced&&ms<time.reformEnd);
+      !isReduced()&&ms<time.reformEnd);
     if(name==='hold'){
       // A real nested blue eye inside exactly one circular red shell.
       finalGeometry=geometry();
@@ -687,7 +714,7 @@
     return {schema:API,visible:!controls.hidden,
       phase,presentationState:proximity,phaseElapsedMs:elapsedMs,
       isDemo:previewActive,realCaptureSeen:realCaptureShown,
-      reducedMotion:reduced,runId:firstCaptureRun,captureEventId:capture?.eventId||null,
+      reducedMotion:isReduced(),runId:firstCaptureRun,captureEventId:capture?.eventId||null,
       terminalTick:firstCaptureTick,sourceDigest:currentDigest(),
       artPresetHash:hashPreset(),captureEpoch,eyeNested,
       finalShellBounds:finalGeometry?.shell||null,
