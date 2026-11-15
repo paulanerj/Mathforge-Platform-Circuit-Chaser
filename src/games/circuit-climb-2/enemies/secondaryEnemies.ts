@@ -182,7 +182,7 @@ export class SecondaryEnemyDirector {
     if(dist>range)return null;
     // Sentry's 100° fan sweeps deterministically around its fixed anchor.
     if(a.kind==='SENTRY'){
-      const pointing=-Math.PI/2+Math.sin(this.tick*.028)*1.1;
+      const pointing=-Math.PI/2+Math.sin(this.tick*.006)*.72;
       const angle=Math.atan2(dy,dx);
       const deviation=Math.atan2(Math.sin(angle-pointing),
         Math.cos(angle-pointing));
