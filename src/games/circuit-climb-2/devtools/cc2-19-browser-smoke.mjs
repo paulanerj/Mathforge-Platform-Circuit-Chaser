@@ -57,11 +57,11 @@ try {
       const initial=first.session.stateDigest;
       const phases=[['contact',100],['aperture',250],['swallow',600],
         ['pop',1040],['reform',1500],['hold',2100]];
-      if(w===390){
+      if(w===390||w===1280){
         for(const [name,ms]of phases){
           const s=await page.evaluate(ms=>window.__CC2_19__.visualSeekForQA(ms),ms);
           assert(s.phase===name,'source-free phase seek '+name,s);
-          await screenshot(page,'CC2-19-'+name+'-390');
+          await screenshot(page,'CC2-19-'+name+'-'+w);
         }
       }else{
         await page.evaluate(()=>window.__CC2_19__.visualSeekForQA(2100));
@@ -198,6 +198,40 @@ try {
       'reset restores original visual preset');
     assert(errors.length===0,'capture and replay have no browser errors',{errors});
   }finally{await page.close();}
+
+  // Genuine PRACTICE_GOAL is an ordinary source-owned success. The
+  // settings control uses its existing change event; no engine injection.
+  const practice=await browser.newPage({viewport:{width:390,height:844}});
+  try {
+    await practice.goto(url(),{waitUntil:'domcontentloaded'});
+    await practice.waitForFunction(()=>window.__CC2_19__?.summary&&
+      window.__CC2_02A__?.snapshot,null,{timeout:20000});
+    await practice.locator('#cc209c-enter').click();
+    await practice.evaluate(()=>{
+      const mode=document.querySelector('#modeSelect');
+      mode.value='practice';
+      mode.dispatchEvent(new Event('change',{bubbles:true}));
+    });
+    for(let row=1;row<=4;row++){
+      const target=await practice.evaluate(
+        ()=>window.__CC2_02A__.snapshot().currentProblem.correctPlatformId);
+      await practice.locator('button.choice[data-platform-id="'+target+'"]').click();
+      await practice.waitForFunction(expected=>{
+        const s=window.__CC2_02A__.snapshot();
+        return s.completedRows>=expected || s.phase==='ended';
+      },row,{timeout:30000});
+    }
+    await practice.waitForFunction(
+      ()=>window.__CC2_02A__.snapshot().endReason==='PRACTICE_GOAL',
+      null,{timeout:5000});
+    assert(await practice.evaluate(()=>{
+      const a=window.__CC2_02A__,p=window.__CC2_19__.summary();
+      return a.snapshot().completedRows===4&&
+        a.summary().equations.length===4&&
+        a.snapshot().endReason==='PRACTICE_GOAL'&&
+        !p.realCaptureSeen&&!p.visible;
+    }),'four correct practice rows end without false capture');
+  }finally{await practice.close();}
 
   // Noncapture QUIT: no fake terminal assimilation.
   const quit=await browser.newPage({viewport:{width:390,height:844}});
