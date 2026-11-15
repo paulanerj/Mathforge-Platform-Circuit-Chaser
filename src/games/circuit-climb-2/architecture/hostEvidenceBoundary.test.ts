@@ -91,7 +91,7 @@ describe('CC2-22 host-neutral evidence port',()=>{
     const game=completedPractice(),before=game.stateDigest();
     const report=game.runSummary();
     const receipt=projectHostNeutralEvidence(report,game.eventLog());
-    (receipt.solvedEquations as Array<{equation:string}>)[0].equation='forged';
+    (receipt.solvedEquations as unknown as Array<{equation:string}>)[0].equation='forged';
     expect(game.stateDigest()).toBe(before);
     expect(game.runSummary().equations[0].equation).not.toBe('forged');
   });
