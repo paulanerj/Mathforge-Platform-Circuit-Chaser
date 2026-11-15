@@ -133,6 +133,24 @@ try {
     const mid=await labPage.evaluate(()=>window.__CC2_VIS20__.labSetTime(1150));
     assert(mid.sample.lagDistance>1&&mid.sample.trailCount>0,
       'envelope retains momentum after a 90-degree turn',mid.sample);
+    const labVisual=await labPage.evaluate(()=>{
+      const canvas=document.querySelector('#cc220-fluid');
+      const shell=document.querySelector('.shell');
+      if(!canvas)return{canvas:false};
+      const data=canvas.getContext('2d').getImageData(
+        0,0,canvas.width,canvas.height).data;
+      let visiblePixels=0;
+      for(let i=3;i<data.length;i+=128)if(data[i]>6)visiblePixels++;
+      return{canvas:true,visiblePixels,
+        shellVisibility:getComputedStyle(shell).visibility,
+        canvasVisibility:getComputedStyle(canvas).visibility,
+        canvasHeight:canvas.getBoundingClientRect().height};
+    });
+    assert(labVisual.canvas&&labVisual.visiblePixels>20&&
+      labVisual.shellVisibility==='visible'&&
+      labVisual.canvasHeight>150,
+      'living material and original board are actually visible in visual lab',
+      labVisual);
     await screenshot(labPage,'CC2-VIS20-turn90-lag-390');
     const reverse=await labPage.evaluate(()=>{
       const v=window.__CC2_VIS20__;
