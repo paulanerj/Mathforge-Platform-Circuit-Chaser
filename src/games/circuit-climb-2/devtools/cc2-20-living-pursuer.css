@@ -1,0 +1,245 @@
+/**
+ * CC2-VIS-20 — in-board living plasma presentation.
+ *
+ * The new fluid is drawn into a bounded transparent canvas INSIDE the original
+ * game board and projected from the source-owned world positions. It cannot
+ * receive input, displace platforms, or change game camera/physics/score.
+ */
+#cc219-stage[data-cc220="on"] #cc220-fluid{
+  position:absolute!important;
+  z-index:2;
+  left:0;top:0;
+  display:block;
+  width:100%;
+  height:100%;
+  pointer-events:none!important;
+  border:0;
+  opacity:1;
+  mix-blend-mode:screen;
+}
+#cc219-stage[data-cc220="on"] #cc219-shell{
+  z-index:3;
+  will-change:transform,scale;
+  background:
+    radial-gradient(circle at 38% 30%,#ffadca81 1%,transparent 31%),
+    radial-gradient(circle at 54% 50%,var(--cc220-shell,#b92b62) 0%,
+      #641936 66%,#410e2e 86%,var(--cc220-edge,#ff72b2) 100%);
+  box-shadow:
+    inset 0 0 7px #fdaacc7a,
+    inset -4px -5px 9px #270520d6,
+    0 0 8px #ee518c65;
+}
+#cc219-stage[data-cc220-mode="pursuit"] #cc219-shell .cc219-rib,
+#cc219-stage[data-cc220-mode="lab"] #cc219-shell .cc219-rib{
+  opacity:.09;
+  transition:opacity .18s ease;
+}
+#cc219-stage[data-cc220-mode="pursuit"] #cc219-shell .cc219-anterior,
+#cc219-stage[data-cc220-mode="lab"] #cc219-shell .cc219-anterior{
+  border-width:1px;
+  opacity:.32;
+}
+#cc219-stage[data-cc220-mode="pursuit"] #cc219-shell .cc219-sphere-material,
+#cc219-stage[data-cc220-mode="lab"] #cc219-shell .cc219-sphere-material{
+  background:
+    radial-gradient(circle at 35% 26%,#ffe2ef71,transparent 29%),
+    conic-gradient(from 37deg,
+      #ef519b32,#80234977,#f276b833,#56103f86,#ef519b32);
+  border-radius:50%;
+  animation:cc220-circulation 2.1s ease-in-out infinite alternate;
+}
+#cc219-stage[data-cc220-mode="pursuit"] #cc219-shell .cc219-slot,
+#cc219-stage[data-cc220-mode="lab"] #cc219-shell .cc219-slot{
+  opacity:.12;
+}
+#cc219-stage[data-cc220-mode="pursuit"] #cc219-shell .cc219-filament{
+  opacity:.5;
+}
+#cc219-stage[data-cc220-mode="capture"] #cc219-shell{
+  z-index:4;
+}
+#cc219-stage[data-cc220-mode="capture"][data-cc220-phase="aperture"] #cc219-shell{
+  filter:brightness(1.16);
+}
+#cc219-stage[data-cc220-mode="capture"][data-cc220-phase="swallow"] #cc219-shell{
+  filter:brightness(1.3);
+}
+#cc219-stage[data-cc220-mode="capture"][data-cc220-phase="hold"] #cc219-shell{
+  filter:brightness(1);
+}
+#cc219-stage[data-cc220-reduced="yes"] #cc220-fluid{
+  opacity:.55;
+}
+#cc219-stage[data-cc220-reduced="yes"] #cc219-shell *,
+#cc219-stage[data-cc220-reduced="yes"] #cc219-shell *::before,
+#cc219-stage[data-cc220-reduced="yes"] #cc219-shell *::after{
+  animation:none!important;
+  transition:none!important;
+}
+@keyframes cc220-circulation{
+  0%{transform:translate(-2%,1%) scale(1.01)}
+  50%{transform:translate(1%,-1%) scale(1.045)}
+  100%{transform:translate(2%,1%) scale(1.01)}
+}
+body.cc220-lab-active #cc209c-intro{
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+body.cc220-lab-active #cc209-preend,
+body.cc220-lab-active #summaryPanel{
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+#cc220-designer{
+  margin:10px 0;
+  padding:11px;
+  border-radius:12px;
+  border:1px solid #aec7d9;
+  background:#f3f8fdf0;
+  color:#24445e;
+  font:500 12px/1.45 system-ui;
+}
+#cc220-designer summary{
+  cursor:pointer;
+  color:#164d73;
+  font:800 13px/1.45 system-ui;
+}
+#cc220-designer p{margin:7px 0;color:#547389}
+#cc220-designer .cc220-actions{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;
+  margin:8px 0;
+}
+#cc220-designer button,
+#cc220-lab-ui button,
+#cc220-lab-ui select,
+#cc220-designer select{
+  min-height:40px;
+  border:1px solid #a0b9cb;
+  border-radius:8px;
+  background:#f8fcff;
+  color:#244b67;
+  padding:6px 8px;
+  font:750 11px/1.3 system-ui;
+  cursor:pointer;
+}
+#cc220-designer button:focus-visible,
+#cc220-designer textarea:focus-visible,
+#cc220-lab-ui :is(button,input,select):focus-visible{
+  outline:3px solid #1881d0;
+  outline-offset:2px;
+}
+#cc220-designer .cc220-fields{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+  padding:8px 0;
+}
+#cc220-designer .cc220-fields label{
+  display:flex;flex-direction:column;gap:3px;
+  min-width:0;
+  font:700 10px/1.25 system-ui;
+  color:#35566d;
+}
+#cc220-designer .cc220-fields input{
+  width:100%;
+  accent-color:#ad3974;
+}
+#cc220-designer .cc220-fields span{
+  text-align:right;
+  font-variant-numeric:tabular-nums;
+  color:#587990;
+}
+#cc220-designer textarea{
+  box-sizing:border-box;
+  display:block;
+  width:100%;
+  min-height:120px;
+  border:1px solid #b0ccdd;
+  border-radius:8px;
+  padding:8px;
+  background:#edf5fb;
+  color:#244c63;
+  font:11px/1.4 ui-monospace,monospace;
+  resize:vertical;
+}
+#cc220-designer #cc220-designer-status{
+  color:#255a7b;
+  font-weight:750;
+}
+#cc220-lab-ui[hidden]{display:none!important}
+#cc220-lab-ui{
+  position:fixed;
+  box-sizing:border-box;
+  z-index:135;
+  bottom:max(12px,env(safe-area-inset-bottom));
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  width:min(660px,calc(100vw - 20px));
+  padding:10px 12px;
+  border:1px solid #acc4d7;
+  border-radius:13px;
+  background:#f3f9fdef;
+  color:#245472;
+  box-shadow:0 12px 30px #0e3b5c3b;
+  backdrop-filter:blur(6px);
+  font:650 11px/1.4 system-ui;
+}
+#cc220-lab-ui strong{
+  letter-spacing:.10em;
+  color:#1b506d;
+  font-size:10px;
+}
+#cc220-lab-ui .cc220-lab-controls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+}
+#cc220-lab-ui button,
+#cc220-lab-ui select{
+  flex:1 1 auto;
+  min-height:38px;
+  padding:6px;
+}
+#cc220-lab-ui #cc220-lab-scenario{
+  min-width:100px;
+}
+#cc220-lab-ui input[type="range"]{
+  width:100%;
+  accent-color:#b33373;
+  cursor:pointer;
+}
+#cc220-lab-ui p{
+  margin:0;
+  font-size:10px;
+  color:#42667e;
+  font-variant-numeric:tabular-nums;
+}
+@media(max-width:390px){
+  #cc220-lab-ui{padding:7px;gap:3px}
+  #cc220-lab-ui button,
+  #cc220-lab-ui select{
+    font-size:10px;
+    min-height:36px;
+  }
+  #cc220-designer .cc220-fields{grid-template-columns:1fr}
+}
+@media(max-height:620px){
+  #cc220-lab-ui{
+    bottom:5px;
+    max-height:42dvh;
+    overflow:auto;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  #cc219-stage[data-cc220="on"] *,
+  #cc219-stage[data-cc220="on"] *::before,
+  #cc219-stage[data-cc220="on"] *::after{
+    animation:none!important;
+    transition:none!important;
+  }
+}
