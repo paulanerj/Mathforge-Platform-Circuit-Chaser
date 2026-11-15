@@ -15,7 +15,9 @@
   pointer-events:none!important;
   border:0;
   opacity:1;
-  mix-blend-mode:screen;
+  /* Normal compositing preserves the membrane's dense material on the
+     pale ceramic tower. Screen compositing washed it into a thin outline. */
+  mix-blend-mode:normal;
 }
 #cc219-stage[data-cc220="on"] #cc219-shell{
   z-index:3;
@@ -90,6 +92,12 @@ body.cc220-lab-active #cc209c-intro{
  * game state at tick zero. */
 body.cc220-lab-active[data-cc209c-intro-open="on"] .shell{
   visibility:visible!important;
+}
+/* The real world canvas may paint a source bot while the lab paints an
+   entirely separate synthetic VISUAL position. Hide only that duplicate
+   canvas in lab mode; keep the white heritage grid, paths and platforms. */
+body.cc220-lab-active #worldCanvas{
+  opacity:0!important;
 }
 body.cc220-lab-active #cc209-preend,
 body.cc220-lab-active #summaryPanel{
