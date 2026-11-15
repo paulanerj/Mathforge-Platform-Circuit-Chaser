@@ -60,11 +60,12 @@ describe('CC2-23 finite sensing and telegraphed support pressure',()=>{
   it('telegraphs Scout before alert, never surprises with instant acceleration',()=>{
     const d=start('scout');
     for(let tick=1;tick<=40;tick++){
-      const s=d.advance(input(tick));
+      const following={x:300+120*Math.sin(tick*.016),y:0};
+      const s=d.advance(input(tick,following));
       expect(s.speedMultiplier).toBe(1);
       expect(s.actors[0].phase).toBe('TELEGRAPH');
     }
-    const active=d.advance(input(41));
+    const active=d.advance(input(41,{x:300+120*Math.sin(41*.016),y:0}));
     expect(active.actors[0].phase).toBe('ALERT');
     expect(active.speedMultiplier).toBe(1.1);
     expect(active.summary.alerts).toBe(1);
@@ -138,7 +139,8 @@ describe('CC2-23 finite sensing and telegraphed support pressure',()=>{
   });
   it('resets cleanly across consecutive run IDs',()=>{
     const d=start('scout');
-    for(let tick=1;tick<=50;tick++)d.advance(input(tick));
+    for(let tick=1;tick<=50;tick++)
+      d.advance(input(tick,{x:300+120*Math.sin(tick*.016),y:0}));
     expect(d.snapshot().summary.alerts).toBe(1);
     d.reset('cc2-new-run');
     const after=d.snapshot();
