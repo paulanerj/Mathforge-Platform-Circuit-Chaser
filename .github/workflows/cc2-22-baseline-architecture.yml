@@ -1,0 +1,122 @@
+name: CC2-22 Accepted Baseline and Architecture Qualification
+
+on:
+  push:
+    branches: [feature/cc2-22-baseline-production-architecture]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-custody-and-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Prove source custody, exact parent and phase-only source diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          accepted=d80332d6c8e6fb2f8940c8ef9b066ae1a20037b7
+          historical_fallback=80565bf50d0c177da194a71bfb44a0c2d4a40aca
+          git cat-file -e "$accepted^{commit}"
+          git cat-file -e "$historical_fallback^{commit}"
+          git merge-base --is-ancestor "$accepted" HEAD
+          if [ "$(git merge-base "$accepted" HEAD)" != "$accepted" ]; then
+            echo 'CC2_22_PARENT_MISMATCH' >&2
+            exit 1
+          fi
+          # The accepted source must be unchanged, INCLUDING visuals,
+          # gameplay entrypoint, math, music, controls and camera.
+          while IFS= read -r path; do
+            case "$path" in
+              src/games/circuit-climb-2/architecture/*|\
+              docs/circuit-climb-2/CC2-22-BASELINE-AND-PRODUCTION-ARCHITECTURE.md|\
+              .github/workflows/cc2-22-baseline-architecture.yml)
+                echo "QUALIFIED_NEW_PHASE_FILE: $path" ;;
+              *)
+                echo "CC2_22_PROTECTED_SOURCE_DRIFT: $path" >&2
+                exit 1 ;;
+            esac
+          done < <(git diff --name-only "$accepted" HEAD)
+          git diff --exit-code "$accepted" HEAD -- \
+            src/games/circuit-climb-2/core/ \
+            src/games/circuit-climb-2/pursuer/ \
+            src/games/circuit-climb-2/math/ \
+            src/games/circuit-climb-2/world/ \
+            src/games/circuit-climb-2/features/ \
+            src/games/circuit-climb-2/config/ \
+            src/games/circuit-climb-2/progression/ \
+            src/games/circuit-climb-2/music/ \
+            src/games/circuit-climb-2/devtools/ \
+            src/games/circuit-climb/ \
+            src/services/ \
+            public/ \
+            package.json
+          mkdir -p cc2-22-evidence
+          {
+            echo 'CC2-22 ACCEPTED SOURCE CUSTODY'
+            echo "accepted_commit=$accepted"
+            echo "historical_fallback=$historical_fallback"
+            echo "candidate_commit=$(git rev-parse HEAD)"
+            echo "baseline_tree=$(git rev-parse "$accepted^{tree}")"
+            echo "candidate_tree=$(git rev-parse 'HEAD^{tree}')"
+            echo 'allowed_diff='
+            git diff --name-only "$accepted" HEAD
+            echo 'protected source comparison=PASS'
+            echo 'release gate=OWNER APPROVAL REQUIRED'
+          } | tee cc2-22-evidence/source-custody.txt
+
+      - name: Install pinned dependencies
+        run: npm ci
+
+      - name: Strict TypeScript and architecture contracts
+        run: |
+          npm run lint
+          npx vitest run src/games/circuit-climb-2/architecture/
+
+      - name: Full historical CC2 unit and mathematical regression suite
+        run: npx vitest run src/games/circuit-climb-2/tests/
+
+      - name: Protect accepted CC2-20 browser gameplay and capture tests
+        run: node src/games/circuit-climb-2/devtools/cc2-20-browser-smoke.mjs
+
+      - name: Protect accepted CC2-VIS-21 cohesion and swallow tests
+        run: node src/games/circuit-climb-2/devtools/cc2-21-cohesion-smoke.mjs
+
+      - name: Protect actual pointer input and platform movement
+        run: node src/games/circuit-climb-2/devtools/cc2-16b-input-smoke.mjs
+
+      - name: Verify single-file offline playable build
+        run: |
+          node src/games/circuit-climb-2/devtools/buildPortable16A.mjs
+          node src/games/circuit-climb-2/devtools/cc2-16a-portable-smoke.mjs
+          cp cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html \
+            cc2-standalone/CC2-22-Baseline-Qualified-Playable.html
+          sha256sum cc2-standalone/CC2-22-Baseline-Qualified-Playable.html \
+            | tee cc2-22-evidence/portable-sha256.txt
+
+      - name: Production bundle compile and asset check
+        run: npm run build
+
+      - name: Retain complete QA and portable owner review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-22-Source-Custody-and-Playable-Evidence
+          path: |
+            cc2-22-evidence/
+            cc2-20-evidence/
+            cc2-21-evidence/
+            cc2-standalone/CC2-22-Baseline-Qualified-Playable.html
+          if-no-files-found: warn
+          retention-days: 90
