@@ -1,0 +1,99 @@
+name: CC2-23 Heritage Black Canvas Recovery
+
+on:
+  push:
+    branches: [fix/cc2-23-heritage-black-canvas-recovery]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-verified-browser-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Verify original gameplay source and approved parents unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=e5cb4981cdf4ac88a45ba7b783e6a1b38adcf5b8
+          git cat-file -e "$parent^{commit}"
+          git merge-base --is-ancestor "$parent" HEAD
+          while IFS= read -r file; do
+            case "$file" in
+              src/games/circuit-climb-2/devtools/cc2-16a.html|\
+              src/games/circuit-climb-2/devtools/cc2-20-living-pursuer.js|\
+              src/games/circuit-climb-2/devtools/cc2-23-blackout-repro.mjs|\
+              .github/workflows/cc2-23-heritage-black-canvas-recovery.yml)
+                echo "QUALIFIED_RENDERER_CHANGE: $file";;
+              *) echo "PROTECTED_CC2_SOURCE_CHANGED: $file" >&2;exit 1;;
+            esac
+          done < <(git diff --name-only "$parent" HEAD)
+          git diff --exit-code "$parent" HEAD -- \
+            src/games/circuit-climb-2/core/ \
+            src/games/circuit-climb-2/pursuer/ \
+            src/games/circuit-climb-2/enemies/ \
+            src/games/circuit-climb-2/math/ \
+            src/games/circuit-climb-2/world/ \
+            src/games/circuit-climb-2/features/ \
+            src/games/circuit-climb-2/config/ \
+            src/games/circuit-climb-2/progression/ \
+            src/games/circuit-climb-2/music/ \
+            src/games/circuit-climb-2/devtools/cc2-19-red-shell.js \
+            src/games/circuit-climb-2/devtools/cc2-19-red-shell.css \
+            src/games/circuit-climb-2/devtools/cc2-23-secondary-enemies.js \
+            src/games/circuit-climb-2/devtools/cc2-23-secondary-enemies.css
+          mkdir -p cc2-23-blackout-evidence
+          {
+            echo "accepted_blackout_fix_parent=$parent"
+            echo "candidate_commit=$(git rev-parse HEAD)"
+            echo "gameplay_and_enemy_engine=UNCHANGED"
+            git diff --name-only "$parent" HEAD
+          } | tee cc2-23-blackout-evidence/source-custody-v2.txt
+      - name: Install frozen dependencies and verify source
+        run: |
+          npm ci
+          npm run lint
+          npx vitest run src/games/circuit-climb-2/
+          node --check src/games/circuit-climb-2/devtools/cc2-20-living-pursuer.js
+          node --check src/games/circuit-climb-2/devtools/cc2-23-blackout-repro.mjs
+      - name: Actual RGB screenshots for 390 768 and 1008px, all enemy modes
+        run: node src/games/circuit-climb-2/devtools/cc2-23-blackout-repro.mjs
+      - name: Enemy and original pursuit game-browser regression
+        run: |
+          node src/games/circuit-climb-2/devtools/cc2-23-browser-smoke.mjs
+          node src/games/circuit-climb-2/devtools/cc2-20-browser-smoke.mjs
+          node src/games/circuit-climb-2/devtools/cc2-21-cohesion-smoke.mjs
+          node src/games/circuit-climb-2/devtools/cc2-16b-input-smoke.mjs
+      - name: Single file offline game and real-browser smoke
+        run: |
+          node src/games/circuit-climb-2/devtools/buildPortable16A.mjs
+          node src/games/circuit-climb-2/devtools/cc2-16a-portable-smoke.mjs
+          cp cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html \
+            cc2-standalone/CC2-23-Heritage-Recovery-Playable.html
+          sha256sum cc2-standalone/CC2-23-Heritage-Recovery-Playable.html \
+            | tee cc2-23-blackout-evidence/portable-sha256-v2.txt
+      - name: Production build
+        run: npm run build
+      - name: Preserve owner QA, screenshot and portable copy
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-23-Heritage-Recovery-Owner-Review
+          path: |
+            cc2-23-blackout-evidence/
+            cc2-23-evidence/
+            cc2-20-evidence/
+            cc2-21-evidence/
+            cc2-standalone/CC2-23-Heritage-Recovery-Playable.html
+          if-no-files-found: warn
+          retention-days: 90

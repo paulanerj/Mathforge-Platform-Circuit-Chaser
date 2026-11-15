@@ -71,9 +71,9 @@ const url=q=>new URL('src/games/circuit-climb-2/devtools/cc2-16a.html'+q,
   server.url).toString();
 try{
   for(const mode of ['both','off','scout','sentry']){
-    for(const width of [390,768]){
+    for(const width of [390,768,1008]){
       const page=await browser.newPage({viewport:{
-        width,height:width===390?844:1024,
+        width,height:width===390?844:width===768?1024:894,
       }});
       const errors=[];
       page.on('pageerror',e=>errors.push(String(e)));
@@ -119,6 +119,9 @@ try{
               bodyClass:document.body.className,
               heritage:css('#cc209b-heritage-canvas'),
               heritagePixel:pixel('#cc209b-heritage-canvas'),
+              heritageAlpha:document.querySelector('#cc209b-heritage-canvas')
+                ?.getContext('2d')?.getContextAttributes?.()?.alpha??null,
+              plasmaRegion:window.__CC2_VIS20__?.summary?.()?.canvasRegion??null,
               secondary:css('#cc223-secondary-canvas'),
               secondaryPixel:pixel('#cc223-secondary-canvas'),
               board:css('#board'),captureStage:css('#cc219-stage'),
@@ -141,9 +144,44 @@ try{
             screenshotPixel(png,Math.round(bounds[0]+bounds[2]-21),Math.round(bounds[1]+120)),
           ];
           record.compositeGridPixels=samples;
+          if(record.heritageAlpha!==true)
+            throw Error('CC223_HERITAGE_MUST_BE_ALPHA_TRUE '+name);
+          if(record.plasmaRegion&&(
+              record.plasmaRegion.width>360||
+              record.plasmaRegion.height>360))
+            throw Error('CC223_UNBOUNDED_FULL_BOARD_PLASMA '+name+' '+
+              JSON.stringify(record.plasmaRegion));
           if(samples.some(rgb=>rgb[0]<130||rgb[1]<140||rgb[2]<150))
             throw Error('CC223_BLACKOUT_COMPOSITED_PIXELS '+name+' '+
               JSON.stringify(samples));
+          if(mode==='both'&&width===1008&&elapsed===900){
+            // Simulate actual Heritage backing loss: even if the painter
+            // disappears entirely, the permanent CSS grid MUST be light.
+            const fault=await page.evaluate(()=>{
+              const original=document.querySelector('#cc209b-heritage-canvas');
+              const style=document.createElement('style');
+              style.id='cc223-emulated-context-loss';
+              style.textContent='#cc209b-heritage-canvas{visibility:hidden!important}';
+              document.head.append(style);
+              return{
+                backdrop:getComputedStyle(document.querySelector('#board'))
+                  .backgroundColor,
+                heritageContextAlpha:original.getContext('2d')
+                  .getContextAttributes?.()?.alpha??null
+              };
+            });
+            const fallbackPng=await page.screenshot({
+              path:folder+'/CC2-23-1008-both-SIMULATED-CANVAS-LOSS.png',
+              animations:'disabled'
+            });
+            const p=screenshotPixel(
+              fallbackPng,Math.round(bounds[0]+21),Math.round(bounds[1]+120));
+            if(p.some(v=>v<130))throw Error(
+              'CC223_CSS_FALLBACK_WAS_BLACK '+JSON.stringify({fault,p}));
+            await page.evaluate(()=>document.querySelector(
+              '#cc223-emulated-context-loss')?.remove());
+            record.simulatedCanvasLoss={rgb:p,...fault};
+          }
           if(mode!=='off'&&
             documentHasFullBoardCanvas(record))
             throw Error('CC223_FORBIDDEN_FULL_BOARD_CANVAS');
