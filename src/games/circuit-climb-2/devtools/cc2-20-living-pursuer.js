@@ -579,6 +579,16 @@
     if(root)root.dataset.cc220Reduced=reduced()?'yes':'no';
     if(window.__CC2_19__?.loadPreset)syncCapture();
     if(presetText)presetText.value=JSON.stringify(config,null,2);
+    if(optionsPanel){
+      for(const label of optionsPanel.querySelectorAll('[data-cc220-section]')){
+        const sec=label.dataset.cc220Section,key=label.dataset.cc220Key;
+        const input=label.querySelector('input');
+        const output=label.querySelector('span');
+        if(input&&document.activeElement!==input)
+          input.value=String(config[sec][key]);
+        if(output)output.textContent=String(config[sec][key]);
+      }
+    }
     if(devReadout)devReadout.textContent='Preset '+hash(config)+
       ' · visual-only · '+config.capture.hold+' ms capture';
     log('CONFIG_APPLIED',{hash:hash(config)});
@@ -718,6 +728,7 @@
     captureAuthorized=false;
     if(root)root.dataset.cc220Mode=lab?.active?'lab':'normal';
     mode=lab?.active?'LAB':'IDLE';
+    sim.clear();runToken=null;sample=null;
     humGain(0);
     log('CAPTURE_PRESENTATION_CLOSED');
   }
@@ -872,6 +883,11 @@
         ['material','plasmaDensity',0,1,.05],
         ['material','turbulence',0,.5,.02],
         ['material','particleBudget',0,48,1],
+        ['material','shell',0,0,0],
+        ['material','edge',0,0,0],
+        ['material','hot',0,0,0],
+        ['material','smoke',0,0,0],
+        ['material','blue',0,0,0],
         ['physics','envelopeMass',.3,8,.1],
         ['physics','springStiffness',5,150,2],
         ['physics','damping',1,35,.5],
@@ -887,21 +903,30 @@
         ['capture','hold',1450,3000,50],
         ['capture','engulfRadius',1,2.2,.1],
         ['sound','plasma',0,1,.05],
+        ['sound','acceleration',0,1,.05],
+        ['sound','lock',0,1,.05],
+        ['sound','recoil',0,1,.05],
         ['sound','engulf',0,1,.05],
         ['sound','swallow',0,1,.05],
-        ['sound','internal',0,1,.05]
+        ['sound','internal',0,1,.05],
+        ['sound','settle',0,1,.05]
       ];
       for(const [sec,key,min,max,step]of tuning){
         const label=document.createElement('label');
         label.textContent=sec+' · '+key;
+        label.dataset.cc220Section=sec;
+        label.dataset.cc220Key=key;
         const input=document.createElement('input');
-        input.type='range';input.min=String(min);input.max=String(max);
-        input.step=String(step);input.value=String(config[sec][key]);
+        const isColor=typeof config[sec][key]==='string';
+        input.type=isColor?'color':'range';
+        if(!isColor){input.min=String(min);input.max=String(max);input.step=String(step);}
+        input.value=String(config[sec][key]);
         const output=document.createElement('span');
         output.textContent=String(config[sec][key]);
         input.oninput=()=>output.textContent=input.value;
         input.onchange=()=>{
-          const next=clone(config);next[sec][key]=Number(input.value);
+          const next=clone(config);
+          next[sec][key]=isColor?input.value:Number(input.value);
           try{applyConfig(next);labMessage('Updated '+sec+'.'+key);}
           catch(e){input.value=String(config[sec][key]);
             output.textContent=input.value;labMessage(String(e.message||e));}
