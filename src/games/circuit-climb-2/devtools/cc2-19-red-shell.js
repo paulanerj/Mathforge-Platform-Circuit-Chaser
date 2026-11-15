@@ -519,7 +519,11 @@
     if(previewActive||!capture){
       const board=$('board');
       const w=board.clientWidth,h=board.clientHeight;
-      return {bot:{x:w*.57,y:h*.50},spark:{x:w*.35,y:h*.50}};
+      const d=shellDiameter(),bot={x:w*.54,y:h*.52};
+      // Only the clearly marked VISUAL preview uses staged positions.
+      // Stage Spark immediately beside the red membrane rather than far
+      // across the board, so there is no distracting paired-orbit dance.
+      return {bot,spark:{x:bot.x-d*.94,y:bot.y+d*.12}};
     }
     const bot=capture.bot,sparkPoint=capture.spark;
     const a=bot?worldPoint(bot.x,bot.y):null;
