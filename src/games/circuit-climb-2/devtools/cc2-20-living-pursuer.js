@@ -633,7 +633,12 @@
     const d=data.diameter||55;
     const r=$('cc219-shell');
     if(r){
-      r.style.scale=String(config.material.coreScale);
+      // Independent CSS "scale" multiplies the world translation on some
+      // browser engines, moving the core away from the fluid source anchor.
+      // Keep scale INSIDE the local transform, after the coordinate move.
+      r.style.scale='1';
+      const basis=r.style.transform.replace(/\s+scale\([^)]*\)\s*$/,'');
+      r.style.transform=basis+' scale('+config.material.coreScale+')';
       r.style.setProperty('--cc220-core-scale',String(config.material.coreScale));
     }
     mode='PURSUIT';
@@ -808,9 +813,10 @@
     const shell=$('cc219-shell'),spark=$('cc219-spark');
     if(shell){
       shell.style.width='55px';shell.style.height='55px';
-      shell.style.scale=String(config.material.coreScale);
+      shell.style.scale='1';
       shell.style.transform='translate3d('+screenBot.x+'px,'+
-        screenBot.y+'px,0) translate(-50%,-50%)';
+        screenBot.y+'px,0) translate(-50%,-50%) scale('+
+        config.material.coreScale+')';
     }
     if(spark){
       if(spark.parentElement!==root)root.appendChild(spark);
