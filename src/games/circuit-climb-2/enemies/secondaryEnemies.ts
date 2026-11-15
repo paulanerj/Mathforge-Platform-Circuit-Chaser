@@ -242,7 +242,11 @@ export class SecondaryEnemyDirector {
       const qualified=registry.qualify({...frame,
         completedRows:this.config.demoEarlySpawn?
           Math.max(frame.completedRows,minRows):frame.completedRows},[a.id]);
-      if(!qualified.length)throw Error('CC2_SECONDARY_REGISTRY_DISAGREEMENT');
+      // A legitimately UNSENSED enemy must produce no registry receipt.
+      // The fail-closed registry only qualifies detected enemies; absence of
+      // sight is not an engine error and never authorizes target knowledge.
+      if(sensed&&!qualified.length)
+        throw Error('CC2_SECONDARY_REGISTRY_DISAGREEMENT');
 
       if(sensed&&!a.priorSensed){
         a.lastDetectedTick=this.tick;
