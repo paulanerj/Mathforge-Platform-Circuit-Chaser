@@ -55,7 +55,10 @@ try{
           secondary:window.__CC2_02A__.secondary(),
           visual:window.__CC2_23__.report(),
           panel:!!document.querySelector('#cc223-panel'),
+          // No extra full-board compositor: only bounded SVG actors.
           canvas:!!document.querySelector('#cc223-secondary-canvas'),
+          actorLayer:!!document.querySelector('#cc223-secondary-layer'),
+          actualActors:document.querySelectorAll('#cc223-secondary-layer .cc223-actor').length,
           banner:document.querySelector('#cc223-mode-banner')?.textContent,
           width:document.documentElement.scrollWidth,
           viewport:innerWidth,
@@ -67,13 +70,16 @@ try{
           ok(observed.secondary.actors.length===(mode==='both'?2:1),
             'live deterministic secondary actors present '+mode+' '+w,
             observed.secondary);
-          ok(observed.canvas&&observed.banner?.includes(mode.toUpperCase())&&
+          ok(observed.actorLayer&&!observed.canvas&&
+            observed.actualActors===(mode==='both'?2:1)&&
+            observed.banner?.includes(mode.toUpperCase())&&
             observed.visual.frames>0,
-            'source-projected visible enemies '+mode+' '+w,observed.visual);
+            'bounded transparent SVG enemies, no black full-board canvas '+
+              mode+' '+w,observed.visual);
           ok(observed.secondary.speedMultiplier<=1.12,
             'support pressure never stacks '+mode+' '+w);
         }else{
-          ok(!observed.canvas&&observed.secondary===null,
+          ok(!observed.canvas&&!observed.actorLayer&&observed.secondary===null,
             'zero-secondary mode still matches baseline '+w);
         }
         ok(observed.width<=observed.viewport+2,
