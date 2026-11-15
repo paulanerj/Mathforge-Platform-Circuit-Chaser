@@ -31,10 +31,42 @@
     inset -4px -5px 9px #270520d6,
     0 0 8px #ee518c65;
 }
+/* The central organism is a solid, quiet anchor. No visible circular
+ * mechanical rib geometry or obvious rotating surface texture during chase.
+ * Organic inertia belongs to the continuous procedural membrane outside it. */
 #cc219-stage[data-cc220-mode="pursuit"] #cc219-shell .cc219-rib,
 #cc219-stage[data-cc220-mode="lab"] #cc219-shell .cc219-rib{
-  opacity:.09;
-  transition:opacity .18s ease;
+  display:none!important;
+}
+#cc219-stage[data-cc220-mode="pursuit"] #cc219-shell .cc219-sphere-material,
+#cc219-stage[data-cc220-mode="lab"] #cc219-shell .cc219-sphere-material{
+  animation:none!important;
+  background:
+    radial-gradient(ellipse at 34% 25%,#ffe5ed55,transparent 29%),
+    radial-gradient(circle at 65% 73%,#22051f77,transparent 51%),
+    radial-gradient(circle at 52% 49%,#d3467c99,#741f4e 69%,#491332);
+}
+#cc219-stage[data-cc220-mode="pursuit"] #cc219-shell .cc219-filament,
+#cc219-stage[data-cc220-mode="lab"] #cc219-shell .cc219-filament{
+  opacity:.25;
+  filter:none;
+}
+#cc219-stage[data-cc220-mode="pursuit"] #cc219-shell .cc219-anterior,
+#cc219-stage[data-cc220-mode="lab"] #cc219-shell .cc219-anterior{
+  background:radial-gradient(circle at 30% 24%,#ffeaf51f,transparent 39%);
+  box-shadow:inset 0 0 9px #fe79b054;
+}
+/* During engulfment, a moving red membrane must visibly pass IN FRONT OF
+ * the still-external blue Spark. Once the eye is inside the same red shell,
+ * the shell's existing anterior layer takes over occlusion. At the final
+ * hold the blue eye is revealed unobstructed again. */
+#cc219-stage[data-capturing="true"][data-phase="aperture"] #cc220-fluid,
+#cc219-stage[data-capturing="true"][data-phase="swallow"] #cc220-fluid{
+  z-index:6!important;
+  mix-blend-mode:normal;
+}
+#cc219-stage[data-phase="hold"] #cc220-fluid{
+  z-index:2!important;
 }
 #cc219-stage[data-cc220-mode="pursuit"] #cc219-shell .cc219-anterior,
 #cc219-stage[data-cc220-mode="lab"] #cc219-shell .cc219-anterior{
