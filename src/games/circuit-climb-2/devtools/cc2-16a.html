@@ -697,6 +697,16 @@ body[data-cc209c-intro-open="on"] .shell{visibility:hidden!important}
 <link rel="stylesheet" href="./cc2-19-red-shell.css">
 <link rel="stylesheet" href="./cc2-20-living-pursuer.css">
 <link rel="stylesheet" href="./cc2-23-secondary-enemies.css">
+<script id="cc2-ui-owner-selected-switch">
+/*
+ * Owner-authorized isolated visual preview. Never read or alter gameplay.
+ * In ordinary URLs no class is set, preserving inherited CC2-23 UI.
+ */
+if(new URLSearchParams(location.search).get('cc2Ui')==='slate-focus'){
+  document.documentElement.dataset.cc2Ui='slate-focus';
+}
+</script>
+<link rel="stylesheet" href="./cc2-ui-slate-focus-43.css">
 </head>
 <body data-pursuer="on" data-features="on" data-summary="on" data-cc209b="on" data-cc209c="on" data-cc209d="on" data-cc209e="on" data-cc212="on" data-cc215="on" data-cc216a="on" data-cc209c-intro-open="on">
   <main class="shell">
