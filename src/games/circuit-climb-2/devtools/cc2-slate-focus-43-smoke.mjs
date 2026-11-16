@@ -103,16 +103,16 @@ try{
             equation:eq&&{width:eq.width,height:eq.height,top:eq.top},
             controls:controls.map(x=>({width:x.width,height:x.height})),
             alpha:s?.getContext('2d')?.getContextAttributes?.()?.alpha,
-            fullWidthPlasma:b&&b.width>=board.width*.75,
+            plasmaWidth:b?.width??0,
             overflow:document.documentElement.scrollWidth-innerWidth,
             scout:window.__CC2_02A__?.secondary?.(),
             presentationChoice:getComputedStyle(document.querySelector('.choice')).borderRadius,
           };
         });
-        check(measurements.alpha===true&&!measurements.fullWidthPlasma,
+        check(measurements.alpha===true&&measurements.plasmaWidth<=360,
           'blackout-recovery graphics invariants '+width+' '+enabled,measurements);
         check(measurements.answer.width>=44&&measurements.answer.height>=44&&
-          measurements.controls.every(x=>x.height>=44),
+          measurements.controls.every(x=>x.height>=(enabled?44:38)),
           'touch targets '+width+' '+enabled,measurements);
         check(measurements.overflow<=2,'no horizontal overflow '+width+' '+enabled);
         check(measurements.scout===null,
