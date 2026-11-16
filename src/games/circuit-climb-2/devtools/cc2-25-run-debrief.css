@@ -156,12 +156,20 @@
   margin:10px 0 14px;
 }
 #summaryPanel .cc225-breakdown>summary{
-  min-height:44px;
-  display:flex;align-items:center;
-  font-size:12px;
-  font-weight:850;
-  cursor:pointer;
-  color:#4c7e96;
+  min-height:44px!important;
+  display:flex!important;align-items:center!important;
+  padding:10px 12px!important;
+  border-radius:5px!important;
+  font-size:12px!important;
+  font-weight:850!important;
+  cursor:pointer!important;
+  color:#243540!important;
+  background:#e9f3f7!important;
+  border:1px solid #b5c5ce!important;
+  opacity:1!important;
+  filter:none!important;
+  text-shadow:none!important;
+  box-shadow:none!important;
 }
 #summaryPanel .cc225-breakdown .summary-grid{
   margin-bottom:6px;
