@@ -1,0 +1,48 @@
+{
+  "schema": "mathforge-cc2-ui-studio/v2",
+  "sourceCommit": "876907daed183ff3c52b35b626f4d3afa08fe80b",
+  "conceptId": 43,
+  "conceptName": "Slate / Focus",
+  "theme": "Slate",
+  "layout": "focus",
+  "material": "metal",
+  "density": "balanced",
+  "contrast": "normal",
+  "motion": "normal",
+  "radius": 5,
+  "fontScale": 100,
+  "grid": 50,
+  "ambient": 18,
+  "character": {
+    "sparkSize": 40,
+    "enemySize": 52,
+    "plasma": 38,
+    "trail": 27,
+    "warning": 45,
+    "captureSpeed": 60,
+    "look": "cohesive",
+    "behavior": "baseline"
+  },
+  "special": {
+    "kind": "scout",
+    "range": 180,
+    "telegraph": 40,
+    "active": 88,
+    "cooldown": 230,
+    "spawnRows": 4
+  },
+  "colors": {
+    "bg": "#e7ecef",
+    "surface": "#fdfefe",
+    "ink": "#243540",
+    "sub": "#617480",
+    "edge": "#b5c5ce",
+    "accent": "#4c7e96",
+    "path": "#469dbe",
+    "good": "#3b987a",
+    "danger": "#a73e58",
+    "enemy": "#b43668",
+    "tile": "#f5f9fb",
+    "grid": "#b8cad4"
+  }
+}

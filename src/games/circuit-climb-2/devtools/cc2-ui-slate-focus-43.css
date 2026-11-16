@@ -1,0 +1,189 @@
+/**
+ * CC2-UI-SLATE-FOCUS-43 — owner-selected Visual Integration Candidate.
+ *
+ * ACTIVATION ONLY: ?cc2Ui=slate-focus
+ * Off means byte-identical inherited visual presentation.
+ * No CSS transforms on Spark/Pursuer, world/Heritage canvases, platforms,
+ * camera, gameplay hit coordinates, or selected equation position.
+ *
+ * This file maps the owner's 12 semantic tokens into actual CC2 interface
+ * materials and visual hierarchy. The owner-proposed Scout/character sizes
+ * are deliberately NOT routed to the authoritative game or physics.
+ */
+html[data-cc2-ui="slate-focus"] {
+  color-scheme: light;
+  --cc2-slate-bg: #e7ecef;
+  --cc2-slate-surface: #fdfefe;
+  --cc2-slate-ink: #243540;
+  --cc2-slate-sub: #617480;
+  --cc2-slate-edge: #b5c5ce;
+  --cc2-slate-accent: #4c7e96;
+  --cc2-slate-path: #469dbe;
+  --cc2-slate-good: #3b987a;
+  --cc2-slate-danger: #a73e58;
+  --cc2-slate-enemy: #b43668;
+  --cc2-slate-tile: #f5f9fb;
+  --cc2-slate-grid: #b8cad4;
+  --cc2-slate-radius: 5px;
+  font-family: -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+}
+html[data-cc2-ui="slate-focus"] body {
+  background:var(--cc2-slate-bg)!important;
+  color:var(--cc2-slate-ink)!important;
+}
+html[data-cc2-ui="slate-focus"] .shell {
+  max-width: 760px!important;
+  padding: 7px 9px calc(12px + env(safe-area-inset-bottom))!important;
+}
+html[data-cc2-ui="slate-focus"] .heading {
+  background: var(--cc2-slate-surface)!important;
+  color:var(--cc2-slate-ink)!important;
+  border:1px solid var(--cc2-slate-edge)!important;
+  border-radius:var(--cc2-slate-radius)!important;
+  box-shadow:0 2px 8px #24354012!important;
+  padding:7px 11px!important;
+  margin-bottom:7px!important;
+  min-height:52px;
+}
+html[data-cc2-ui="slate-focus"] .brand-eyebrow{
+  color:var(--cc2-slate-accent)!important;
+  font-size:10px!important;
+  letter-spacing:.08em!important;
+}
+html[data-cc2-ui="slate-focus"] .heading h1,
+html[data-cc2-ui="slate-focus"] .heading em{
+  color:var(--cc2-slate-ink)!important;
+  font-size:clamp(18px,4.3vw,22px)!important;
+  font-weight:680!important;
+}
+html[data-cc2-ui="slate-focus"] .cc209-actions button {
+  border-radius:var(--cc2-slate-radius)!important;
+  background:var(--cc2-slate-tile)!important;
+  color:var(--cc2-slate-ink)!important;
+  border:1px solid var(--cc2-slate-edge)!important;
+  box-shadow:none!important;
+  min-width:44px!important;
+  min-height:44px!important;
+}
+html[data-cc2-ui="slate-focus"] .threat-radar {
+  background:var(--cc2-slate-surface)!important;
+  border:1px solid var(--cc2-slate-edge)!important;
+  border-radius:var(--cc2-slate-radius)!important;
+  box-shadow:none!important;
+  padding:7px 11px!important;
+  margin:0 0 6px!important;
+}
+html[data-cc2-ui="slate-focus"] .threat-radar .threat-head,
+html[data-cc2-ui="slate-focus"] .threat-radar .threat-range {
+  color:var(--cc2-slate-sub)!important;
+  font-size:10px!important;
+}
+html[data-cc2-ui="slate-focus"] .threat-radar .threat-rail{
+  background:#d9e3e8!important;
+}
+html[data-cc2-ui="slate-focus"] .board {
+  /* Focus composition: prioritize playfield without touching its camera */
+  height:clamp(355px,calc(100dvh - 169px),910px)!important;
+  background-color:#eef3f6!important;
+  background-image:
+    linear-gradient(to right,#b8cad458 1px,transparent 1px),
+    linear-gradient(to bottom,#b8cad458 1px,transparent 1px)!important;
+  background-size:23px 23px!important;
+  border:1px solid var(--cc2-slate-edge)!important;
+  border-radius:var(--cc2-slate-radius)!important;
+  box-shadow:0 7px 21px #24354016,inset 0 0 20px #ffffff88!important;
+  /* Stable layer/canvas stacking: CC2-23 blackout-recovery invariant */
+  isolation:auto!important;
+}
+html[data-cc2-ui="slate-focus"] #cc209-equation {
+  background:var(--cc2-slate-surface)!important;
+  color:var(--cc2-slate-ink)!important;
+  border:1px solid var(--cc2-slate-edge)!important;
+  border-radius:var(--cc2-slate-radius)!important;
+  box-shadow:0 4px 12px #2435401c!important;
+  font-weight:790!important;
+  min-height:42px!important;
+  top:10px!important;
+}
+html[data-cc2-ui="slate-focus"] .choice:not(.short) {
+  background:linear-gradient(180deg,#ffffff,var(--cc2-slate-tile))!important;
+  color:var(--cc2-slate-ink)!important;
+  border:1.5px solid var(--cc2-slate-edge)!important;
+  border-radius:var(--cc2-slate-radius)!important;
+  box-shadow:0 3px 10px #2435401c!important;
+  min-width:57px!important;
+  min-height:49px!important;
+  font-weight:800!important;
+}
+html[data-cc2-ui="slate-focus"] .choice.selected:not(.short){
+  outline:2px solid var(--cc2-slate-accent)!important;
+  border-color:var(--cc2-slate-accent)!important;
+}
+html[data-cc2-ui="slate-focus"] .choice.short{
+  border-radius:var(--cc2-slate-radius)!important;
+  background:#fff1f3!important;
+  color:var(--cc2-slate-danger)!important;
+  border-color:#d598a6!important;
+}
+html[data-cc2-ui="slate-focus"] .choice:focus-visible,
+html[data-cc2-ui="slate-focus"] .controls button:focus-visible,
+html[data-cc2-ui="slate-focus"] .cc209-actions button:focus-visible {
+  outline:3px solid var(--cc2-slate-accent)!important;
+  outline-offset:2px!important;
+}
+html[data-cc2-ui="slate-focus"] .controls {
+  margin-top:7px!important;
+  gap:6px!important;
+}
+html[data-cc2-ui="slate-focus"] .controls .action{
+  background:var(--cc2-slate-surface)!important;
+  color:var(--cc2-slate-ink)!important;
+  border:1px solid var(--cc2-slate-edge)!important;
+  border-radius:var(--cc2-slate-radius)!important;
+  box-shadow:0 2px 6px #24354012!important;
+  min-height:46px!important;
+  font-size:clamp(12px,3.2vw,14px)!important;
+}
+html[data-cc2-ui="slate-focus"] .controls #pulse{
+  background:#e2f2ec!important;
+  color:#276f59!important;
+  border-color:#9dcbb9!important;
+}
+html[data-cc2-ui="slate-focus"] .cc209-dialog,
+html[data-cc2-ui="slate-focus"] .summary-card{
+  background:var(--cc2-slate-surface)!important;
+  border-color:var(--cc2-slate-edge)!important;
+  color:var(--cc2-slate-ink)!important;
+  border-radius:var(--cc2-slate-radius)!important;
+}
+html[data-cc2-ui="slate-focus"] #cc209-start{
+  background:var(--cc2-slate-surface)!important;
+  color:var(--cc2-slate-ink)!important;
+  border:1px solid var(--cc2-slate-edge)!important;
+  border-radius:var(--cc2-slate-radius)!important;
+  box-shadow:0 5px 15px #24354022!important;
+}
+html[data-cc2-ui="slate-focus"] #cc223-mode-banner{
+  border-radius:var(--cc2-slate-radius)!important;
+}
+@media (max-width:420px) {
+  html[data-cc2-ui="slate-focus"] .shell{
+    padding:6px 6px calc(9px + env(safe-area-inset-bottom))!important;
+  }
+  html[data-cc2-ui="slate-focus"] .heading{
+    padding:5px 7px!important;
+  }
+  html[data-cc2-ui="slate-focus"] .brand-eyebrow{
+    font-size:9px!important;
+  }
+  html[data-cc2-ui="slate-focus"] .board{
+    height:clamp(350px,calc(100svh - 154px),770px)!important;
+  }
+}
+@media (prefers-reduced-motion:reduce) {
+  html[data-cc2-ui="slate-focus"] .choice,
+  html[data-cc2-ui="slate-focus"] .controls .action{
+    transition:none!important;
+    animation:none!important;
+  }
+}

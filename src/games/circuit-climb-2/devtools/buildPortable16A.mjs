@@ -8,7 +8,7 @@ import {resolve,dirname} from 'node:path';
 import {createHash} from 'node:crypto';
 const dir=resolve('src/games/circuit-climb-2/devtools');
 const source=await readFile(resolve(dir,'cc2-16a.html'),'utf8');
-const [css,fx,glow,phaseCss,phaseJs,learnCss,integrityCss,integrityJs,eclipseCss,eclipseJs,visCss,physicsJs,visJs,secondaryCss,secondaryJs]=await Promise.all([
+const [css,fx,glow,phaseCss,phaseJs,learnCss,integrityCss,integrityJs,eclipseCss,eclipseJs,visCss,physicsJs,visJs,secondaryCss,secondaryJs,slateFocusCss]=await Promise.all([
  readFile(resolve(dir,'cc2-09d-presentation.css'),'utf8'),
  readFile(resolve(dir,'cc2-09e-presentation.js'),'utf8'),
  readFile(resolve(dir,'cc2-09e-presentation.css'),'utf8'),
@@ -24,6 +24,7 @@ const [css,fx,glow,phaseCss,phaseJs,learnCss,integrityCss,integrityJs,eclipseCss
  readFile(resolve(dir,'cc2-20-living-pursuer.js'),'utf8'),
  readFile(resolve(dir,'cc2-23-secondary-enemies.css'),'utf8'),
  readFile(resolve(dir,'cc2-23-secondary-enemies.js'),'utf8'),
+ readFile(resolve(dir,'cc2-ui-slate-focus-43.css'),'utf8'),
 ]);
 const entry='<script type="module" src="./cc2-02a.ts"></script>';
 const cssTag='<link rel="stylesheet" href="./cc2-09d-presentation.css">';
@@ -42,7 +43,8 @@ const physicsJsTag='<script defer src="./cc2-20-plasma-physics.js"></script>';
 const visJsTag='<script defer src="./cc2-20-living-pursuer.js"></script>';
 const secondaryCssTag='<link rel="stylesheet" href="./cc2-23-secondary-enemies.css">';
 const secondaryJsTag='<script defer src="./cc2-23-secondary-enemies.js"></script>';
-for(const m of [entry,cssTag,fxTag,glowTag,phaseCssTag,phaseJsTag,learnCssTag,learnJsTag,integrityCssTag,integrityJsTag,eclipseCssTag,eclipseJsTag,visCssTag,physicsJsTag,visJsTag,secondaryCssTag,secondaryJsTag])
+const slateFocusCssTag='<link rel="stylesheet" href="./cc2-ui-slate-focus-43.css">';
+for(const m of [entry,cssTag,fxTag,glowTag,phaseCssTag,phaseJsTag,learnCssTag,learnJsTag,integrityCssTag,integrityJsTag,eclipseCssTag,eclipseJsTag,visCssTag,physicsJsTag,visJsTag,secondaryCssTag,secondaryJsTag,slateFocusCssTag])
  if(source.split(m).length!==2)throw Error('CC2_16A_MARKER_MISSING_OR_DUPLICATED: '+m);
 const result=await build({entryPoints:[resolve(dir,'cc2-02a.ts')],bundle:true,
  write:false,format:'iife',target:['es2022'],platform:'browser',
@@ -71,9 +73,10 @@ const html=source.replace(entry,'<script>\n/* source-authoritative CC2 engine */
  .replace(visJsTag,'<script id="cc220-living-controller">\n'+escapeScript(visJs)+'\n</script>')
  .replace(secondaryCssTag,'<style id="cc223-secondary-style">\n'+secondaryCss+'\n</style>')
  .replace(secondaryJsTag,'<script id="cc223-secondary-presentation">\n'+escapeScript(secondaryJs)+'\n</script>')
+ .replace(slateFocusCssTag,'<style id="cc2-ui-slate-focus-43">\n'+slateFocusCss+'\n</style>')
  .replace(fxTag,'<script id="cc209d-source-presentation">\n'+escapeScript(fx)+'</script>');
-if(html.includes(entry)||html.includes(cssTag)||html.includes(fxTag)||html.includes(glowTag)||html.includes(phaseCssTag)||html.includes(phaseJsTag)||html.includes(learnCssTag)||html.includes(learnJsTag)||html.includes(integrityCssTag)||html.includes(integrityJsTag)||html.includes(eclipseCssTag)||html.includes(eclipseJsTag)||html.includes(visCssTag)||html.includes(physicsJsTag)||html.includes(visJsTag)||html.includes(secondaryCssTag)||html.includes(secondaryJsTag)||
- html.length<100000||html.length>4000000||!html.includes('cc209d-source-presentation')||!html.includes('cc209e-target-style')||!html.includes('cc212-source-presentation')||!html.includes('cc215-source-app')||!html.includes('cc216a-integrity-lab')||!html.includes('cc218a-eclipse-controller')||!html.includes('cc218a-eclipse-style')||!html.includes('cc220-living-controller')||!html.includes('cc220-plasma-dynamics')||!html.includes('cc220-living-material')||!html.includes('cc223-secondary-style')||!html.includes('cc223-secondary-presentation'))
+if(html.includes(entry)||html.includes(cssTag)||html.includes(fxTag)||html.includes(glowTag)||html.includes(phaseCssTag)||html.includes(phaseJsTag)||html.includes(learnCssTag)||html.includes(learnJsTag)||html.includes(integrityCssTag)||html.includes(integrityJsTag)||html.includes(eclipseCssTag)||html.includes(eclipseJsTag)||html.includes(visCssTag)||html.includes(physicsJsTag)||html.includes(visJsTag)||html.includes(secondaryCssTag)||html.includes(secondaryJsTag)||html.includes(slateFocusCssTag)||
+ html.length<100000||html.length>4000000||!html.includes('cc209d-source-presentation')||!html.includes('cc209e-target-style')||!html.includes('cc212-source-presentation')||!html.includes('cc215-source-app')||!html.includes('cc216a-integrity-lab')||!html.includes('cc218a-eclipse-controller')||!html.includes('cc218a-eclipse-style')||!html.includes('cc220-living-controller')||!html.includes('cc220-plasma-dynamics')||!html.includes('cc220-living-material')||!html.includes('cc223-secondary-style')||!html.includes('cc223-secondary-presentation')||!html.includes('cc2-ui-slate-focus-43'))
  throw Error('CC2_15_OFFLINE_ASSEMBLY_INVALID');
 const file=resolve('cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html');
 await mkdir(dirname(file),{recursive:true});
