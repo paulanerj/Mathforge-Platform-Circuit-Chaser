@@ -1,0 +1,84 @@
+name: CC2 UI Studio 100 — Geometry and Material Laboratory
+
+on:
+  push:
+    branches: [feature/cc2-ui-studio-100-geometry-lab]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify accepted CC2 UI Studio baseline and immutable gameplay
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=3d2aa0d6bc5a8c18ee442f10bd17c63a8f79db8b
+          git cat-file -e "$parent^{commit}"
+          git merge-base --is-ancestor "$parent" HEAD
+          while IFS= read -r file; do
+            case "$file" in
+              public/cc2-ui-studio/index.html|\
+              src/games/circuit-climb-2/devtools/cc2-ui-studio-100-smoke.mjs|\
+              docs/circuit-climb-2/CC2-UI-STUDIO-100-MATERIAL-LAB.md|\
+              .github/workflows/cc2-ui-studio-100.yml)
+                echo "QUALIFIED_ISOLATED_LAB_CHANGE: $file";;
+              *)
+                echo "UNAUTHORIZED_CC2_GAME_SOURCE_CHANGE: $file" >&2
+                exit 1;;
+            esac
+          done < <(git diff --name-only "$parent" HEAD)
+          git diff --exit-code "$parent" HEAD -- \
+            src/games/circuit-climb-2/core/ \
+            src/games/circuit-climb-2/math/ \
+            src/games/circuit-climb-2/pursuer/ \
+            src/games/circuit-climb-2/enemies/ \
+            src/games/circuit-climb-2/world/ \
+            src/games/circuit-climb-2/config/ \
+            src/games/circuit-climb-2/progression/ \
+            src/games/circuit-climb-2/music/ \
+            src/games/circuit-climb-2/devtools/cc2-16a.html \
+            src/games/circuit-climb-2/devtools/cc2-20-living-pursuer.js
+          mkdir -p cc2-ui-studio-100-evidence
+          {
+            echo "accepted_ui_studio_parent=$parent"
+            echo "candidate_sha=$(git rev-parse HEAD)"
+            echo "protected_gameplay=UNCHANGED"
+            echo "source_diff="
+            git diff --name-only "$parent" HEAD
+          } | tee cc2-ui-studio-100-evidence/CUSTODY.txt
+      - name: Install immutable npm dependency graph and TypeScript compile
+        run: |
+          npm ci
+          npm run lint
+          node --check src/games/circuit-climb-2/devtools/cc2-ui-studio-100-smoke.mjs
+      - name: Actual browser qualification of all 100 concepts
+        run: node src/games/circuit-climb-2/devtools/cc2-ui-studio-100-smoke.mjs
+      - name: Production build and public standalone HTML route
+        run: |
+          npm run build
+          test -s dist/cc2-ui-studio/index.html
+      - name: Upload review artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-UI-STUDIO-100-Owner-Review
+          path: |
+            cc2-ui-studio-100-evidence/
+            public/cc2-ui-studio/index.html
+            docs/circuit-climb-2/CC2-UI-STUDIO-100-MATERIAL-LAB.md
+          if-no-files-found: warn
+          retention-days: 90
