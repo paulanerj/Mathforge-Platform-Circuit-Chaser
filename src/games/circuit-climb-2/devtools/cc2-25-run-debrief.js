@@ -56,7 +56,18 @@
   const routeGraphic=el('div','cc225-route-graphic');
   const routeCaption=el('div','cc225-route-caption');
   route.append(routeTitle,routeGraphic,routeCaption);
-  stats.after(strip,route);
+  /*
+   * CC2-25-Q2: the actionable summary MUST precede the old verbose metric
+   * grid. Keep source-owned #summaryStats mounted exactly once, so the
+   * authoritative CC2-02A summary function continues writing to it.
+   * It is nested under an optional disclosure, not deleted or rewritten.
+   */
+  const breakdown=el('details','cc225-breakdown');
+  const breakdownTitle=el('summary','','Full run statistics and special events');
+  breakdown.append(breakdownTitle);
+  stats.after(breakdown);
+  breakdown.append(stats);
+  outcome.after(strip,route);
   const reviewTitle=card.querySelector('h3:nth-of-type(2)');
   if(reviewTitle){
     reviewTitle.textContent='Your completed equations';
@@ -77,7 +88,7 @@
     }
   });
   reviewWrap.append(review);
-  restart.insertAdjacentElement('beforebegin',reviewWrap);
+  route.after(reviewWrap,restart,breakdown);
   restart.textContent='Climb again';
   restart.classList.add('cc225-restart');
 
