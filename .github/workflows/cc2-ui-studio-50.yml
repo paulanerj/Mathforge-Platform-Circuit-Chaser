@@ -1,0 +1,80 @@
+name: CC2 UI Studio — 50 Concept Qualification
+
+on:
+  push:
+    branches: [feature/cc2-ui-studio-50-concepts]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  independent-ui-studio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Protect the entire accepted game and branch ancestor
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=876907daed183ff3c52b35b626f4d3afa08fe80b
+          git cat-file -e "$parent^{commit}"
+          git merge-base --is-ancestor "$parent" HEAD
+          while IFS= read -r path; do
+            case "$path" in
+              public/cc2-ui-studio/index.html|\
+              src/games/circuit-climb-2/devtools/cc2-ui-studio-smoke.mjs|\
+              docs/circuit-climb-2/CC2-UI-STUDIO-50-DESIGN-HANDOFF.md|\
+              .github/workflows/cc2-ui-studio-50.yml)
+                echo "ISOLATED_UI_STUDIO_FILE: $path" ;;
+              *)
+                echo "PROTECTED_GAME_SOURCE_CHANGED: $path" >&2
+                exit 1 ;;
+            esac
+          done < <(git diff --name-only "$parent" HEAD)
+          git diff --exit-code "$parent" HEAD -- \
+            src/games/circuit-climb-2/core/ \
+            src/games/circuit-climb-2/pursuer/ \
+            src/games/circuit-climb-2/enemies/ \
+            src/games/circuit-climb-2/math/ \
+            src/games/circuit-climb-2/world/ \
+            src/games/circuit-climb-2/music/ \
+            src/games/circuit-climb-2/devtools/cc2-16a.html \
+            src/games/circuit-climb-2/devtools/cc2-19-red-shell.js \
+            src/games/circuit-climb-2/devtools/cc2-20-living-pursuer.js
+          mkdir -p cc2-ui-studio-evidence
+          {
+            echo "accepted_parent=$parent"
+            echo "candidate_commit=$(git rev-parse HEAD)"
+            echo "playable_game_source=UNCHANGED"
+          } | tee cc2-ui-studio-evidence/PROTECTED-SOURCE.txt
+      - name: Install pinned dependencies and verify entire game still compiles
+        run: |
+          npm ci
+          npm run lint
+          node --check src/games/circuit-climb-2/devtools/cc2-ui-studio-smoke.mjs
+      - name: Browser-qualify 50 concepts, six widths and JSON handoff
+        run: node src/games/circuit-climb-2/devtools/cc2-ui-studio-smoke.mjs
+      - name: Build application with separate studio route
+        run: |
+          npm run build
+          test -s dist/cc2-ui-studio/index.html
+      - name: Preserve owner evidence and single-file portable studio
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-UI-STUDIO-50-Owner-Review
+          path: |
+            cc2-ui-studio-evidence/
+            public/cc2-ui-studio/index.html
+            docs/circuit-climb-2/CC2-UI-STUDIO-50-DESIGN-HANDOFF.md
+          if-no-files-found: warn
+          retention-days: 90
