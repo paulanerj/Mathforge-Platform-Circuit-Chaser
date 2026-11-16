@@ -88,7 +88,8 @@ export class SpeedGridReferenceBridge24 {
     this.update(this.stage,this.pressure,this.active,false);
   }
   update(
-    stage:number,pressure:boolean,enabled:boolean,lowSensory:boolean
+    stage:number,pressure:boolean,enabled:boolean,lowSensory:boolean,
+    levels?:Partial<Record<SpeedGridRole24,number>>
   ):void{
     if(this.disposed)return;
     this.stage=clamp(Math.floor(stage),1,7);
@@ -103,10 +104,16 @@ export class SpeedGridReferenceBridge24 {
       const base:Record<SpeedGridRole24,number>={
         pulse:.85,foundation:.88,rhythm:.72,energy:.7,tension:.65
       };
+      const authoredLevels:Record<SpeedGridRole24,number>={
+        pulse:.23,foundation:.32,rhythm:.13,energy:.13,tension:.12
+      };
+      const amount=levels?.[role]??authoredLevels[role];
+      const editorGain=Number.isFinite(amount)?
+        clamp(amount/authoredLevels[role],0,3):1;
       // Original stems are quiet by design. The gain is bounded and remains
       // under the existing user music-volume control/master safety bus.
       this.outputs.get(role)!.gain.setTargetAtTime(
-        allowed?base[role]*ramp*2.7:0,this.ctx.currentTime,
+        allowed?base[role]*ramp*2.7*editorGain:0,this.ctx.currentTime,
         allowed?.24:.16);
     }
   }
