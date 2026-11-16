@@ -242,7 +242,8 @@ class CircuitSynth13 {
       const stage=director.commitBar(bar);
       this.speedGrid.start();
       this.speedGrid.update(stage,director.snapshot().pressure,
-        this.mix.enabled&&!this.mutedByGame,this.mix.lowSensory);
+        this.mix.enabled&&!this.mutedByGame,this.mix.lowSensory,
+        this.mix.roles);
       return;
     }
     // A bounded lookahead prevents unbounded nodes during a suspended tab.
@@ -384,7 +385,10 @@ function controlUI(){
     location.href=url.toString();
   });
   const roleHost=byId('cc213-role-controls')!;
-  for(const role of roles){
+  const editableRoles=useSpeedGridReference?
+    roles.filter(role=>['pulse','foundation','rhythm','energy','tension']
+      .includes(role)):roles;
+  for(const role of editableRoles){
     const label=document.createElement('label');
     label.className='cc213-control';
     label.textContent=role.charAt(0).toUpperCase()+role.slice(1)+' ';
@@ -428,7 +432,7 @@ function controlUI(){
     const m=synth.settings;
     on.checked=m.enabled;volume.value=String(m.musicVolume);
     gentle.checked=m.lowSensory;
-    for(const role of roles)
+    for(const role of editableRoles)
       (byId('cc213-role-'+role) as HTMLInputElement).value=String(m.roles[role]);
   }
   syncControls();
