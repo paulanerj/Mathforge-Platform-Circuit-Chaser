@@ -93,13 +93,13 @@ try{
       await page.locator('#specialKind').selectOption('sentry');
       assert((await page.locator('#specialMachine').innerText()).includes(
         'SWEEP'),'feature state-machine visible '+width);
-      await page.locator('#sparkSize').fill('48');
+      await page.locator('#sparkSize').evaluate(el=>{el.value='48';el.dispatchEvent(new Event('input',{bubbles:true}));});
       assert((await page.locator('#sparkSizeValue').innerText()).includes(
         '48'),'live Spark material geometry control '+width);
-      await page.locator('#timeline').fill('100');
+      await page.locator('#timeline').evaluate(el=>{el.value='100';el.dispatchEvent(new Event('input',{bubbles:true}));});
       assert(await page.evaluate(()=>window.CC2Studio.report().stage)==='SETTLED',
         'deterministic final eye-in-shell phase '+width);
-      await page.locator('#timeline').fill('0');
+      await page.locator('#timeline').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});
       assert(await page.evaluate(()=>window.CC2Studio.report().stage)==='READY',
         'deterministic reversible scene '+width);
       if(width===390||width===768){
