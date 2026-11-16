@@ -9,6 +9,7 @@
  * Future recorded stems use RecordedStemManifest13 and may replace the note
  * generator without changing the event contract or gameplay engine.
  */
+import {SpeedGridReferenceBridge24} from '../music/SpeedGridReferenceBridge24';
 import {CircuitScoreDirector13,type MusicalRole13,
   type MusicalReceipt13,type ScoreEvent13} from '../music/circuitScoreDirector13';
 import {summarizeAbilityEvidence14} from '../features/abilityReview14';
@@ -29,6 +30,9 @@ type GameplayApi={
 };
 const api=()=>((window as unknown as {__CC2_02A__?:GameplayApi}).__CC2_02A__);
 const director=new CircuitScoreDirector13();
+/** Authentic five-stem SG reference by default; ?cc2Music=legacy restores the original. */
+const useSpeedGridReference=
+  new URLSearchParams(window.location.search).get('cc2Music')!=='legacy';
 const byId=(id:string)=>document.getElementById(id);
 const bpm=112,beatSeconds=60/bpm,bars=16,beatsPerCycle=bars*4;
 const roots=[50,48,43,45,50,48,43,45,53,50,48,45,50,43,48,50];
@@ -60,6 +64,7 @@ function validateMix(value:unknown):Mix13{
 class CircuitSynth13 {
   private ctx:AudioContext|null=null;
   private master:GainNode|null=null;
+  private speedGrid:SpeedGridReferenceBridge24|null=null;
   private groups=new Map<MusicalRole13,GainNode>();
   private voices=new Set<OscillatorNode>();
   private timer:number|null=null;
@@ -125,6 +130,8 @@ class CircuitSynth13 {
         this.master=this.ctx.createGain();
         this.master.gain.value=0;
         this.master.connect(this.ctx.destination);
+        if(useSpeedGridReference)
+          this.speedGrid=new SpeedGridReferenceBridge24(this.ctx,this.master);
         for(const role of roles){
           const g=this.ctx.createGain();g.gain.value=0;
           g.connect(this.master);this.groups.set(role,g);
@@ -133,8 +140,10 @@ class CircuitSynth13 {
         this.nextBeat=0;
       }
       if(this.ctx.state==='suspended'){
-        void this.ctx.resume().catch(e=>this.fail('unlock-resume',e));
-      }
+        void this.ctx.resume().then(()=>{
+          this.speedGrid?.start();
+        }).catch(e=>this.fail('unlock-resume',e));
+      }else this.speedGrid?.start();
       this.started=true;
       if(this.master)this.master.gain.setTargetAtTime(
         this.mix.musicVolume*.32,this.ctx.currentTime,.13);
@@ -144,6 +153,10 @@ class CircuitSynth13 {
   }
   queue(receipts:readonly MusicalReceipt13[]):void{
     if(!this.started||this.mutedByGame||!this.mix.enabled)return;
+    if(this.speedGrid){
+      for(const r of receipts)this.speedGrid.cue(r.kind);
+      return;
+    }
     const accents=receipts.filter(e=>['cell','capacitor','relay',
       'stage','pulse-hit','pulse-miss','capture','goal'].includes(e.kind));
     this.pending.push(...accents);
@@ -223,6 +236,15 @@ class CircuitSynth13 {
     const ctx=this.ctx;
     if(!ctx||ctx.state!=='running'||this.stopped||
       this.mutedByGame||!this.mix.enabled)return;
+    if(this.speedGrid){
+      const bar=Math.max(0,Math.floor((ctx.currentTime-this.zero)/
+        (beatSeconds*4)));
+      const stage=director.commitBar(bar);
+      this.speedGrid.start();
+      this.speedGrid.update(stage,director.snapshot().pressure,
+        this.mix.enabled&&!this.mutedByGame,this.mix.lowSensory);
+      return;
+    }
     // A bounded lookahead prevents unbounded nodes during a suspended tab.
     let ahead=0;
     while(this.zero+this.nextBeat*beatSeconds < ctx.currentTime+.19 &&
@@ -239,7 +261,8 @@ class CircuitSynth13 {
     }
   }
   getStatus(){
-    return{schema:'cc2-audio-runtime/v1',identity:this.identity,
+    return{schema:'cc2-audio-runtime/v1',
+      identity:this.speedGrid?.identity??this.identity,
       bpm,bars,roles:[...roles],started:this.started,
       contextState:this.ctx?.state??'not-created',musicEnabled:this.mix.enabled,
       lowSensory:this.mix.lowSensory,stage:director.snapshot().stage,
@@ -247,7 +270,9 @@ class CircuitSynth13 {
       activeVoices:this.voices.size,voiceLimit:this.voiceLimit,
       errors:[...this.errors],bar:Math.floor(this.nextBeat/4),
       sourceClock:director.snapshot().lastActionTick,
-      recordedStemsLoaded:false};
+      recordedStemsLoaded:false,
+      speedGridReference:this.speedGrid?.snapshot()??null,
+      activeEngine:useSpeedGridReference?'speedgrid-reference':'circuit-ascending-legacy'};
   }
   dispose(){
     this.stopped=true;
@@ -255,6 +280,7 @@ class CircuitSynth13 {
     this.timer=null;
     for(const node of this.voices){try{node.stop();}catch{/** already ended */}}
     this.voices.clear();this.pending=[];
+    this.speedGrid?.dispose();this.speedGrid=null;
     const old=this.ctx;this.ctx=null;
     if(old)void old.close().catch(e=>this.fail('dispose',e));
   }
@@ -334,8 +360,9 @@ function controlUI(){
   const section=document.createElement('section');
   section.id='cc213-music-controls';
   section.innerHTML=`
-    <div class="cc213-music-title">Adaptive music · Circuit Ascending</div>
-    <p>One continuous original composition. Synchronized layers build with genuine solved rows and chase pressure.</p>
+    <div class="cc213-music-title">Adaptive music · Source-controlled soundtrack</div>
+    <p>Speed Grid's actual five-stem 112 BPM / 16-bar reference arrangement is available, with bar-synchronized layering from solved rows and real Pursuer pressure. Recorded master stems are not bundled.</p>
+    <div class="cc213-audio-actions"><button id="cc224-switch-score" type="button">Switch soundtrack for comparison</button></div>
     <label class="cc213-control"><input id="cc213-music-on" type="checkbox" checked> Music enabled</label>
     <label class="cc213-control">Music volume <input id="cc213-music-volume" type="range" min="0" max="1" step=".02" value=".22"></label>
     <label class="cc213-control"><input id="cc213-low-sensory" type="checkbox"> Gentle mix · no tension percussion</label>
@@ -344,9 +371,18 @@ function controlUI(){
     <details id="cc213-music-lab"><summary>Developer · musical layers and presets</summary>
       <div class="cc213-roles" id="cc213-role-controls"></div>
       <div class="cc213-audio-actions"><button id="cc213-copy" type="button">Copy mix JSON</button><button id="cc213-reset" type="button">Reset music</button></div>
-      <p>Recorded stems are not installed. This is the code-generated audition, with an aligned-stem replacement contract.</p>
+      <p>Music transport uses authoritative event receipts. Authentic Speed Grid reference synthesis is included; external recorded stems are not bundled.</p>
     </details>`;
   host.append(section);
+  const title=byId('cc213-music-controls')?.querySelector('.cc213-music-title');
+  if(title)title.textContent='Adaptive music · '+
+    (useSpeedGridReference?'Speed Grid Reference':'Circuit Ascending Legacy');
+  byId('cc224-switch-score')?.addEventListener('click',()=>{
+    const url=new URL(location.href);
+    if(useSpeedGridReference)url.searchParams.set('cc2Music','legacy');
+    else url.searchParams.delete('cc2Music');
+    location.href=url.toString();
+  });
   const roleHost=byId('cc213-role-controls')!;
   for(const role of roles){
     const label=document.createElement('label');
