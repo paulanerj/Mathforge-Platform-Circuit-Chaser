@@ -25,7 +25,12 @@ try{
   check(html.startsWith('<!doctype html>'),'standalone HTML');
   check(!/<script[^>]+src=|<link[^>]+href=["']https?:|@import /i.test(html),
     'no external CDN or runtime dependencies');
-  const url=new URL('/cc2-ui-studio/',root.url).toString();
+  const url=new URL('/cc2-ui-studio/index.html',root.url).toString();
+  const entry=await fetch(url);
+  const entryText=await entry.text();
+  check(entry.ok&&entryText.includes('Circuit Climb · UI Studio'),
+    'Vite serves real studio HTML at explicit public-file route',
+    {url,status:entry.status,head:entryText.slice(0,80)});
   for(const [width,height] of [
     [320,700],[360,780],[390,844],[428,926],[768,1024],[1280,900]
   ]){
