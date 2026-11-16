@@ -71,7 +71,7 @@ try{
             errors.push([i+1,'Horizontal page overflow']);
           layouts.add(d.dataset.layout);
           themes.add(document.querySelector('#conceptName').textContent
-            .split(' / ')[0]);
+            .replace(/^\d+\s*·\s*/,'').split(' / ')[0]);
         }
         return {errors,layouts:[...layouts],themeCount:themes.size,
           count:window.CC2Studio.conceptCount()};
