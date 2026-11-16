@@ -68,6 +68,14 @@ try{
         'single shared 112 BPM transport without extra contexts '+w);
       check(status.rawEvents.some(e=>e.type==='ATTEMPT_EVALUATED'),
         'musical events have real arithmetic source '+w);
+      check(await page.locator('#cc213-role-controls input[type="range"]').count()===5,
+        'exactly five playable Speed Grid stem editor sliders '+w);
+      await page.locator('#cc213-role-pulse').evaluate(el=>{
+        el.value='.6';el.dispatchEvent(new Event('input',{bubbles:true}));
+      });
+      check(Math.abs(await page.evaluate(
+        ()=>window.__CC2_15__.mix().roles.pulse)-.6)<.001,
+        'active Pulse stem is source-configurable on real game '+w);
       await page.locator('#endRun').evaluate(el=>el.click());
       await page.waitForFunction(()=>{
         const s=window.__CC2_02A__?.summary?.();
@@ -104,6 +112,22 @@ try{
         'one correct run id and no debrief exceptions '+w,finale.ui);
       check(finale.restartText==='Climb again'&&finale.overflow<=2,
         'visible replay CTA and no horizontal overflow '+w);
+      const hierarchy=await page.evaluate(()=>{
+        const card=document.querySelector('.summary-card').getBoundingClientRect();
+        const restart=document.querySelector('#summaryRestart').getBoundingClientRect();
+        const disclose=document.querySelector('.cc225-breakdown>summary');
+        const style=getComputedStyle(disclose);
+        return{
+          withinCard:restart.top-card.top<640,
+          minTouchHeight:restart.height>=44&&disclose.getBoundingClientRect().height>=44,
+          contrastColor:style.color,background:style.backgroundColor,
+          rootVisible:!document.querySelector('#summaryPanel').hidden,
+        };
+      });
+      check(hierarchy.withinCard&&hierarchy.minTouchHeight&&
+        hierarchy.contrastColor==='rgb(36, 53, 64)'&&
+        hierarchy.background==='rgb(233, 243, 247)',
+        'replay-first UI hierarchy and readable breakdown '+w,hierarchy);
       if(w===390||w===768){
         await page.screenshot({path:folder+'/CC2-'+w+
           '-Slate-Focus-Debrief.png',fullPage:true});
@@ -116,6 +140,44 @@ try{
       check(errors.length===0,'no browser errors '+w,{errors});
     }finally{await page.close();}
   }
+  /*
+   * True physically landed row → debrief row and equation. This guards
+   * against a misleading result scene that merely echoes correct taps.
+   */
+  const live=await visit(390,844,'speedgrid');
+  try{
+    await live.page.waitForFunction(
+      ()=>window.__CC2_02A__?.snapshot?.()?.completedRows>=1,
+      null,{timeout:21000});
+    const before=await live.page.evaluate(()=>{
+      const a=window.__CC2_02A__;
+      return{rows:a.snapshot().completedRows,
+        events:a.events().filter(x=>x.type==='ROW_COMPLETED').length};
+    });
+    check(before.rows>=1&&before.events===before.rows,
+      'real physical landing before closing a run',before);
+    await live.page.locator('#endRun').evaluate(el=>el.click());
+    await live.page.waitForFunction(
+      ()=>window.__CC2_25__?.report?.()?.renderCount>0&&
+        !document.querySelector('#summaryPanel')?.hidden,
+      null,{timeout:14000});
+    const settled=await live.page.evaluate(()=>{
+      const r=window.__CC2_02A__.summary();
+      return{
+        rows:r.rowsSolved,equations:r.equations.length,
+        ribbon:document.querySelectorAll('.cc225-route-step').length,
+        text:document.querySelector('.cc225-route-caption').textContent
+      };
+    });
+    check(settled.rows>=1&&settled.equations===settled.rows&&
+      settled.ribbon===Math.min(24,settled.rows),
+      'earned route and solved equations require real landed source rows',
+      settled);
+    await live.page.screenshot({
+      path:folder+'/CC2-390-Slate-Focus-Earned-Circuit.png',
+      fullPage:true
+    });
+  }finally{await live.page.close();}
   const {page,errors}=await visit(390,844,'legacy');
   try{
     const status=await page.evaluate(()=>window.__CC2_15__.music());
