@@ -140,9 +140,34 @@
   border-color:#e7ffff;
 }
 #summaryPanel #summaryOutcome{
-  font-size:12px!important;color:#4a6877!important;
-  margin:9px 0 13px!important;
-  font-weight:600!important;
+  /* The actual source-owned outcome remains in DOM for diagnostics, while
+     the hero itself communicates the exact end reason without duplicate text. */
+  position:absolute!important;
+  width:1px!important;height:1px!important;
+  padding:0!important;margin:-1px!important;
+  overflow:hidden!important;clip:rect(0,0,0,0)!important;
+  white-space:nowrap!important;border:0!important;
+}
+#summaryPanel .cc225-breakdown{
+  border:1px solid #b5c5ce;
+  background:#f5f9fb;
+  border-radius:5px;
+  padding:7px 10px;
+  margin:10px 0 14px;
+}
+#summaryPanel .cc225-breakdown>summary{
+  min-height:44px;
+  display:flex;align-items:center;
+  font-size:12px;
+  font-weight:850;
+  cursor:pointer;
+  color:#4c7e96;
+}
+#summaryPanel .cc225-breakdown .summary-grid{
+  margin-bottom:6px;
+}
+#summaryPanel .cc225-breakdown #cc209c-highlights{
+  margin:8px 0 0;
 }
 #summaryPanel .cc225-record-strip{
   display:grid;
