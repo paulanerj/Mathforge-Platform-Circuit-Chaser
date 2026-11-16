@@ -67,6 +67,8 @@
   breakdown.append(breakdownTitle);
   stats.after(breakdown);
   breakdown.append(stats);
+  const alreadyMountedHighlights=document.getElementById('cc209c-highlights');
+  if(alreadyMountedHighlights)breakdown.append(alreadyMountedHighlights);
   outcome.after(strip,route);
   const reviewTitle=card.querySelector('h3:nth-of-type(2)');
   if(reviewTitle){
