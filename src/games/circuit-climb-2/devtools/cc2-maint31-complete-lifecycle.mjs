@@ -143,10 +143,10 @@ try{
       const resume=page.locator('#cc209c-resume');
       if(await resume.isVisible())await resume.click();
       else await page.locator('#pause').click();
-      await page.waitForFunction(()=>
+      await page.waitForFunction(previousTick=>
         !window.__CC2_02A__.snapshot().paused&&
-        window.__CC2_02A__.snapshot().tick>paused.tick+3,
-        null,{timeout:6500});
+        window.__CC2_02A__.snapshot().tick>previousTick+3,
+        paused.tick,{timeout:6500});
       check((await state(page)).tick>paused.tick+3,
         'Resume restarts simulation clock '+width);
       await page.waitForFunction(()=>
