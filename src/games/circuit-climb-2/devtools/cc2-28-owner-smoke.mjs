@@ -124,8 +124,13 @@ try{
     await page.waitForFunction(()=>window.__CC2_28__?.report?.().paintCount>0,
       null,{timeout:22000});
     await page.locator('#cc209c-enter').click();
-    await page.locator('#paceProfile').selectOption('training');
-    await page.locator('#applyPace').click();
+    // The accepted mobile UI deliberately hides Developer pace controls.
+    // Configure only the official existing selector for this QA scenario;
+    // every mathematical platform choice below is still a real pointer tap.
+    await page.evaluate(()=>{
+      document.getElementById('paceProfile').value='training';
+      document.getElementById('applyPace').click();
+    });
     await page.evaluate(()=>{window.__cc2ManualScenarioActive=true;});
     for(let row=1;row<=8;row++){
       const source=await page.evaluate(()=>{
