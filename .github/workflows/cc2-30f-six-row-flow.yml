@@ -1,7 +1,7 @@
-name: CC2-30G Zero-Config Preview, Flow and Guardian Release Qualification
+name: CC2-30H Visible Heritage Platform Rendering Qualification
 on:
   push:
-    branches: [fix/cc2-30g-preview-defaults-guardian-flow]
+    branches: [fix/cc2-30h-visible-heritage-platforms]
   pull_request:
     branches: [feature/cc2-30f-six-row-flow-pursuer-only]
   workflow_dispatch:
@@ -50,11 +50,13 @@ jobs:
         run: node src/games/circuit-climb-2/devtools/cc2-30f-standalone-render-smoke.mjs
       - name: "Exact standalone bare URL default: three-row flow, first Guardian, real bot-only blanket"
         run: node src/games/circuit-climb-2/devtools/cc2-30g-default-preview-smoke.mjs
+      - name: Visible Heritage canvas pixel and screenshot acceptance
+        run: node src/games/circuit-climb-2/devtools/cc2-30h-heritage-visible-smoke.mjs
       - name: Preserve owner review artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: CC2-30G-Zero-Config-Playable
+          name: CC2-30H-Visible-Tower-Playable
           path: |
             dist/cc2-30.html
             cc2-30-evidence/
