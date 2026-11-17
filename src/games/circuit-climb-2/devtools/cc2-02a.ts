@@ -19,7 +19,8 @@ import {defaultSpecialConfig28,type SpecialConfig28,
   type SpecialSnapshot28,type SpecialEvent28,
 } from '../features/specialDirector28';
 import {
-  defaultCreatureConfig,type CreatureConfig,type CreatureSnapshot,
+  defaultCreatureConfig,validateCreatureConfig,
+  type CreatureConfig,type CreatureSnapshot,
 } from '../features/creatureEcology30';
 import { RunConfigV1, defaultRunConfig } from '../config/runConfig';
 import {defaultPursuerPreset,type PursuerPresetV1} from '../pursuer/pursuerPreset';
@@ -156,8 +157,24 @@ const cc223Config:SecondaryConfigV1|undefined=cc223Choice==='off'
 // CC2-28 policy is deliberately absent from every standard game URL.
 const cc228Config:SpecialConfig28|undefined=
   cc223Params.get('cc228')==='1'?defaultSpecialConfig28():undefined;
-const cc230Config:CreatureConfig|undefined=cc223Params.get('cc230')==='1'?
-  defaultCreatureConfig():undefined;
+/**
+ * Designer's game-affecting creature preset. It is strictly validated by the
+ * source engine before a run is created. The URL is only a transport.
+ * Ordinary runs have no creature configuration or added runtime authority.
+ */
+function creatureConfigFromURL():CreatureConfig|undefined{
+  if(cc223Params.get('cc230')!=='1')return undefined;
+  const raw=cc223Params.get('cc230Cfg');
+  if(!raw)return defaultCreatureConfig();
+  try{
+    if(raw.length>2200)throw Error('CREATURE_CONFIG_URL_LENGTH');
+    return validateCreatureConfig(JSON.parse(raw));
+  }catch(error){
+    console.warn('Invalid CC2-30B developer creature preset; using defaults',error);
+    return defaultCreatureConfig();
+  }
+}
+const cc230Config:CreatureConfig|undefined=creatureConfigFromURL();
 const featuresEnabled=document.body.dataset.features==='on';
 const summaryEnabled=document.body.dataset.summary==='on';
 const manualQA=featuresEnabled && new URLSearchParams(location.search).get('manual')==='1';

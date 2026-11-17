@@ -9,6 +9,9 @@
  * CC2-28 and historical replay remain byte-for-byte absent unless opted in.
  */
 import type { EngineStateV1 } from '../core/CircuitClimbCore';
+import {createCreatureAbility,CREATURE_SDK_SCHEMA,
+  type CreatureAbilityHandler,type CreatureEffectReceipt,
+} from './creatureAbilitySDK30B';
 
 export const CREATURE_SCHEMA = 'cc2-creature/v1' as const;
 export type CreatureKind = 'MOLASSES_GUARDIAN'|'CAPACITOR'|'RELAY'|
@@ -130,8 +133,8 @@ export class CreatureEcologyDirector{
   private gate:CreatureSnapshot['gate']='DORMANT';
   private question:CreatureSnapshot['question']=null;
   private correctAnswer=0;
-  private field:CreatureSnapshot['activeField']=null;
-  private contactActive=false;
+  /** Strict world-effect authority: no creature sprite can mutate the Pursuer. */
+  private readonly ability:CreatureAbilityHandler;
   private lastHopTick=-1;
   private hop:CreatureSnapshot['hop']=null;
   private ordinal=0;
@@ -142,6 +145,7 @@ export class CreatureEcologyDirector{
     this.config=validateCreatureConfig(config);
     this.runId=runId;
     this.seedNumber=hashSeed(seed+':molasses/v1');
+    this.ability=createCreatureAbility(this.config.species,runId);
   }
   private emit(type:CreatureReceipt['type'],
     detail:CreatureReceipt['detail']={}):void{
@@ -153,23 +157,20 @@ export class CreatureEcologyDirector{
   reset(runId:string):void{
     this.runId=runId;this.tick=0;this.platformId=null;this.platformRow=null;
     this.gate='DORMANT';this.question=null;this.correctAnswer=0;
-    this.field=null;this.contactActive=false;
+    this.ability.reset(runId);
     this.lastHopTick=-1;this.hop=null;this.ordinal=0;
     this.receipts=[];this.stopped=false;
   }
-  terminate():void{this.stopped=true;this.question=null;this.field=null;
-    this.hop=null;this.contactActive=false;this.gate='DORMANT';}
+  terminate():void{this.stopped=true;this.question=null;
+    this.ability.terminate();
+    this.hop=null;this.gate='DORMANT';}
   advance(world:EngineStateV1):void{
     if(world.runId!==this.runId)throw Error('CREATURE_RUN_ISOLATION');
     if(world.paused||world.phase==='ended'||this.stopped)return;
     if(world.tick<this.tick)throw Error('CREATURE_TICK_REGRESSION');
     this.tick=world.tick;
     if(this.hop&&this.tick>=this.hop.endTick)this.hop=null;
-    if(this.field&&this.tick>=this.field.expiresTick){
-      if(this.contactActive){this.contactActive=false;
-        this.emit('FIELD_CONTACT_EXIT',{reason:'FIELD_EXPIRED'});}
-      this.field=null;this.emit('FIELD_EXPIRED');
-    }
+    this.ability.advance(world,event=>this.emitEffect(event));
     if(this.gate==='QUESTION'&&this.question&&
       this.tick>=this.question.deadlineTick){
       this.question=null;this.gate='COOLDOWN';this.emit('GATE_EXPIRED');
@@ -187,7 +188,7 @@ export class CreatureEcologyDirector{
     const needsHop=!this.platformId||
       (this.gate==='AVAILABLE'&&
         elapsed>=Math.min(this.config.offerTicks,this.config.hopEveryTicks))||
-      (this.gate==='COOLDOWN'&&!this.field&&
+      (this.gate==='COOLDOWN'&&!this.ability.snapshot().activeField&&
         elapsed>=this.config.hopEveryTicks);
     if(needsHop){
       const rowIndex=world.currentProblem.rowIndex;
@@ -243,17 +244,22 @@ export class CreatureEcologyDirector{
     this.question=null;this.gate='COOLDOWN';
     this.emit(correct?'GATE_SOLVED':'GATE_FAILED',{choice});
     if(correct){
-      this.contactActive=false;
-      const platform=world.world.rows.flatMap(r=>r.platforms)
-        .find(p=>p.id===this.platformId);
-      if(platform){
-        const direction: 'left'|'right'=
-          world.spark.x>=platform.x?'left':'right';
-        this.field={x:platform.x,y:platform.y,
-          radius:world.world.geometry.rowGap*this.config.fieldRadiusInRowGaps,
-          expiresTick:this.tick+this.config.fieldTicks,direction};
-        this.emit('FIELD_CAST',{platformId:platform.id,
-          expiresTick:this.field.expiresTick,direction});
+      const platformId=this.platformId;
+      if(platformId){
+        const platform=world.world.rows.flatMap(r=>r.platforms)
+          .find(p=>p.id===platformId);
+        if(platform){
+          const direction:'left'|'right'=
+            world.spark.x>=platform.x?'left':'right';
+          this.ability.cast({
+            schema:CREATURE_SDK_SCHEMA,kind:'PURSUER_VISCOUS_FIELD',
+            runId:world.runId,tick:world.tick,
+            sourcePlatformId:platform.id,direction,
+            fieldTicks:this.config.fieldTicks,
+            radiusInRowGaps:this.config.fieldRadiusInRowGaps,
+            slowMultiplier:this.config.slowMultiplier,
+          },world,event=>this.emitEffect(event));
+        }
       }
     }
     return {ok:true,correct};
@@ -263,32 +269,30 @@ export class CreatureEcologyDirector{
     this.question=null;this.gate='COOLDOWN';this.tick=world.tick;
     this.emit('GATE_DECLINED');
   }
-  /** Field is source geometry, never inferred from glow, CSS or animations. */
-  pressureFor(bot:{x:number;y:number}):number{
-    if(!this.field||this.tick>=this.field.expiresTick)return 1;
-    const within=Math.hypot(bot.x-this.field.x,bot.y-this.field.y)
-      <=this.field.radius;
-    const correctDirection=this.field.direction==='left'
-      ?bot.x<=this.field.x:bot.x>=this.field.x;
-    return within&&correctDirection?this.config.slowMultiplier:1;
+  /** Convert strict ability receipts to the existing source event ledger. */
+  private emitEffect(event:CreatureEffectReceipt):void{
+    this.emit(event.type,event.detail);
   }
-  /** Registers actual physical contact edges for music, animation and QA.
-   *  Repeated calls during one source tick do not emit duplicate receipts. */
+  /** Compatibility projection; fully delegated to the typed runtime. */
+  pressureFor(bot:{x:number;y:number}):number{
+    const state=this.ability.snapshot();
+    const f=state.activeField;
+    if(!f||this.tick>=f.expiresTick)return 1;
+    const within=Math.hypot(bot.x-f.x,bot.y-f.y)<=f.radius;
+    return within&&(f.direction==='left'?bot.x<=f.x:bot.x>=f.x)
+      ?state.multiplier:1;
+  }
   observePursuer(bot:{x:number;y:number}):number{
-    const current=this.pressureFor(bot)<1;
-    if(current!==this.contactActive){
-      this.contactActive=current;
-      this.emit(current?'FIELD_CONTACT_ENTER':'FIELD_CONTACT_EXIT',
-        {x:bot.x,y:bot.y});
-    }
-    return current?this.config.slowMultiplier:1;
+    return this.ability.observePursuer(bot,this.tick,
+      event=>this.emitEffect(event));
   }
   snapshot():CreatureSnapshot{
+    const effect=this.ability.snapshot();
     return clone({schema:CREATURE_SCHEMA,runId:this.runId,tick:this.tick,
       species:'MOLASSES_GUARDIAN',platformId:this.platformId,
       platformRow:this.platformRow,hop:this.hop,gate:this.gate,question:this.question,
-      activeField:this.field,fieldMultiplier:this.field?this.config.slowMultiplier:1,
-      contactActive:this.contactActive,
+      activeField:effect.activeField,fieldMultiplier:effect.multiplier,
+      contactActive:effect.contactActive,
       config:this.config,receipts:this.receipts});
   }
 }
