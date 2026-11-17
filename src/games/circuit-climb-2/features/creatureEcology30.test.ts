@@ -95,6 +95,32 @@ describe('CC2-30A reusable creature source system',()=>{
     const replay=replayChase(g.replayExport());
     expect(replay.creatureSnapshot()?.activeField).toEqual(fluid);
   });
+  it('only physical directional contact slows Pursuer and emits edge receipts',()=>{
+    const fixture=make('contact-world');reachFirstCreature(fixture);
+    const state=fixture.learnerSnapshot();
+    const runId='contact-run';
+    const world={...state,runId};
+    const d=new CreatureEcologyDirector('gel-contact',runId);
+    d.advance(world);
+    expect(d.offer(world).ok).toBe(true);
+    const q=d.snapshot().question!;
+    const next=q.sequence[2]+(q.sequence[1]-q.sequence[0]);
+    expect(d.answer(world,next).correct).toBe(true);
+    const field=d.snapshot().activeField!;
+    const xDirection=field.direction==='left'?-1:1;
+    const inside={x:field.x+xDirection*field.radius*.4,y:field.y};
+    const otherSide={x:field.x-xDirection*field.radius*.4,y:field.y};
+    expect(d.observePursuer(otherSide)).toBe(1);
+    expect(d.observePursuer(inside)).toBeCloseTo(d.config.slowMultiplier);
+    expect(d.observePursuer(inside)).toBeCloseTo(d.config.slowMultiplier);
+    expect(d.snapshot().contactActive).toBe(true);
+    expect(d.observePursuer({x:field.x+field.radius*5,y:field.y})).toBe(1);
+    expect(d.snapshot().contactActive).toBe(false);
+    expect(d.snapshot().receipts.filter(e=>e.type==='FIELD_CONTACT_ENTER'))
+      .toHaveLength(1);
+    expect(d.snapshot().receipts.filter(e=>e.type==='FIELD_CONTACT_EXIT'))
+      .toHaveLength(1);
+  });
   it('replay exactly reconstructs a deliberate creature gate and field',()=>{
     const g=make('replay-molasses');reachFirstCreature(g);
     expect(g.offerCreature().ok).toBe(true);
