@@ -37,6 +37,12 @@ try{
       check(before.loaded.fieldTicks===210&&before.source.fieldTicks===150,
         'settings draft distinct from live authoritative config '+width);
 
+      // The source sliders live in two user-controlled <details> panels.
+      // Open the real studio before asking Playwright to tap a hidden button.
+      await page.evaluate(()=>{
+        document.querySelector('.cc230-studio').open=true;
+        document.querySelector('.cc230-authority').open=true;
+      });
       await page.locator('.cc230-apply-gameplay').click();
       await page.waitForFunction(()=>
         window.__CC2_02A__?.creature?.()?.config?.fieldTicks===210,
