@@ -45,7 +45,16 @@ if(html.length<100000||html.length>4000000)
   throw Error('CC227_PUBLIC_PREVIEW_BAD_BYTE_LENGTH');
 // Sanity check: portable builder should have inlined the game and all CSS.
 // A relative script would break as soon as it was copied under /dist.
-if(/<script\b[^>]*\bsrc\s*=|<link\b[^>]*\brel\s*=\s*["']stylesheet["']/i.test(html))
+// A valid inlined bundle can contain literal HTML tags as JavaScript
+// STRING DATA. Inspect the markup outside inlined script/style bodies, not
+// arbitrary text inside source-owned compiled code. Actual external tags
+// remain visible after this removal, so the standalone guard stays strict.
+const markupOnly=html
+  .replace(/<script\b(?![^>]*\bsrc\s*=)[^>]*>[\s\S]*?<\/script>/gi,
+    '<script>INLINED_BUNDLE</script>')
+  .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,
+    '<style>INLINED_STYLES</style>');
+if(/<script\b[^>]*\bsrc\s*=|<link\b[^>]*\brel\s*=\s*["']stylesheet["']/i.test(markupOnly))
   throw Error('CC227_PUBLIC_PREVIEW_NOT_FULLY_STANDALONE');
 copyFileSync(src,destination);
 copyFileSync(src,latest);
