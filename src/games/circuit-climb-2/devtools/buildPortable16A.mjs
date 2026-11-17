@@ -79,7 +79,7 @@ if(!extraBundle||extraBundle.length<4000)throw Error('CC2_15_MUSIC_BUNDLE_INVALI
 const escapeScript=s=>s.replace(/<\/script/gi,'<\\/script');
 // Literal callback replacement avoids interpreting replacement tokens in
 // bundled, minified source. Never interpolate assets as replacement strings.
-const html=source.replace(entry,()=>'<script>\n/* source-authoritative CC2 engine */\n'+escapeScript(bundled)+'</script>')
+let html=source.replace(entry,()=>'<script>\n/* source-authoritative CC2 engine */\n'+escapeScript(bundled)+'</script>')
  .replace(cssTag,()=>'<style id="cc209d-source-style">\n'+css+'\n</style>')
  .replace(glowTag,()=>'<style id="cc209e-target-style">\n'+glow+'\n</style>')
  .replace(phaseCssTag,()=>'<style id="cc212-source-style">\n'+phaseCss+'\n</style>')
@@ -107,6 +107,37 @@ const html=source.replace(entry,()=>'<script>\n/* source-authoritative CC2 engin
  .replace(finaleCssTag,()=>'<style id="cc225-debrief-style">\n'+finaleCss+'\n</style>')
  .replace(finaleJsTag,()=>'<script id="cc225-debrief-controller">\n'+escapeScript(finaleJs)+'\n</script>')
  .replace(fxTag,()=>'<script id="cc209d-source-presentation">\n'+escapeScript(fx)+'</script>');
+// Dedicated CC2-30 preview self-activation. A user opening /cc2-30.html
+// without a query must not silently fall back to old gameplay. Do not touch
+// /cc2-28.html, ordinary host routes or any explicitly disabled flags.
+// This runs in <head> BEFORE the inlined engine and creature controllers.
+const standalonePreviewBootstrap=String.raw`
+<script id="cc230g-preview-defaults">
+(()=>{'use strict';
+  const isPreview=/\/cc2-30\.html$/i.test(location.pathname);
+  const isOffline=location.protocol==='file:' &&
+    /\.html$/i.test(location.pathname);
+  if(!isPreview&&!isOffline)return;
+  const url=new URL(location.href),p=url.searchParams;
+  const explicitCreature=p.has('cc230');
+  const defaults={
+    cc2Ui:'slate-focus',cc230:'1',cc230Blanket:'1',cc2Flow:'1',
+  };
+  for(const [key,value] of Object.entries(defaults)){
+    if(!p.has(key))p.set(key,value);
+  }
+  // Early arrival belongs to the zero-config owner-review experience only.
+  // The historical ?cc230=1 test/replay contract remains unchanged.
+  if(!explicitCreature&&!p.has('cc230Early'))p.set('cc230Early','1');
+  if(url.href!==location.href){
+    try{history.replaceState(history.state,'',url.href);}
+    catch{window.__CC230G_PREVIEW_PARAMS__=p.toString();}
+  }
+})();
+</script>`;
+if(!html.includes('</head>'))throw Error('CC230G_PREVIEW_HEAD_MISSING');
+html=html.replace('</head>',()=>standalonePreviewBootstrap+'\n</head>');
+
 // Source-preserving diagnostic: never weaken the packaging guards.
 const remainingMarkers=[cssTag,fxTag,glowTag,phaseCssTag,phaseJsTag,
   learnCssTag,learnJsTag,integrityCssTag,integrityJsTag,eclipseCssTag,
