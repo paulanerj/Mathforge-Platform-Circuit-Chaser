@@ -1,0 +1,36 @@
+name: CC2-MAINT-31 Dedicated Startup Recovery Gate
+on:
+  push:
+    branches: [maintenance/cc2-31-startup-full-lifecycle-regression]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  startup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build real owner standalone
+        run: |
+          npm run build
+          test -s dist/cc2-30.html
+          sha256sum dist/cc2-30.html
+      - name: Test actual first tap, movement, pause, restart, Guardian and file URI
+        run: node src/games/circuit-climb-2/devtools/cc2-maint31-complete-lifecycle.mjs
+      - name: "Maintenance: authoritative end of run and summary restart"
+        run: node src/games/circuit-climb-2/devtools/cc2-maint31-end-results.mjs
+      - name: Preserve failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-MAINT-31-Dedicated-Startup-Evidence
+          path: |
+            dist/cc2-30.html
+            cc2-maint-31-evidence/
+          if-no-files-found: warn

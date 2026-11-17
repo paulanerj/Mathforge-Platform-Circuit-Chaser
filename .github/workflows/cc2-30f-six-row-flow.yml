@@ -1,7 +1,7 @@
-name: CC2-30H Visible Heritage Platform Rendering Qualification
+name: CC2-MAINT-31 Full Lifecycle & Start Button Maintenance Qualification
 on:
   push:
-    branches: [fix/cc2-30h-visible-heritage-platforms]
+    branches: [maintenance/cc2-31-startup-full-lifecycle-regression]
   pull_request:
     branches: [feature/cc2-30f-six-row-flow-pursuer-only]
   workflow_dispatch:
@@ -52,14 +52,19 @@ jobs:
         run: node src/games/circuit-climb-2/devtools/cc2-30g-default-preview-smoke.mjs
       - name: Visible Heritage canvas pixel and screenshot acceptance
         run: node src/games/circuit-climb-2/devtools/cc2-30h-heritage-visible-smoke.mjs
+      - name: "Maintenance: actual complete user journey on exact standalone"
+        run: node src/games/circuit-climb-2/devtools/cc2-maint31-complete-lifecycle.mjs
+      - name: "Maintenance: authoritative end of run and summary restart"
+        run: node src/games/circuit-climb-2/devtools/cc2-maint31-end-results.mjs
       - name: Preserve owner review artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: CC2-30H-Visible-Tower-Playable
+          name: CC2-MAINT-31-Startup-Qualification
           path: |
             dist/cc2-30.html
             cc2-30-evidence/
+            cc2-maint-31-evidence/
             cc2-28-evidence/
             cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html
           if-no-files-found: warn
