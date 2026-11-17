@@ -154,7 +154,10 @@ function refresh(){
       button.textContent=String(n);
       button.onclick=()=>{
         const r=a.answerCreature(n);
-        status.textContent=r.correct?'Field charged · Pursuer slows in gel':
+        status.textContent=r.correct?
+          (a.creature()?.activeField?.coverage==='BELOW_PLATFORM'?
+            'Molasses blanket active · Pursuer 50% speed below line':
+            'Field charged · Pursuer slows in gel'):
           'No field earned · keep climbing';
         sound(r.correct?320:130);lastStatus=status.textContent;
         refresh();
@@ -167,47 +170,95 @@ function refresh(){
   const field=c.activeField;
   root.dataset.contact=c.contactActive?'stuck':'clear';
   if(field){
-    const target=findButton(c.platformId);
-    if(target){
-      const b=target.getBoundingClientRect();
-      const x=b.left+b.width/2-boardRect.left;
-      const y=b.top+b.height/2-boardRect.top;
-      // A bounded circular half-field is projected from the real source
-      // radius. Only source contactActive confirms real Pursuer collision.
-      // This is a presentation-space approximation, not physics ownership.
-      const colPx=buttons.length>=2?
-        Math.abs(getPoint(buttons[1]).x-getPoint(buttons[0]).x):
-        boardRect.width/3;
-      const radiusRows=field.radius/state.world.geometry.rowGap;
-      const radiusPx=clamp(radiusRows*Math.max(36,Math.min(colPx,boardRect.height*.24)),
-        24,boardRect.width*.38);
-      const diameter=radiusPx*2;
+    // Only the source runtime defines the real field and contact. The
+    // blanket mode is world-wide BELOW a fixed activation elevation, not
+    // a radius around the currently moving creature.
+    const blanket=field.coverage==='BELOW_PLATFORM';
+    const target=findButton(blanket?field.sourcePlatformId:c.platformId);
+    const reference=target||buttons[0]||null;
+    if(reference){
+      const b=reference.getBoundingClientRect();
+      let x=b.left+b.width/2-boardRect.left;
+      let y=b.top+b.height/2-boardRect.top;
+      if(blanket&&!target){
+        // An old activation platform can scroll out of the rendered row.
+        // Project the original row beneath the currently displayed row.
+        // Collision never uses this pixel approximation.
+        const currentRow=state.currentProblem.rowIndex;
+        const gapEstimate=boardRect.height/3.5;
+        const delta=currentRow-(field.sourceRow??currentRow);
+        y+=Math.max(0,delta)*gapEstimate;
+      }
       gel.hidden=false;
-      gel.style.left=x+'px';gel.style.top=y+'px';
-      gel.style.setProperty('--cc230-field-diameter',diameter+'px');
-      gel.dataset.direction=field.direction;
+      gel.dataset.coverage=blanket?'blanket':'local';
       gel.dataset.contact=c.contactActive?'stuck':'clear';
-      gel.style.opacity=String(.27+config.gelDensity*.67);
-      const tickPhase=(state.tick-(field.expiresTick-c.config.fieldTicks));
-      const sloshX=Math.sin(tickPhase*.055*config.flowRate)*config.slosh*radiusPx*.22;
-      const sloshY=Math.cos(tickPhase*.044*config.flowRate)*config.slosh*radiusPx*.15;
-      gel.style.setProperty('--cc230-slosh-x',sloshX.toFixed(2)+'px');
-      gel.style.setProperty('--cc230-slosh-y',sloshY.toFixed(2)+'px');
-      fieldProjection={x,y,diameter,radiusPx,direction:field.direction,
-        projectedHalfDisc:true,sourceContact:c.contactActive};
+      gel.style.opacity=String(.24+config.gelDensity*.45);
+      if(blanket){
+        // Entire horizontal playfield from source demarcation DOWN.
+        // Display only the portion actually within the camera/board.
+        const top=clamp(y,0,boardRect.height);
+        const height=Math.max(0,boardRect.height-top);
+        gel.style.left='0px';gel.style.top=top+'px';
+        gel.style.width=boardRect.width+'px';
+        gel.style.height=height+'px';
+        gel.style.removeProperty('--cc230-field-diameter');
+        gel.dataset.direction='down';
+        const tickPhase=state.tick;
+        gel.style.setProperty('--cc230-slosh-x',
+          (Math.sin(tickPhase*.04*config.flowRate)*config.slosh*9).toFixed(2)+'px');
+        gel.style.setProperty('--cc230-slosh-y',
+          (Math.cos(tickPhase*.025*config.flowRate)*config.slosh*5).toFixed(2)+'px');
+        fieldProjection={
+          coverage:'BELOW_PLATFORM',
+          sourcePlatformId:field.sourcePlatformId,
+          sourceRow:field.sourceRow,
+          boundaryWorldY:field.y,
+          visibleBoundaryY:top,
+          width:boardRect.width,height,
+          fullWidth:true,extendsDown:true,
+          sourceContact:c.contactActive,
+        };
+      }else{
+        const colPx=buttons.length>=2?
+          Math.abs(getPoint(buttons[1]).x-getPoint(buttons[0]).x):
+          boardRect.width/3;
+        const radiusRows=field.radius/state.world.geometry.rowGap;
+        const radiusPx=clamp(radiusRows*Math.max(36,Math.min(colPx,boardRect.height*.24)),
+          24,boardRect.width*.38);
+        const diameter=radiusPx*2;
+        gel.style.left=x+'px';gel.style.top=y+'px';
+        gel.style.removeProperty('width');gel.style.removeProperty('height');
+        gel.style.setProperty('--cc230-field-diameter',diameter+'px');
+        gel.dataset.direction=field.direction;
+        const tickPhase=state.tick-(field.expiresTick-c.config.fieldTicks);
+        gel.style.setProperty('--cc230-slosh-x',
+          (Math.sin(tickPhase*.055*config.flowRate)*config.slosh*radiusPx*.22).toFixed(2)+'px');
+        gel.style.setProperty('--cc230-slosh-y',
+          (Math.cos(tickPhase*.044*config.flowRate)*config.slosh*radiusPx*.15).toFixed(2)+'px');
+        fieldProjection={x,y,diameter,radiusPx,direction:field.direction,
+          projectedHalfDisc:true,sourceContact:c.contactActive};
+      }
       fluidFrames++;
-    }else gel.hidden=true;
-  } else {gel.hidden=true;fieldProjection=null;}
+    }else{gel.hidden=true;fieldProjection=null;}
+  }else{gel.hidden=true;fieldProjection=null;}
   if(c.receipts.length){
     const ev=c.receipts[c.receipts.length-1];
     if(ev.id!==lastEvent){
       lastEvent=ev.id;
-      if(ev.type==='FIELD_CAST'){status.textContent='Molasses field deployed';sound(115);}
+      if(ev.type==='FIELD_CAST'){
+        status.textContent=field?.coverage==='BELOW_PLATFORM'?
+          'Molasses blanket deployed below guardian platform':
+          'Molasses field deployed';
+        sound(115);
+      }
       if(ev.type==='FIELD_CONTACT_ENTER'){
         status.textContent='Pursuer caught in molasses';sound(88);
       }
       if(ev.type==='FIELD_CONTACT_EXIT'){
-        status.textContent='Pursuer broke free of molasses';sound(200);
+        status.textContent=field?.coverage==='BELOW_PLATFORM'?
+          'Pursuer crossed above molasses boundary · normal speed':
+          'Pursuer broke free of molasses';
+        sound(200);
       }
       if(ev.type==='FIELD_EXPIRED')status.textContent='Molasses field evaporated';
       if(ev.type==='GATE_EXPIRED')status.textContent='Creature opportunity expired';
