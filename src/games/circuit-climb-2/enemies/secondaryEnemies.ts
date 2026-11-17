@@ -37,6 +37,8 @@ export interface SecondaryConfigV1 {
   readonly scoutSenseRadius:number;
   readonly sentrySenseRadius:number;
   readonly patrolAmplitude:number;
+  /** Optional CC2-27 role tuning. Omission preserves exact CC2-23 replay. */
+  readonly encounterPolicy?:'cc2-27-distinct/v1';
 }
 export interface SecondaryEnemyViewV1{
   readonly id:'scout'|'sentry';
@@ -49,6 +51,9 @@ export interface SecondaryEnemyViewV1{
   readonly signalSource:'NEAR'|'SIGHT'|null;
   readonly warningProgress:number;
   readonly lastDetectedTick:number|null;
+  /** Only present under the explicitly enabled CC2-27 role policy. */
+  readonly role?:'MOBILE_RECON'|'DIRECTIONAL_LOCK';
+  readonly heading?:number|null;
 }
 export interface SecondaryEnemyEventV1{
   readonly schema:'cc2-secondary-event/v1';
@@ -63,6 +68,7 @@ export interface SecondaryEnemyEventV1{
 export interface SecondarySnapshotV1{
   readonly schema:'cc2-secondary-snapshot/v1';
   readonly mode:SecondaryModeV1;
+  readonly policy?:'cc2-27-distinct/v1';
   readonly tick:number;
   readonly runId:string;
   readonly actors:readonly SecondaryEnemyViewV1[];
@@ -90,9 +96,18 @@ export function defaultSecondaryConfig():SecondaryConfigV1{
 }
 export function validateSecondaryConfig(value:unknown):SecondaryConfigV1{
   const defaults=defaultSecondaryConfig();
-  if(!exact(value,Object.keys(defaults)))throw Error('CC2_SECONDARY_CONFIG_FIELDS');
+  // The v1 shape remains byte-identical for all historical records.
+  // Explicit opt-in adds ONE strictly validated, versioned field.
+  const policyPresent=!!value&&typeof value==='object'&&
+    'encounterPolicy' in value;
+  if(!exact(value,[...Object.keys(defaults),
+    ...(policyPresent?['encounterPolicy']:[])]))
+    throw Error('CC2_SECONDARY_CONFIG_FIELDS');
   const p=value as unknown as SecondaryConfigV1;
   if(p.schema!=='cc2-secondary-enemies/v1')throw Error('CC2_SECONDARY_SCHEMA');
+  if(p.encounterPolicy!==undefined&&
+    p.encounterPolicy!=='cc2-27-distinct/v1')
+    throw Error('CC2_SECONDARY_POLICY');
   if(!['off','scout','sentry','both'].includes(p.mode))
     throw Error('CC2_SECONDARY_MODE');
   if(typeof p.demoEarlySpawn!=='boolean')throw Error('CC2_SECONDARY_DEMO_FLAG');
@@ -221,7 +236,8 @@ export class SecondaryEnemyDirector {
       return this.snapshot();
     }
     const registry=proposedExtensionCatalog();
-    let boost=false;
+    const distinct=this.config.encounterPolicy==='cc2-27-distinct/v1';
+    let boost=false,rolePressure=1;
     for(const a of this.actors){
       const minRows=a.kind==='SCOUT'?4:8;
       const eligible=input.completedRows>=(this.config.demoEarlySpawn?0:minRows);
@@ -269,14 +285,19 @@ export class SecondaryEnemyDirector {
         this.emit('SENSOR_CONFIRMED',a,{source:sensed});
       }
       a.priorSensed=Boolean(sensed);
+      if(distinct&&!sensed)a.source=null;
       if(a.phase==='COOLDOWN'&&this.tick>=a.cooldownUntil){
         a.phase='PATROL';a.source=null;
       }
       if(a.phase==='PATROL'&&sensed&&this.tick>=a.cooldownUntil){
+        const warning=distinct&&a.kind==='SENTRY'?
+          Math.max(64,this.config.warningTicks):this.config.warningTicks;
         a.phase='TELEGRAPH';a.warningAt=this.tick;
-        a.until=this.tick+this.config.warningTicks;
+        a.until=this.tick+warning;
         this.emit('WARNING_STARTED',a,{
-          warningTicks:this.config.warningTicks});
+          warningTicks:warning,
+          ...(distinct?{role:a.kind==='SCOUT'?'MOBILE_RECON':
+            'DIRECTIONAL_LOCK'}:{})});
       }
       if(a.phase==='TELEGRAPH'){
         if(!sensed){
@@ -284,23 +305,42 @@ export class SecondaryEnemyDirector {
           a.cooldownUntil=this.tick+this.config.cooldownTicks/3;
           this.emit('WARNING_CANCELED',a,{reason:'LINE_OF_SIGHT_LOST'});
         }else if(this.tick>=a.until){
-          a.phase='ALERT';a.until=this.tick+this.config.alertTicks;
+          const alert=distinct&&a.kind==='SCOUT'?
+            Math.min(56,this.config.alertTicks):this.config.alertTicks;
+          a.phase='ALERT';a.until=this.tick+alert;
           this.alertCount++;
           this.emit('ALERT_STARTED',a,{
-            maxPressureMultiplier:this.config.pressureMultiplier});
+            maxPressureMultiplier:distinct&&a.kind==='SCOUT'?
+              Math.min(this.config.pressureMultiplier,1.06):
+              this.config.pressureMultiplier,
+            ...(distinct?{role:a.kind==='SCOUT'?'MOBILE_RECON':
+              'DIRECTIONAL_LOCK',alertTicks:alert}:{})});
         }
       }
       if(a.phase==='ALERT'){
-        if(this.tick>=a.until){
+        // A broken mobile sight line or avoided directional cone disarms
+        // pressure immediately; there is no magical residual tracking.
+        if(this.tick>=a.until||(distinct&&!sensed)){
           a.phase='COOLDOWN';
           a.cooldownUntil=this.tick+this.config.cooldownTicks;
-          this.emit('ALERT_EXPIRED',a,{cooldownTicks:this.config.cooldownTicks});
+          this.emit('ALERT_EXPIRED',a,{
+            cooldownTicks:this.config.cooldownTicks,
+            ...(distinct?{reason:sensed?'TIMED_OUT':'SIGHT_LOST'}:{})});
+        }else if(distinct){
+          // Different strategic roles: mobile Scout provides modest brief
+          // reconnaissance pressure (<=6%), Sentry gives stronger fixed
+          // directional pressure (<=10%). Multiple alerts NEVER stack.
+          const influence=a.kind==='SCOUT'?
+            Math.min(this.config.pressureMultiplier,1.06):
+            this.config.pressureMultiplier;
+          rolePressure=Math.max(rolePressure,influence);
         }else boost=true;
       }
     }
     // Multiple enemies DO NOT STACK their boost or multiply each other's
     // threat. Fairness cap is always <=12% in a Pursuer-observed chase.
-    this.multiplier=boost?this.config.pressureMultiplier:1;
+    this.multiplier=distinct?rolePressure:
+      boost?this.config.pressureMultiplier:1;
     return this.snapshot();
   }
   /** Boost must be called with accepted Pursuer's ORIGINAL sensor outcome. */
@@ -311,12 +351,22 @@ export class SecondaryEnemyDirector {
     return clone({
       schema:'cc2-secondary-snapshot/v1' as const,
       mode:this.config.mode,runId:this.runId,tick:this.tick,
+      ...(this.config.encounterPolicy?{policy:this.config.encounterPolicy}:{}),
       actors:this.actors.filter(a=>a.eligible).map(a=>({
         id:a.id,kind:a.kind,x:a.x,y:a.y,radius:a.radius,
         phase:a.phase,active:a.eligible,
         signalSource:a.source,lastDetectedTick:a.lastDetectedTick,
+        ...(this.config.encounterPolicy?{
+          role:a.kind==='SCOUT'?'MOBILE_RECON' as const:
+            'DIRECTIONAL_LOCK' as const,
+          heading:a.kind==='SENTRY'?
+            -Math.PI/2+Math.sin(this.tick*.006)*.72:null,
+        }:{}),
         warningProgress:a.phase==='TELEGRAPH'
-          ?limit((this.tick-a.warningAt)/this.config.warningTicks,0,1)
+          ?limit((this.tick-a.warningAt)/
+            (this.config.encounterPolicy&&a.kind==='SENTRY'?
+              Math.max(64,this.config.warningTicks):
+              this.config.warningTicks),0,1)
           :a.phase==='ALERT'?1:0,
       })),
       speedMultiplier:this.multiplier,
