@@ -1,0 +1,74 @@
+name: CC2-26 Living Pursuer Source and Browser Qualification
+on:
+  push:
+    branches: [feature/cc2-26-living-pursuer-mass-intent]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Protect prior working candidate and source authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          accepted=2fc9baf345a8372e83f188d524ceca6c87c2fc5f
+          git merge-base --is-ancestor "$accepted" HEAD
+          while IFS= read -r f; do
+            case "$f" in
+              src/games/circuit-climb-2/devtools/cc2-26-*|\
+              src/games/circuit-climb-2/devtools/cc2-16a.html|\
+              src/games/circuit-climb-2/devtools/buildPortable16A.mjs|\
+              .github/workflows/cc2-26-living-pursuer.yml)
+                echo "CC226_APPROVED_DIFF: $f";;
+              *) echo "CC226_UNEXPECTED_SOURCE_CHANGE: $f" >&2;exit 1;;
+            esac
+          done < <(git diff --name-only "$accepted" HEAD)
+          git diff --exit-code "$accepted" HEAD -- \
+            src/games/circuit-climb-2/core \
+            src/games/circuit-climb-2/math \
+            src/games/circuit-climb-2/pursuer \
+            src/games/circuit-climb-2/enemies \
+            src/games/circuit-climb-2/features \
+            src/games/circuit-climb-2/progression \
+            src/games/circuit-climb-2/devtools/cc2-19-red-shell.js \
+            src/games/circuit-climb-2/devtools/cc2-20-living-pursuer.js
+      - name: Install, type-check and inspect source
+        run: |
+          npm ci
+          npm run lint
+          node --check src/games/circuit-climb-2/devtools/cc2-26-oxide-material.js
+          node --check src/games/circuit-climb-2/devtools/cc2-26-owner-smoke.mjs
+      - name: Historical source mathematical tests
+        run: npx vitest run src/games/circuit-climb-2/
+      - name: Genuine browser and visual attachment qualification
+        run: |
+          node src/games/circuit-climb-2/devtools/cc2-26-owner-smoke.mjs
+          node src/games/circuit-climb-2/devtools/cc2-21-cohesion-smoke.mjs
+          node src/games/circuit-climb-2/devtools/cc2-16b-input-smoke.mjs
+      - name: Offline standalone and production compile
+        run: |
+          node src/games/circuit-climb-2/devtools/buildPortable16A.mjs
+          node src/games/circuit-climb-2/devtools/cc2-16a-portable-smoke.mjs
+          npm run build
+      - name: Owner evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-26-Living-Pursuer-Owner-Review
+          path: |
+            cc2-26-evidence/
+            cc2-21-evidence/
+            cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html
+          if-no-files-found: warn
+          retention-days: 90

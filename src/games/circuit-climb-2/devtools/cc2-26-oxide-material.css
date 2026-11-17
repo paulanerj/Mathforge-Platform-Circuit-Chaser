@@ -1,0 +1,75 @@
+/*
+ * CC2-26 — existing shell + existing bounded plasma, redesigned as one mass.
+ *
+ * The visual baseline remains untouched without ?cc226=1. This stylesheet
+ * adds no canvas, no overlay spanning the board, no input capture and no
+ * independent world-space body. All shapes live inside the accepted shell.
+ */
+html[data-cc226="on"] #cc219-stage[data-cc220-mode="pursuit"] #cc219-shell{
+  background:
+    radial-gradient(circle at 33% 26%,rgba(255,221,186,.42) 0 9%,transparent 37%),
+    radial-gradient(ellipse at 68% 73%,rgba(49,7,26,.53),transparent 56%),
+    radial-gradient(circle at 50% 49%,#c44948 0,#912837 59%,#601b30 88%,#d9746a 100%)!important;
+  box-shadow:
+    inset 0 1px 4px rgba(255,215,189,.35),
+    inset -5px -5px 8px rgba(37,5,20,.49),
+    0 0 calc(5px + var(--cc226-heat,.2)*7px) rgba(191,61,70,.28)!important;
+  border-color:rgba(210,94,89,.75)!important;
+}
+/* The existing shell is the only solid center; the procedural CC2-20
+ * envelope, spring-mass wake and filaments remain centered on that source. */
+html[data-cc226="on"] #cc219-stage[data-cc220-mode="pursuit"]
+  #cc219-shell .cc219-sphere-material{
+  background:
+    radial-gradient(circle at 33% 24%,rgba(255,224,198,.31),transparent 29%),
+    radial-gradient(circle at 63% 76%,rgba(43,4,20,.38),transparent 48%),
+    conic-gradient(from 38deg,#a32e3d,#d55752,#8c2136,#b83b48,#a32e3d)!important;
+  opacity:.78;
+}
+html[data-cc226="on"] #cc219-stage[data-cc220-mode="pursuit"]
+  #cc219-shell .cc219-filament{
+  opacity:.3!important;
+  filter:none!important;
+}
+/* Sensing is communicated by intensity, never by a fabricated target arrow. */
+html[data-cc226="on"] #cc219-stage[data-cc226-intent="TARGET_ACQUIRED"]
+  #cc219-shell,
+html[data-cc226="on"] #cc219-stage[data-cc226-intent="HUNTING"]
+  #cc219-shell{
+  filter:drop-shadow(0 0 3px rgba(196,72,63,.42));
+}
+html[data-cc226="on"] #cc219-stage[data-cc226-intent="IMMINENT"]
+  #cc219-shell{
+  filter:drop-shadow(0 0 5px rgba(218,86,74,.58));
+}
+/* Capture phases remain entirely owned by CC2-19/20; never overlay the
+ * authorized swallow, redraw the eye, or add a second moving red blob. */
+html[data-cc226="on"] #cc219-stage[data-capturing="true"] #cc219-shell,
+html[data-cc226="on"] #cc219-stage[data-cc220-mode="capture"] #cc219-shell{
+  filter:none!important;
+}
+/* Controls deliberately remain in Developer Settings, not the HUD. */
+#cc226-panel{
+  margin:8px 0;
+  padding:10px 12px;
+  color:#27445d;
+  background:#f3f6f7;
+  border:1px solid #bfccd2;
+  border-radius:8px;
+  font:500 12px/1.45 system-ui,sans-serif;
+}
+#cc226-panel summary{font-weight:800;cursor:pointer;color:#374956}
+#cc226-panel p{margin:8px 0}
+#cc226-panel button{
+  cursor:pointer;min-height:42px;margin:3px 7px 3px 0;
+  border:1px solid #b1c0c7;border-radius:7px;
+  padding:7px 10px;background:#fff;color:#34434b;
+  font:700 11px/1.4 system-ui,sans-serif;
+}
+#cc226-panel button:focus-visible{outline:3px solid #2077b8;outline-offset:2px}
+@media(prefers-reduced-motion:reduce){
+  html[data-cc226="on"] #cc219-shell,
+  html[data-cc226="on"] #cc219-shell *{
+    animation:none!important;transition:none!important;
+  }
+}
