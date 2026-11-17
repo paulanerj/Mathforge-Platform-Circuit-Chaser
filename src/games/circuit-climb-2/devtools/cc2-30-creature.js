@@ -344,8 +344,9 @@ const numericalControls=[
   ['offerTicks',40,350,1,'Invitation lifetime · ticks'],
   ['challengeWindowTicks',60,600,1,'Passkey time · ticks'],
   ['gateStep',2,9,1,'Skip-count increment'],
-  ['fieldTicks',20,600,1,'Molasses lifetime · ticks'],
-  ['slowMultiplier',.55,1,.01,'Pursuer speed multiplier'],
+  ['fieldTicks',20,600,1,'Local field lifetime · blanket persists all run'],
+  ['slowMultiplier',sourceDraft?.fieldMode==='BELOW_PLATFORM'?.45:.55,
+    1,.01,'Pursuer speed multiplier'],
   ['fieldRadiusInRowGaps',.2,1.5,.05,'Gel collision radius · row gaps'],
 ];
 if(sourceDraft){
