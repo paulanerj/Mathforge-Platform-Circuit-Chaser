@@ -142,6 +142,7 @@ function refresh(){
   }
   if(!q)lastQuestion='';
   const field=c.activeField;
+  root.dataset.contact=c.contactActive?'stuck':'clear';
   if(field){
     const target=findButton(c.platformId);
     if(target){
@@ -167,6 +168,12 @@ function refresh(){
     if(ev.id!==lastEvent){
       lastEvent=ev.id;
       if(ev.type==='FIELD_CAST'){status.textContent='Molasses field deployed';sound(115);}
+      if(ev.type==='FIELD_CONTACT_ENTER'){
+        status.textContent='Pursuer caught in molasses';sound(88);
+      }
+      if(ev.type==='FIELD_CONTACT_EXIT'){
+        status.textContent='Pursuer broke free of molasses';sound(200);
+      }
       if(ev.type==='FIELD_EXPIRED')status.textContent='Molasses field evaporated';
       if(ev.type==='GATE_EXPIRED')status.textContent='Creature opportunity expired';
     }
@@ -224,7 +231,8 @@ window.__CC2_30__={
   apply,
   get events(){return api()?.creature?.()?.receipts??[]},
   get presentation(){return {draws,hopFrames,creatureVisible:!creature.hidden,
-    questionVisible:!gate.hidden,gelVisible:!gel.hidden}},
+    questionVisible:!gate.hidden,gelVisible:!gel.hidden,
+    verifiedContact:Boolean(api()?.creature?.()?.contactActive)}},
 };
 function frame(t){
   // 30Hz max for DOM projection: avoid a large source snapshot/layout pass
