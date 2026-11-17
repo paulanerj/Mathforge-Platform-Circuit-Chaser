@@ -39,6 +39,9 @@ try{
   page.on('pageerror',error=>errors.push(String(error)));
   try{
    await page.goto(base,{waitUntil:'domcontentloaded'});
+   // The original CC2-09 intro intentionally hides the board. Match the
+   // owner's actual screenshot by entering gameplay before pixel inspection.
+   await page.locator('#cc209c-enter').click();
    await page.waitForFunction(()=>
      window.__CC2_09B__?.summary?.()?.futureTiers?.cells>=6 &&
      window.__CC2_02A__?.rendererStats?.()?.flowRowsEachSide===3,
@@ -102,8 +105,6 @@ try{
      'new tiers are visibly AHEAD of Spark '+width,r);
    assert(r.errors===0&&r.paintFailures===0&&errors.length===0,
      'no hidden painter exception '+width,{r,errors});
-   await evidence(page,width,'opening');
-   await page.locator('#cc209c-enter').click();
    await page.waitForFunction(()=>
      document.querySelectorAll('button.choice').length===3);
    await evidence(page,width,'ready');
