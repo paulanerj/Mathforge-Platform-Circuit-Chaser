@@ -143,14 +143,22 @@ try{
       const button=page.locator('button.choice[data-platform-id="'+source.id+'"]');
       await button.waitFor({state:'visible',timeout:10000});
       await button.click();
-      const done=await page.evaluate(()=>{
+      const done=await page.evaluate(targetRow=>{
         const g=window.__CC2_02A__;
-        g.advanceForQA(300);
+        // Advance in small real 60-Hz source chunks. Stop immediately on
+        // physical landing instead of giving the Pursuer 300 idle ticks
+        // after each success (which made training artificially lethal).
+        for(let t=0;t<100;t++){
+          const current=g.snapshot();
+          if(current.completedRows>=targetRow||current.phase==='ended')break;
+          g.advanceForQA(6);
+        }
         const s=g.snapshot();
-        return {row:s.completedRows,phase:s.phase,
+        return {row:s.completedRows,phase:s.phase,endReason:s.endReason,
+          tick:s.tick,
           events:g.events().filter(e=>e.type==='ROW_COMPLETED').length,
           special:g.specials(),features:g.features()};
-      });
+      },row);
       assert(done.row===row&&done.events===row,
         'real source ROW_COMPLETED '+row,done);
       if(row===5){
