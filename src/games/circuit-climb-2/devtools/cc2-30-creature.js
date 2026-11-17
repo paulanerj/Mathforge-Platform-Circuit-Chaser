@@ -340,7 +340,11 @@ panel.querySelector('.cc230-import-gameplay').onclick=()=>{
     loadDraft(JSON.parse(panel.querySelector('.cc230-import-gameplay-data').value));
   }catch(error){gameplayMessage.textContent='Not imported: '+error.message;}
 };
-document.querySelector('.shell')?.appendChild(panel);
+// CC2-09 owner menu intentionally hides game-shell details; place this
+// inside the designated developer slot instead of inventing a new panel.
+const developerSlot=document.querySelector('#cc209-developer-slot');
+if(developerSlot)developerSlot.appendChild(panel);
+else console.error('CC2-30B developer slot missing; source controls hidden');
 window.__CC2_30__={
   get config(){return {...config}},
   get source(){return api()?.creature?.()??null},
