@@ -43,6 +43,7 @@ export interface CreatureConfig {
   species:'MOLASSES_GUARDIAN';
   firstEligibleRow:number;
   hopEveryTicks:number;
+  hopTravelTicks:number;
   offerTicks:number;
   challengeWindowTicks:number;
   gateStep:number;
@@ -54,7 +55,7 @@ export interface CreatureConfig {
 }
 const DEFAULT:CreatureConfig={
   schema:CREATURE_SCHEMA,species:'MOLASSES_GUARDIAN',
-  firstEligibleRow:2,hopEveryTicks:125,offerTicks:105,
+  firstEligibleRow:2,hopEveryTicks:125,hopTravelTicks:24,offerTicks:105,
   challengeWindowTicks:210,gateStep:3,fieldTicks:150,
   slowMultiplier:0.72,fieldRadiusInRowGaps:0.95,
   visual:{material:'clear-molasses',hue:138,
@@ -71,6 +72,8 @@ export function validateCreatureConfig(raw:unknown):CreatureConfig{
       (int&&!Number.isInteger(v)))throw Error('CREATURE_CONFIG_RANGE');
   };
   check(c.firstEligibleRow,1,15,true);check(c.hopEveryTicks,40,600,true);
+  check(c.hopTravelTicks,6,80,true);
+  if(c.hopTravelTicks>=c.hopEveryTicks)throw Error('CREATURE_HOP_TIMING');
   check(c.offerTicks,40,350,true);check(c.challengeWindowTicks,60,600,true);
   check(c.gateStep,2,9,true);check(c.fieldTicks,20,600,true);
   check(c.slowMultiplier,0.55,1);check(c.fieldRadiusInRowGaps,0.2,1.5);
@@ -94,6 +97,9 @@ export interface CreatureSnapshot{
   species:'MOLASSES_GUARDIAN';
   platformId:string|null;
   platformRow:number|null;
+  /** Source-authored hop: renderer may interpolate ONLY between these real IDs. */
+  hop:null|{fromPlatformId:string;toPlatformId:string;
+    startTick:number;endTick:number};
   gate:'DORMANT'|'AVAILABLE'|'QUESTION'|'COOLDOWN';
   question:null|{sequence:number[];options:number[];deadlineTick:number};
   activeField:null|{x:number;y:number;radius:number;expiresTick:number;
@@ -123,6 +129,7 @@ export class CreatureEcologyDirector{
   private correctAnswer=0;
   private field:CreatureSnapshot['activeField']=null;
   private lastHopTick=-1;
+  private hop:CreatureSnapshot['hop']=null;
   private ordinal=0;
   private receipts:CreatureReceipt[]=[];
   private stopped=false;
@@ -142,15 +149,17 @@ export class CreatureEcologyDirector{
   reset(runId:string):void{
     this.runId=runId;this.tick=0;this.platformId=null;this.platformRow=null;
     this.gate='DORMANT';this.question=null;this.correctAnswer=0;
-    this.field=null;this.lastHopTick=-1;this.ordinal=0;
+    this.field=null;this.lastHopTick=-1;this.hop=null;this.ordinal=0;
     this.receipts=[];this.stopped=false;
   }
-  terminate():void{this.stopped=true;this.question=null;this.field=null;this.gate='DORMANT';}
+  terminate():void{this.stopped=true;this.question=null;this.field=null;
+    this.hop=null;this.gate='DORMANT';}
   advance(world:EngineStateV1):void{
     if(world.runId!==this.runId)throw Error('CREATURE_RUN_ISOLATION');
     if(world.paused||world.phase==='ended'||this.stopped)return;
     if(world.tick<this.tick)throw Error('CREATURE_TICK_REGRESSION');
     this.tick=world.tick;
+    if(this.hop&&this.tick>=this.hop.endTick)this.hop=null;
     if(this.field&&this.tick>=this.field.expiresTick){
       this.field=null;this.emit('FIELD_EXPIRED');
     }
@@ -160,17 +169,23 @@ export class CreatureEcologyDirector{
     }
     if(world.completedRows<this.config.firstEligibleRow)return;
     if(this.platformId&&world.completedRows>this.platformRow!+1){
-      this.platformId=null;this.gate='DORMANT';this.question=null;
+      this.platformId=null;this.hop=null;this.gate='DORMANT';this.question=null;
     }
     if(!this.platformId||
       (this.gate==='AVAILABLE'&&this.tick-this.lastHopTick>=this.config.hopEveryTicks)){
       const rowIndex=world.currentProblem.rowIndex;
       const row=world.world.rows.find(r=>r.index===rowIndex);
       if(!row||row.platforms.length===0)return;
-      const index=mix(this.seedNumber+this.ordinal+rowIndex)%row.platforms.length;
-      const chosen=row.platforms[index];
-      if(chosen.dead)return;
+      const candidates=row.platforms.filter(p=>!p.dead&&p.id!==this.platformId);
+      if(candidates.length===0)return;
+      const index=mix(this.seedNumber+this.ordinal+rowIndex)%candidates.length;
+      const chosen=candidates[index];
+      const previous=this.platformId;
       this.platformId=chosen.id;this.platformRow=rowIndex;
+      this.hop=previous?{
+        fromPlatformId:previous,toPlatformId:chosen.id,
+        startTick:this.tick,endTick:this.tick+this.config.hopTravelTicks,
+      }:null;
       this.lastHopTick=this.tick;
       this.question=null;this.gate='AVAILABLE';
       this.emit(this.ordinal===0?'SPAWNED':'HOPPED',
@@ -183,6 +198,7 @@ export class CreatureEcologyDirector{
   }
   offer(world:EngineStateV1):{ok:boolean;reason?:string}{
     if(world.runId!==this.runId||world.paused||world.phase!=='ready'||
+      this.hop||
       this.stopped||this.gate!=='AVAILABLE'||!this.platformId)
       return {ok:false,reason:'CREATURE_NOT_AVAILABLE'};
     this.tick=world.tick;
@@ -245,7 +261,7 @@ export class CreatureEcologyDirector{
   snapshot():CreatureSnapshot{
     return clone({schema:CREATURE_SCHEMA,runId:this.runId,tick:this.tick,
       species:'MOLASSES_GUARDIAN',platformId:this.platformId,
-      platformRow:this.platformRow,gate:this.gate,question:this.question,
+      platformRow:this.platformRow,hop:this.hop,gate:this.gate,question:this.question,
       activeField:this.field,fieldMultiplier:this.field?this.config.slowMultiplier:1,
       config:this.config,receipts:this.receipts});
   }
