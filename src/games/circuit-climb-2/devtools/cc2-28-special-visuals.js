@@ -447,6 +447,17 @@
   function install(){
     designer();
     if(!enabled)return;
+    const guide=$('cc209c-special-guide');
+    if(guide&&!$('cc228-help-note')){
+      const p=document.createElement('p');p.id='cc228-help-note';
+      p.textContent='NEW EXPERIMENT — SURGE: every seventh completed row is a row-wide '+
+        'electrical hazard, clearly marked on ALL three choices. A correct '+
+        'landing begins a 45-tick warning and then a brief +7% Pursuer '+
+        'pressure only when it really sees Spark. A completed Relay '+
+        'grounds a live Surge and protects the following row; an in-range '+
+        'earned Pulse also discharges it. Neither changes your equation.';
+      guide.append(p);
+    }
     const board=$('board');
     const metadata=document.querySelector('.hud-metadata');
     if(!board||!metadata){errors.push('BOARD_OR_HUD_MISSING');return;}
