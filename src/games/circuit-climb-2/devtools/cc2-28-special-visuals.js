@@ -279,6 +279,41 @@
       pulseRing('discharge');
     }else flash('PULSE MISS · CHARGE SPENT','miss');
   }
+  /**
+   * Post-run special record is read-only: no extra score, points, badges or
+   * solved equations. It appears within the EXISTING optional statistics,
+   * after the primary CC2-25 replay and verified score hierarchy.
+   */
+  function renderFinalRecord(){
+    const game=api(),s=game?.snapshot?.(),special=game?.specials?.();
+    const panel=$('summaryPanel');
+    if(!s||!special||s.phase!=='ended'||!panel||panel.hidden)return;
+    const parent=panel.querySelector('.cc225-breakdown')||
+      panel.querySelector('.summary-card');
+    if(!parent)return;
+    let box=$('cc228-final-record');
+    if(!box){
+      box=document.createElement('section');
+      box.id='cc228-final-record';
+      box.setAttribute('aria-label','Source-verified special platform record');
+      parent.append(box);
+    }
+    const key=s.runId+':'+special.completedRows+':'+
+      JSON.stringify(special.counters);
+    if(box.dataset.reportKey===key)return;
+    box.dataset.reportKey=key;
+    const heading=document.createElement('strong');
+    heading.textContent='SPECIAL PLATFORMS · VERIFIED EVENTS';
+    const description=document.createElement('p');
+    const c=special.counters;
+    description.textContent='Capacitors '+c.capacitors+
+      ' · Relays '+c.relays+
+      ' · Surge rows '+c.surges+
+      ' · Grounded '+c.grounded+
+      ' · Pulse discharged '+c.discharged+
+      ' · Activated '+c.activated;
+    box.replaceChildren(heading,description);
+  }
   function sourceEvents(){
     const game=api(),s=game?.snapshot?.();
     if(!s||!game?.specials?.())return;
@@ -451,7 +486,7 @@
     lastVisual=now;
     try{
       if(api()?.specials?.()){
-        syncOptions();sourceEvents();paintCount++;
+        syncOptions();sourceEvents();renderFinalRecord();paintCount++;
       }
       if(briefUntil>0&&now>briefUntil&&announcement){
         announcement.hidden=true;briefUntil=0;
