@@ -135,8 +135,10 @@ const standalonePreviewBootstrap=String.raw`
   }
 })();
 </script>`;
-if(!html.includes('</head>'))throw Error('CC230G_PREVIEW_HEAD_MISSING');
-html=html.replace('</head>',()=>standalonePreviewBootstrap+'\n</head>');
+if(!html.includes('<head>'))throw Error('CC230G_PREVIEW_HEAD_MISSING');
+// Head FIRST: slate-focus owner theme and other early scripts must observe the
+// resolved preview flags; inserting only before </head> would be too late.
+html=html.replace('<head>',()=>'<head>\n'+standalonePreviewBootstrap);
 
 // Source-preserving diagnostic: never weaken the packaging guards.
 const remainingMarkers=[cssTag,fxTag,glowTag,phaseCssTag,phaseJsTag,
