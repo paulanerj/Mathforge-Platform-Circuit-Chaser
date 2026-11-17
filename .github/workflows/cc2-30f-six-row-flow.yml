@@ -48,7 +48,7 @@ jobs:
           sha256sum dist/cc2-30.html
       - name: Browser-parse exact published HTML; fail on blank board or raw JavaScript spill
         run: node src/games/circuit-climb-2/devtools/cc2-30f-standalone-render-smoke.mjs
-      - name: Exact standalone bare URL default: 3+3 flow, first Guardian, real bot-only blanket
+      - name: "Exact standalone bare URL default: three-row flow, first Guardian, real bot-only blanket"
         run: node src/games/circuit-climb-2/devtools/cc2-30g-default-preview-smoke.mjs
       - name: Preserve owner review artifact
         if: always()
