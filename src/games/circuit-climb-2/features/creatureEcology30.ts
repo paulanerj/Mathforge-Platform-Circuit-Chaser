@@ -53,6 +53,9 @@ export interface CreatureConfig {
   fieldTicks:number;
   slowMultiplier:number;
   fieldRadiusInRowGaps:number;
+  /** Optional CC2-30E alternate authority: persistent downward blanket.
+   *  Absent means original local circular field for historical replays. */
+  fieldMode?:'BELOW_PLATFORM';
   visual:{material:'clear-molasses'|'mineral-gel'|'glass';
     hue:number;opacity:number;edgeSharpness:number;motionScale:number};
 }
@@ -79,12 +82,18 @@ export function validateCreatureConfig(raw:unknown):CreatureConfig{
   if(c.hopTravelTicks>=c.hopEveryTicks)throw Error('CREATURE_HOP_TIMING');
   check(c.offerTicks,40,350,true);check(c.challengeWindowTicks,60,600,true);
   check(c.gateStep,2,9,true);check(c.fieldTicks,20,600,true);
-  check(c.slowMultiplier,0.55,1);check(c.fieldRadiusInRowGaps,0.2,1.5);
+  if(c.fieldMode!==undefined&&c.fieldMode!=='BELOW_PLATFORM')
+    throw Error('CREATURE_FIELD_MODE');
+  check(c.slowMultiplier,c.fieldMode==='BELOW_PLATFORM'?.45:.55,1);
+  check(c.fieldRadiusInRowGaps,0.2,1.5);
   if(!c.visual||!['clear-molasses','mineral-gel','glass'].includes(c.visual.material))
     throw Error('CREATURE_CONFIG_MATERIAL');
   check(c.visual.hue,0,360);check(c.visual.opacity,0.1,0.92);
   check(c.visual.edgeSharpness,0,1);check(c.visual.motionScale,0.1,2);
-  if(Object.keys(c).sort().join('|')!==Object.keys(DEFAULT).sort().join('|')||
+  const expected=c.fieldMode==='BELOW_PLATFORM'?
+    [...Object.keys(DEFAULT),'fieldMode'].sort().join('|'):
+    Object.keys(DEFAULT).sort().join('|');
+  if(Object.keys(c).sort().join('|')!==expected||
     Object.keys(c.visual).sort().join('|')!==Object.keys(DEFAULT.visual).sort().join('|'))
     throw Error('CREATURE_CONFIG_FIELDS');
   return structuredClone(c);
@@ -107,7 +116,8 @@ export interface CreatureSnapshot{
   gate:'DORMANT'|'AVAILABLE'|'QUESTION'|'COOLDOWN';
   question:null|{sequence:number[];options:number[];deadlineTick:number};
   activeField:null|{x:number;y:number;radius:number;expiresTick:number;
-    direction:'left'|'right'};
+    direction:'left'|'right';coverage?:'BELOW_PLATFORM';
+    sourcePlatformId?:string;sourceRow?:number};
   fieldMultiplier:number;
   /** True only after an authoritative physical Pursuer/field overlap. */
   contactActive:boolean;
@@ -258,6 +268,8 @@ export class CreatureEcologyDirector{
             fieldTicks:this.config.fieldTicks,
             radiusInRowGaps:this.config.fieldRadiusInRowGaps,
             slowMultiplier:this.config.slowMultiplier,
+            ...(this.config.fieldMode==='BELOW_PLATFORM'?
+              {coverage:'BELOW_PLATFORM' as const}:{}),
           },world,event=>this.emitEffect(event));
         }
       }
@@ -278,9 +290,10 @@ export class CreatureEcologyDirector{
     const state=this.ability.snapshot();
     const f=state.activeField;
     if(!f||this.tick>=f.expiresTick)return 1;
-    const within=Math.hypot(bot.x-f.x,bot.y-f.y)<=f.radius;
-    return within&&(f.direction==='left'?bot.x<=f.x:bot.x>=f.x)
-      ?state.multiplier:1;
+    const within=f.coverage==='BELOW_PLATFORM'?bot.y>=f.y:
+      Math.hypot(bot.x-f.x,bot.y-f.y)<=f.radius&&
+      (f.direction==='left'?bot.x<=f.x:bot.x>=f.x);
+    return within?state.multiplier:1;
   }
   observePursuer(bot:{x:number;y:number}):number{
     return this.ability.observePursuer(bot,this.tick,
