@@ -1,9 +1,9 @@
 name: CC2-30F Six Row Flow and Pursuer Only Molasses Qualification
 on:
   push:
-    branches: [feature/cc2-30f-six-row-flow-pursuer-only]
+    branches: [fix/cc2-30f-standalone-html-render-integrity]
   pull_request:
-    branches: [feature/cc2-30e-molasses-downward-blanket]
+    branches: [feature/cc2-30f-six-row-flow-pursuer-only]
   workflow_dispatch:
 permissions:
   contents: read
@@ -46,6 +46,8 @@ jobs:
           grep -q 'cc230-creature-controller' dist/cc2-30.html
           grep -q 'cc230-creature-style' dist/cc2-30.html
           sha256sum dist/cc2-30.html
+      - name: Browser-parse exact published HTML; fail on blank board or raw JavaScript spill
+        run: node src/games/circuit-climb-2/devtools/cc2-30f-standalone-render-smoke.mjs
       - name: Preserve owner review artifact
         if: always()
         uses: actions/upload-artifact@v4
