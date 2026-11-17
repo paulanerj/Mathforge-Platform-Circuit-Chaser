@@ -286,7 +286,7 @@ export class CircuitClimbChaseCore {
       const pressure=Math.max(secondaryPressure,specialPressure);
       // A true physical Pursuer body/gel overlap slows only the Pursuer.
       // Bounded by the prototype's own source config, never a visual layer.
-      const viscosity=this.creature?.pressureFor(priorPrimary.body)??1;
+      const viscosity=this.creature?.observePursuer(priorPrimary.body)??1;
       this.pursuer.step(after.world,after.spark,after.tick,
         this.features.speedMultiplier(after.tick)*pressure*viscosity);
       if(this.adjudicate())this.features.consume(this.core.eventLog());
