@@ -89,7 +89,8 @@ export function validateCreatureConfig(raw:unknown):CreatureConfig{
 export interface CreatureReceipt{
   schema:'cc2-creature-receipt/v1';id:string;runId:string;tick:number;
   type:'SPAWNED'|'HOPPED'|'GATE_OPEN'|'GATE_SOLVED'|'GATE_FAILED'|
-    'GATE_DECLINED'|'GATE_EXPIRED'|'FIELD_CAST'|'FIELD_EXPIRED';
+    'GATE_DECLINED'|'GATE_EXPIRED'|'FIELD_CAST'|'FIELD_EXPIRED'|
+    'FIELD_CONTACT_ENTER'|'FIELD_CONTACT_EXIT';
   creatureId:string;detail:Record<string,string|number|boolean>;
 }
 export interface CreatureSnapshot{
@@ -105,6 +106,8 @@ export interface CreatureSnapshot{
   activeField:null|{x:number;y:number;radius:number;expiresTick:number;
     direction:'left'|'right'};
   fieldMultiplier:number;
+  /** True only after an authoritative physical Pursuer/field overlap. */
+  contactActive:boolean;
   config:CreatureConfig;
   receipts:CreatureReceipt[];
 }
@@ -128,6 +131,7 @@ export class CreatureEcologyDirector{
   private question:CreatureSnapshot['question']=null;
   private correctAnswer=0;
   private field:CreatureSnapshot['activeField']=null;
+  private contactActive=false;
   private lastHopTick=-1;
   private hop:CreatureSnapshot['hop']=null;
   private ordinal=0;
@@ -149,11 +153,12 @@ export class CreatureEcologyDirector{
   reset(runId:string):void{
     this.runId=runId;this.tick=0;this.platformId=null;this.platformRow=null;
     this.gate='DORMANT';this.question=null;this.correctAnswer=0;
-    this.field=null;this.lastHopTick=-1;this.hop=null;this.ordinal=0;
+    this.field=null;this.contactActive=false;
+    this.lastHopTick=-1;this.hop=null;this.ordinal=0;
     this.receipts=[];this.stopped=false;
   }
   terminate():void{this.stopped=true;this.question=null;this.field=null;
-    this.hop=null;this.gate='DORMANT';}
+    this.hop=null;this.contactActive=false;this.gate='DORMANT';}
   advance(world:EngineStateV1):void{
     if(world.runId!==this.runId)throw Error('CREATURE_RUN_ISOLATION');
     if(world.paused||world.phase==='ended'||this.stopped)return;
@@ -161,6 +166,8 @@ export class CreatureEcologyDirector{
     this.tick=world.tick;
     if(this.hop&&this.tick>=this.hop.endTick)this.hop=null;
     if(this.field&&this.tick>=this.field.expiresTick){
+      if(this.contactActive){this.contactActive=false;
+        this.emit('FIELD_CONTACT_EXIT',{reason:'FIELD_EXPIRED'});}
       this.field=null;this.emit('FIELD_EXPIRED');
     }
     if(this.gate==='QUESTION'&&this.question&&
@@ -236,6 +243,7 @@ export class CreatureEcologyDirector{
     this.question=null;this.gate='COOLDOWN';
     this.emit(correct?'GATE_SOLVED':'GATE_FAILED',{choice});
     if(correct){
+      this.contactActive=false;
       const platform=world.world.rows.flatMap(r=>r.platforms)
         .find(p=>p.id===this.platformId);
       if(platform){
@@ -264,11 +272,23 @@ export class CreatureEcologyDirector{
       ?bot.x<=this.field.x:bot.x>=this.field.x;
     return within&&correctDirection?this.config.slowMultiplier:1;
   }
+  /** Registers actual physical contact edges for music, animation and QA.
+   *  Repeated calls during one source tick do not emit duplicate receipts. */
+  observePursuer(bot:{x:number;y:number}):number{
+    const current=this.pressureFor(bot)<1;
+    if(current!==this.contactActive){
+      this.contactActive=current;
+      this.emit(current?'FIELD_CONTACT_ENTER':'FIELD_CONTACT_EXIT',
+        {x:bot.x,y:bot.y});
+    }
+    return current?this.config.slowMultiplier:1;
+  }
   snapshot():CreatureSnapshot{
     return clone({schema:CREATURE_SCHEMA,runId:this.runId,tick:this.tick,
       species:'MOLASSES_GUARDIAN',platformId:this.platformId,
       platformRow:this.platformRow,hop:this.hop,gate:this.gate,question:this.question,
       activeField:this.field,fieldMultiplier:this.field?this.config.slowMultiplier:1,
+      contactActive:this.contactActive,
       config:this.config,receipts:this.receipts});
   }
 }
