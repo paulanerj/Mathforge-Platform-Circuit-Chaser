@@ -16,6 +16,7 @@ import {createHash} from 'node:crypto';
 
 const src=resolve('cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html');
 const destination=resolve('dist/cc2-26-27.html');
+const latest=resolve('dist/cc2-28.html');
 
 // Always reconstruct from EXACT repository source, never from stale local
 // test outputs. This is deterministic and uses no remote scripts/assets.
@@ -28,6 +29,8 @@ const mustHave=[
   'cc226-oxide-material',
   'cc227-role-controller',
   'cc227-role-style',
+  'cc228-special-controller',
+  'cc228-special-visuals',
   'cc225-debrief-controller',
   'cc223-secondary-presentation',
   'cc220-plasma-dynamics',
@@ -43,12 +46,14 @@ if(html.length<100000||html.length>4000000)
 if(/<script\b[^>]*\bsrc\s*=|<link\b[^>]*\brel\s*=\s*["']stylesheet["']/i.test(html))
   throw Error('CC227_PUBLIC_PREVIEW_NOT_FULLY_STANDALONE');
 copyFileSync(src,destination);
+copyFileSync(src,latest);
 const digest=createHash('sha256').update(html).digest('hex');
 console.log(JSON.stringify({
-  schema:'cc2-public-preview/v1',
-  uri:'/cc2-26-27.html',
+  schema:'cc2-public-preview/v2',
+  uri:'/cc2-28.html',
+  historicalAlias:'/cc2-26-27.html',
   bytes:statSync(destination).size,
   sha256:digest,
-  flags:'?cc2Ui=slate-focus&cc226=1&cc223=both&cc223Demo=1&cc227=1',
+  flags:'?cc2Ui=slate-focus&cc228=1',
   standalone:true
 }));
