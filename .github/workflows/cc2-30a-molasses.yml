@@ -22,6 +22,8 @@ jobs:
           node --check src/games/circuit-climb-2/devtools/cc2-30-creature.js
       - name: Authoritative math, replay, Pursuer and one-creature gate tests
         run: npx vitest run src/games/circuit-climb-2/
+      - name: Molasses source-to-pointer tests on 320 390 768 screens
+        run: node src/games/circuit-climb-2/devtools/cc2-30a2-browser-smoke.mjs
       - name: Existing browser and offline regressions
         run: |
           node src/games/circuit-climb-2/devtools/cc2-16b-input-smoke.mjs
@@ -46,4 +48,5 @@ jobs:
             dist/cc2-30.html
             cc2-standalone/
             cc2-28-evidence/
+            cc2-30-evidence/
           if-no-files-found: warn
