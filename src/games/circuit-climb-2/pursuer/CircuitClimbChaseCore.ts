@@ -209,12 +209,17 @@ export class CircuitClimbChaseCore {
       if(this.adjudicate())return;
       this.core.advanceTicks(1);
       const after=this.core.snapshot();
-      this.features.consume(this.core.eventLog());
+      // Reuse the ONE genuine source ledger for both consumers. A slow
+      // tablet must not clone and rescan it several times per frame.
+      const coreReceipts=this.core.eventLog();
+      this.features.consume(coreReceipts);
       this.features.advance(after.tick);
-      // Only real completed-row and existing FeatureProgression receipts
-      // authorize a special interaction; this cannot influence math.
-      this.specials?.consume(this.core.eventLog(),
-        this.features.eventLog(),this.config.mode);
+      // A speculative visual cannot run ahead of a real completed row.
+      // This optional policy only rebuilds receipts when source events
+      // actually arrive, rather than on each of the 60 simulation ticks.
+      if(this.specials?.needsCoreEvents(coreReceipts.length))
+        this.specials.consume(coreReceipts,
+          this.features.eventLog(),this.config.mode);
       if(after.phase==='ended'){
         this.secondary?.terminate(after.runId);
         this.specials?.terminate(after.runId);
