@@ -220,7 +220,13 @@ describe('CC2-28 ChaseCore backward compatibility and versioned replay',()=>{
       expect(state.phase).toBe('ready');
       const choice=state.currentProblem.correctPlatformId;
       expect(game.selectPlatform(choice)).toMatchObject({ok:true,correct:true});
-      game.advanceTicks(300);
+      // Follow the same continuous six-tick source stepping as physical
+      // play. Avoid an artificial 300-tick delay after every landing.
+      for(let ticks=0;ticks<100;ticks++){
+        const state=game.learnerSnapshot();
+        if(state.completedRows>=row||state.phase==='ended')break;
+        game.advanceTicks(6);
+      }
       expect(game.learnerSnapshot().completedRows).toBe(row);
     }
     const events=game.specialEvents();
