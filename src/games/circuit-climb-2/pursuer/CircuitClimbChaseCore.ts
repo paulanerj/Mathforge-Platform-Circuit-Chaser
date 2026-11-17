@@ -34,6 +34,10 @@ import {
   type SecondaryConfigV1,type SecondarySnapshotV1,
   type SecondaryEnemyEventV1,
 } from '../enemies/secondaryEnemies';
+import {
+  SpecialDirector28,validateSpecialConfig28,
+  type SpecialConfig28,type SpecialSnapshot28,type SpecialEvent28,
+} from '../features/specialDirector28';
 
 export interface ChaseSnapshotV1 {
   learner:EngineStateV1;
@@ -41,6 +45,8 @@ export interface ChaseSnapshotV1 {
   features:FeatureSnapshotV1;
   /** Absent entirely for the exact accepted single-Pursuer baseline. */
   secondary?:SecondarySnapshotV1;
+  /** Absent entirely unless the independently versioned CC2-28 experiment runs. */
+  specials?:SpecialSnapshot28;
 }
 export type ChaseCommandV1={
   tick:number;
@@ -60,6 +66,8 @@ export interface ChaseReplayV1 {
   personality?:PursuerPersonalityV1;
   /** Only present in explicit experimental enemy-enabled replays. */
   secondaryConfig?:SecondaryConfigV1;
+  /** Missing means exact historical chase replay and source digest. */
+  specialConfig?:SpecialConfig28;
   commands:ChaseCommandV1[];
   finalTick:number;
 }
@@ -74,6 +82,8 @@ export class CircuitClimbChaseCore {
   readonly personality:PursuerPersonalityV1;
   readonly secondaryConfig:SecondaryConfigV1|null;
   private secondary:SecondaryEnemyDirector|null=null;
+  readonly specialConfig:SpecialConfig28|null;
+  private specials:SpecialDirector28|null=null;
   private core:CircuitClimbCore;
   private pursuer:PursuerController;
   private features:FeatureProgression;
@@ -84,7 +94,8 @@ export class CircuitClimbChaseCore {
     featureConfig:FeatureConfigV1=defaultFeatureConfig(),
     learnerMotion:LearnerMotionPresetV1=defaultLearnerMotionPreset(),
     personality:PursuerPersonalityV1=defaultPursuerPersonality(),
-    secondaryConfig?:SecondaryConfigV1){
+    secondaryConfig?:SecondaryConfigV1,
+    specialConfig?:SpecialConfig28){
     this.seed=seed;
     this.config=Object.freeze(validateRunConfig(config));
     this.pursuerPreset=Object.freeze(validatePursuerPreset(preset));
@@ -94,11 +105,20 @@ export class CircuitClimbChaseCore {
     const secondary=secondaryConfig?validateSecondaryConfig(secondaryConfig):null;
     this.secondaryConfig=secondary&&secondary.mode!=='off'
       ?Object.freeze(secondary):null;
+    // The special strategy policy is not created or serialized on legacy runs.
+    this.specialConfig=specialConfig?
+      Object.freeze(validateSpecialConfig28(specialConfig)):null;
     this.core=new CircuitClimbCore(seed,this.config,this.learnerMotion);
     this.pursuer=new PursuerController(this.core.snapshot().world,
       this.pursuerPreset,this.personality,this.seed);
     this.features=new FeatureProgression(this.featureConfig);
     this.features.consume(this.core.eventLog());
+    if(this.specialConfig){
+      this.specials=new SpecialDirector28(
+        this.core.snapshot().runId,this.specialConfig);
+      this.specials.consume(this.core.eventLog(),this.features.eventLog(),
+        this.config.mode);
+    }
     if(this.secondaryConfig){
       this.secondary=new SecondaryEnemyDirector(
         this.core.snapshot().runId,this.secondaryConfig);
@@ -118,6 +138,7 @@ export class CircuitClimbChaseCore {
     if(captured){
       this.features.consume(this.core.eventLog());
       this.secondary?.terminate(this.core.snapshot().runId);
+      this.specials?.terminate(this.core.snapshot().runId);
     }
     return captured;
   }
@@ -148,8 +169,13 @@ export class CircuitClimbChaseCore {
     const state=this.core.snapshot();
     const bot=this.pursuer.snapshot();
     const distance=Math.hypot(state.spark.x-bot.body.x,state.spark.y-bot.body.y);
-    return this.features.activate(state.tick,this.config.mode,
+    const outcome=this.features.activate(state.tick,this.config.mode,
       state.phase,state.paused,distance);
+    // Only a genuinely accepted, in-range ability can discharge a Surge.
+    // Failed attempts and out-of-range Pulses never alter hazard authority.
+    if(outcome.ok)this.specials?.onPulse(state.runId,state.tick,
+      outcome.affected);
+    return outcome;
   }
   pause():void{this.record('PAUSE');this.core.pause();}
   resume():void{this.record('RESUME');this.core.resume();}
@@ -157,6 +183,7 @@ export class CircuitClimbChaseCore {
     this.record('QUIT');this.core.quit();
     this.features.consume(this.core.eventLog());
     this.secondary?.terminate(this.core.snapshot().runId);
+    this.specials?.terminate(this.core.snapshot().runId);
   }
   restart():void{
     this.record('RESTART');
@@ -168,6 +195,10 @@ export class CircuitClimbChaseCore {
     this.features=new FeatureProgression(this.featureConfig,ledger.length-1);
     this.features.consume(ledger);
     if(this.secondary)this.secondary.reset(this.core.snapshot().runId);
+    if(this.specials){
+      this.specials.reset(this.core.snapshot().runId,ledger.length-1);
+      this.specials.consume(ledger,this.features.eventLog(),this.config.mode);
+    }
   }
   /** The same world remains paused/terminal without hidden chase advances. */
   advanceTicks(ticks:number):void{
@@ -180,8 +211,13 @@ export class CircuitClimbChaseCore {
       const after=this.core.snapshot();
       this.features.consume(this.core.eventLog());
       this.features.advance(after.tick);
+      // Only real completed-row and existing FeatureProgression receipts
+      // authorize a special interaction; this cannot influence math.
+      this.specials?.consume(this.core.eventLog(),
+        this.features.eventLog(),this.config.mode);
       if(after.phase==='ended'){
         this.secondary?.terminate(after.runId);
+        this.specials?.terminate(after.runId);
         return;
       } // authored practice/challenge goal won
       // The secondary ecosystem only reads this tick's world and physically
@@ -196,8 +232,13 @@ export class CircuitClimbChaseCore {
         mode:this.config.mode,completedRows:after.completedRows,
         world:after.world,spark:after.spark,
       });
-      const pressure=this.secondary&&secondary
-        ?this.secondary.pressureFor(primaryLive):1;
+      this.specials?.advance(after.runId,after.tick,after.phase);
+      // Scout/Sentry pressure and Surge pressure NEVER multiply each
+      // other. The highest legitimate single pressure wins (<= 1.12).
+      const secondaryPressure=this.secondary&&secondary?
+        this.secondary.pressureFor(primaryLive):1;
+      const specialPressure=this.specials?.pressureFor(primaryLive)??1;
+      const pressure=Math.max(secondaryPressure,specialPressure);
       this.pursuer.step(after.world,after.spark,after.tick,
         this.features.speedMultiplier(after.tick)*pressure);
       if(this.adjudicate())this.features.consume(this.core.eventLog());
@@ -212,7 +253,8 @@ export class CircuitClimbChaseCore {
     return {learner:state,pursuer:bot,
       features:this.features.snapshot(state.tick,this.config.mode,
         state.phase,state.paused,separation),
-      ...(this.secondary?{secondary:this.secondary.snapshot()}:{})};
+      ...(this.secondary?{secondary:this.secondary.snapshot()}:{}),
+      ...(this.specials?{specials:this.specials.snapshot()}:{})};
   }
   /** Compatibility for the CC2 learner board's existing source API. */
   learnerSnapshot():EngineStateV1{return this.core.snapshot();}
@@ -237,6 +279,13 @@ export class CircuitClimbChaseCore {
   secondaryEvents():SecondaryEnemyEventV1[]{
     return this.secondary?.snapshot().events.slice()??[];
   }
+  /** CC2-28 never writes score or player state; these are cloned receipts. */
+  specialSnapshot():SpecialSnapshot28|null{
+    return this.specials?.snapshot()??null;
+  }
+  specialEvents():SpecialEvent28[]{
+    return this.specials?.snapshot().events.slice()??[];
+  }
   diagnostics():PursuerDiagnostic[]{return this.pursuer.diagnostics();}
   devGraph(){return this.pursuer.devGraph();}
   stateDigest():string{return digestState(this.snapshot());}
@@ -248,6 +297,7 @@ export class CircuitClimbChaseCore {
       learnerMotion:clone(this.learnerMotion),
       personality:clone(this.personality),
       ...(this.secondaryConfig?{secondaryConfig:clone(this.secondaryConfig)}:{}),
+      ...(this.specialConfig?{specialConfig:clone(this.specialConfig)}:{}),
       commands:clone(this.commands),finalTick:this.core.snapshot().tick,
     };
   }
@@ -259,7 +309,7 @@ export function replayChase(trace:ChaseReplayV1):CircuitClimbChaseCore{
     trace.featureConfig??defaultFeatureConfig(),
     trace.learnerMotion??defaultLearnerMotionPreset(),
     trace.personality??defaultPursuerPersonality(),
-    trace.secondaryConfig);
+    trace.secondaryConfig,trace.specialConfig);
   let lastOrdinal=0;
   for(const cmd of trace.commands){
     if(!Number.isInteger(cmd.tick)||!Number.isInteger(cmd.ordinal)||
