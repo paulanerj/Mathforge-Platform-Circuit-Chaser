@@ -12,7 +12,9 @@ if(!board)return;
 const root=document.createElement('div');
 root.className='cc230-root';
 root.innerHTML=`<button type="button" class="cc230-creature" aria-label="Challenge Molasses Guardian to cast a slowing field" title="Optional creature: solve a short skip count to slow the pursuer">◉</button>
-<div class="cc230-gel" aria-hidden="true"></div>
+<div class="cc230-gel" aria-hidden="true">
+<span class="cc230-fluid-core"></span><span class="cc230-fluid-thread"></span>
+</div>
 <section class="cc230-gate" hidden aria-label="Optional creature puzzle" aria-live="polite">
 <div class="cc230-kicker">MOLASSES GUARDIAN · OPTIONAL</div>
 <div class="cc230-question"></div>
@@ -27,8 +29,9 @@ const creature=root.querySelector('.cc230-creature'),gel=root.querySelector('.cc
   status=root.querySelector('.cc230-status');
 let lastQuestion='',lastStatus='',lastEvent='',lastPosition='',lastTick=-1;
 let lastDrawAt=0,draws=0,hopFrames=0;
+let fluidFrames=0,smoothedPoint=null,fieldProjection=null;
 let config={material:'clear-molasses',glow:0.7,flowRate:1,viscosity:0.55,
-  bodySize:36,sound:true};
+  bodySize:36,sound:true,gelDensity:.72,slosh:.48,trailLength:.7};
 const defaults={...config};
 const clamp=(n,min,max)=>Math.min(max,Math.max(min,n));
 const sound=(pitch=180)=>{if(!config.sound)return;try{
@@ -51,7 +54,8 @@ function validate(raw){
     !['clear-molasses','glass','mineral-gel'].includes(raw.material)||
     typeof raw.sound!=='boolean')throw Error('CC230_VFX_SCHEMA');
   for(const [k,min,max] of [['glow',0,1],['flowRate',.1,2],
-    ['viscosity',0,1],['bodySize',26,55]]){
+    ['viscosity',0,1],['bodySize',26,55],['gelDensity',.1,1],
+    ['slosh',0,1],['trailLength',0,1]]){
     if(typeof raw[k]!=='number'||!Number.isFinite(raw[k])||
       raw[k]<min||raw[k]>max)throw Error('CC230_VFX_RANGE_'+k);
   }
@@ -63,6 +67,9 @@ function apply(raw){
   root.style.setProperty('--cc230-flow',String(config.flowRate));
   root.style.setProperty('--cc230-viscosity',String(config.viscosity));
   root.style.setProperty('--cc230-size',config.bodySize+'px');
+  root.style.setProperty('--cc230-density',String(config.gelDensity));
+  root.style.setProperty('--cc230-slosh',String(config.slosh));
+  root.style.setProperty('--cc230-trail',String(config.trailLength));
   root.dataset.material=config.material;
   return {...config};
 }
@@ -70,7 +77,8 @@ function refresh(){
   const a=api(),state=a?.snapshot?.(),c=a?.creature?.();
   if(!state||!c)return;
   if(state.runId!==refresh.runId){
-    refresh.runId=state.runId;lastQuestion='';lastEvent='';lastPosition='';
+    refresh.runId=state.runId;lastQuestion='';lastEvent='';
+    lastPosition='';smoothedPoint=null;fieldProjection=null;
   }
   // Primary platform buttons remain authoritative world projection.
   // The character has its own hitbox and never relocates primary answer controls.
@@ -105,7 +113,22 @@ function refresh(){
     }
     const pos=Math.round(x)+'|'+Math.round(y);
     if(pos!==lastPosition){
-      creature.style.left=x+'px';creature.style.top=y+'px';lastPosition=pos;
+      // Viscoelastic body with limited inertia: it follows the SOURCE hop
+      // rather than inventing its own destinations. The terminal position
+      // is exact; smoothing affects only visible mass/trail displacement.
+      if(!smoothedPoint||Math.hypot(x-smoothedPoint.x,y-smoothedPoint.y)>
+          boardRect.width*.8)smoothedPoint={x,y};
+      const lagX=clamp(smoothedPoint.x-x,-config.bodySize*.62,config.bodySize*.62);
+      const lagY=clamp(smoothedPoint.y-y,-config.bodySize*.62,config.bodySize*.62);
+      creature.style.setProperty('--cc230-lag-x',
+        (lagX*config.trailLength).toFixed(2)+'px');
+      creature.style.setProperty('--cc230-lag-y',
+        (lagY*config.trailLength).toFixed(2)+'px');
+      const response=1-config.viscosity*.58;
+      smoothedPoint.x+=(x-smoothedPoint.x)*response;
+      smoothedPoint.y+=(y-smoothedPoint.y)*response;
+      creature.style.left=x+'px';creature.style.top=y+'px';
+      lastPosition=pos;
     }
     creature.disabled=c.gate!=='AVAILABLE'||Boolean(c.hop);
     creature.dataset.phase=c.hop?'HOPPING':c.gate;
@@ -147,22 +170,34 @@ function refresh(){
     const target=findButton(c.platformId);
     if(target){
       const b=target.getBoundingClientRect();
-      const x=b.left+b.width/2-boardRect.left,y=b.top-boardRect.top;
-      // Map the SOURCE field radius into the board's current column scale.
+      const x=b.left+b.width/2-boardRect.left;
+      const y=b.top+b.height/2-boardRect.top;
+      // A bounded circular half-field is projected from the real source
+      // radius. Only source contactActive confirms real Pursuer collision.
+      // This is a presentation-space approximation, not physics ownership.
       const colPx=buttons.length>=2?
         Math.abs(getPoint(buttons[1]).x-getPoint(buttons[0]).x):
         boardRect.width/3;
-      const colWorld=state.world.geometry.columnSpacing||1;
-      const worldPixels=colPx/colWorld;
-      const width=clamp(field.radius*worldPixels,40,boardRect.width*.48);
+      const radiusRows=field.radius/state.world.geometry.rowGap;
+      const radiusPx=clamp(radiusRows*Math.max(36,Math.min(colPx,boardRect.height*.24)),
+        24,boardRect.width*.38);
+      const diameter=radiusPx*2;
       gel.hidden=false;
-      gel.style.left=(field.direction==='left'?x-width:x)+'px';
-      gel.style.top=(y-20)+'px';gel.style.width=width+'px';
-      gel.style.height='44px';
-      gel.style.setProperty('--cc230-liquid-progress',
-        String(clamp((state.tick-(field.expiresTick-c.config.fieldTicks))/30,0,1)));
+      gel.style.left=x+'px';gel.style.top=y+'px';
+      gel.style.setProperty('--cc230-field-diameter',diameter+'px');
+      gel.dataset.direction=field.direction;
+      gel.dataset.contact=c.contactActive?'stuck':'clear';
+      gel.style.opacity=String(.27+config.gelDensity*.67);
+      const tickPhase=(state.tick-(field.expiresTick-c.config.fieldTicks));
+      const sloshX=Math.sin(tickPhase*.055*config.flowRate)*config.slosh*radiusPx*.22;
+      const sloshY=Math.cos(tickPhase*.044*config.flowRate)*config.slosh*radiusPx*.15;
+      gel.style.setProperty('--cc230-slosh-x',sloshX.toFixed(2)+'px');
+      gel.style.setProperty('--cc230-slosh-y',sloshY.toFixed(2)+'px');
+      fieldProjection={x,y,diameter,radiusPx,direction:field.direction,
+        projectedHalfDisc:true,sourceContact:c.contactActive};
+      fluidFrames++;
     }else gel.hidden=true;
-  } else gel.hidden=true;
+  } else {gel.hidden=true;fieldProjection=null;}
   if(c.receipts.length){
     const ev=c.receipts[c.receipts.length-1];
     if(ev.id!==lastEvent){
@@ -206,7 +241,9 @@ panel.innerHTML=`<summary>Molasses Creature Studio · experimental</summary>
 <output class="cc230-gameplay-message" aria-live="polite"></output>
 </details>`;
 const controls=panel.querySelector('.cc230-controls');
-[['glow',0,1,.05],['flowRate',.1,2,.05],['viscosity',0,1,.05],['bodySize',26,55,1]].forEach(([key,min,max,step])=>{
+[['glow',0,1,.05],['flowRate',.1,2,.05],['viscosity',0,1,.05],
+  ['bodySize',26,55,1],['gelDensity',.1,1,.05],['slosh',0,1,.05],
+  ['trailLength',0,1,.05]].forEach(([key,min,max,step])=>{
   const label=document.createElement('label');
   label.textContent=key+' ';
   const input=document.createElement('input');input.type='range';
@@ -222,14 +259,20 @@ const material=document.createElement('select');
 material.onchange=()=>apply({...config,material:material.value});
 controls.appendChild(material);
 panel.querySelector('.cc230-reset').onclick=()=>{apply(defaults);material.value=config.material;
-  controls.querySelectorAll('input').forEach((el,i)=>el.value=config[['glow','flowRate','viscosity','bodySize'][i]]);
+  controls.querySelectorAll('input').forEach((el,i)=>
+    el.value=config[['glow','flowRate','viscosity','bodySize',
+      'gelDensity','slosh','trailLength'][i]]);
 };
 panel.querySelector('.cc230-export').onclick=()=>navigator.clipboard?.writeText(
-  JSON.stringify({schema:'cc2-30-vfx/v1',...config},null,2));
+  JSON.stringify({schema:'cc2-30-vfx/v2',...config},null,2));
 panel.querySelector('.cc230-import').onclick=()=>{
   try{const v=JSON.parse(panel.querySelector('textarea').value);
-    if(v.schema!=='cc2-30-vfx/v1')throw Error('Preset version mismatch');
-    delete v.schema;apply(v);
+    if(v.schema==='cc2-30-vfx/v1'){
+      delete v.schema;
+      apply({...defaults,...v});
+    }else if(v.schema==='cc2-30-vfx/v2'){
+      delete v.schema;apply(v);
+    }else throw Error('Preset version mismatch');
     panel.querySelector('textarea').value='Applied';
   }catch(e){panel.querySelector('textarea').value='Invalid preset: '+e.message;}
 };
@@ -360,7 +403,8 @@ window.__CC2_30__={
   get events(){return api()?.creature?.()?.receipts??[]},
   get sourcePreset(){return sourceDraft?structuredClone(sourceDraft):null},
   loadSourcePreset(next){loadDraft(next)},
-  get presentation(){return {draws,hopFrames,creatureVisible:!creature.hidden,
+  get presentation(){return {draws,hopFrames,fluidFrames,
+    fieldProjection,creatureVisible:!creature.hidden,
     questionVisible:!gate.hidden,gelVisible:!gel.hidden,
     verifiedContact:Boolean(api()?.creature?.()?.contactActive)}},
 };
