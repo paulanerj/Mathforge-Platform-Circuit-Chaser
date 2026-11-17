@@ -18,6 +18,9 @@ import type { RunSummaryV1 } from '../progression/runSummary';
 import {defaultSpecialConfig28,type SpecialConfig28,
   type SpecialSnapshot28,type SpecialEvent28,
 } from '../features/specialDirector28';
+import {
+  defaultCreatureConfig,type CreatureConfig,type CreatureSnapshot,
+} from '../features/creatureEcology30';
 import { RunConfigV1, defaultRunConfig } from '../config/runConfig';
 import {defaultPursuerPreset,type PursuerPresetV1} from '../pursuer/pursuerPreset';
 import {defaultFeatureConfig} from '../features/progression';
@@ -125,6 +128,10 @@ interface SurfaceEngine {
   secondaryEvents():SecondaryEnemyEventV1[];
   specials():SpecialSnapshot28|null;
   specialEvents():SpecialEvent28[];
+  creature():CreatureSnapshot|null;
+  offerCreature():{ok:boolean;reason?:string};
+  answerCreature(n:number):{ok:boolean;correct?:boolean;reason?:string};
+  declineCreature():void;
   /** Read-only source trace, limited to the Pursuer controller's bounded window. */
   botDiagnostics():PursuerDiagnostic[];
   devGraph():ReturnType<CircuitClimbChaseCore['devGraph']>|null;
@@ -149,6 +156,8 @@ const cc223Config:SecondaryConfigV1|undefined=cc223Choice==='off'
 // CC2-28 policy is deliberately absent from every standard game URL.
 const cc228Config:SpecialConfig28|undefined=
   cc223Params.get('cc228')==='1'?defaultSpecialConfig28():undefined;
+const cc230Config:CreatureConfig|undefined=cc223Params.get('cc230')==='1'?
+  defaultCreatureConfig():undefined;
 const featuresEnabled=document.body.dataset.features==='on';
 const summaryEnabled=document.body.dataset.summary==='on';
 const manualQA=featuresEnabled && new URLSearchParams(location.search).get('manual')==='1';
@@ -175,7 +184,8 @@ function makeSurfaceEngine(
 ):SurfaceEngine{
   if(botEnabled){
     const game=new CircuitClimbChaseCore(seed,config,pursuerPreset,
-      defaultFeatureConfig(),learnerMotion,personality,cc223Config,cc228Config);
+      defaultFeatureConfig(),learnerMotion,personality,cc223Config,cc228Config,
+      cc230Config);
     return {
       snapshot:()=>game.learnerSnapshot(),
       eventLog:()=>game.eventLog(),
@@ -189,6 +199,10 @@ function makeSurfaceEngine(
       secondaryEvents:()=>game.secondaryEvents(),
       specials:()=>game.specialSnapshot(),
       specialEvents:()=>game.specialEvents(),
+      creature:()=>game.creatureSnapshot(),
+      offerCreature:()=>game.offerCreature(),
+      answerCreature:n=>game.answerCreature(n),
+      declineCreature:()=>game.declineCreature(),
       botDiagnostics:()=>game.diagnostics(),
       devGraph:()=>game.devGraph(),
       features:()=>game.featureSnapshot(),
@@ -212,6 +226,10 @@ function makeSurfaceEngine(
     secondaryEvents:()=>[],
     specials:()=>null,
     specialEvents:()=>[],
+    creature:()=>null,
+    offerCreature:()=>({ok:false,reason:'CREATURE_OFF'}),
+    answerCreature:()=>({ok:false,reason:'CREATURE_OFF'}),
+    declineCreature:()=>{},
     botDiagnostics:()=>[],
     devGraph:()=>null,
     features:()=>null,
@@ -1525,6 +1543,11 @@ document.addEventListener('visibilitychange', () => {
   specials: () => engine.specials(),
   specialEvents: () => engine.specialEvents(),
   specialConfig:()=>cc228Config?{...cc228Config}:null,
+  creature:()=>engine.creature(),
+  offerCreature:()=>engine.offerCreature(),
+  answerCreature:(n:number)=>engine.answerCreature(n),
+  declineCreature:()=>engine.declineCreature(),
+  creatureConfig:()=>cc230Config?{...cc230Config}:null,
   secondaryMode:()=>cc223Choice,
   secondaryConfig:()=>cc223Config?{...cc223Config}:null,
   /** CC2-16A read-only full-session diagnostic export; no bot steering. */

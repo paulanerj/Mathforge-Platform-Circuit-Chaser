@@ -1,0 +1,54 @@
+name: CC2-30A Molasses Creature Architectural Qualification
+on:
+  push:
+    branches: [feature/cc2-30a-molasses-creature-architecture]
+  pull_request:
+    branches: [feature/cc2-28-special-platforms-hazards-ability-strategy]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck and syntax
+        run: |
+          npm run lint
+          node --check src/games/circuit-climb-2/devtools/cc2-30-creature.js
+      - name: Authoritative math, replay, Pursuer and one-creature gate tests
+        run: npx vitest run src/games/circuit-climb-2/
+      - name: Molasses source-to-pointer tests on 320 390 768 screens
+        run: node src/games/circuit-climb-2/devtools/cc2-30a2-browser-smoke.mjs
+      - name: Existing browser and offline regressions
+        run: |
+          node src/games/circuit-climb-2/devtools/cc2-16b-input-smoke.mjs
+          node src/games/circuit-climb-2/devtools/cc2-21-cohesion-smoke.mjs
+          node src/games/circuit-climb-2/devtools/cc2-27-owner-smoke.mjs
+          node src/games/circuit-climb-2/devtools/cc2-28-owner-smoke.mjs
+      - name: Source-authentic standalone and Vercel preview output
+        run: |
+          node src/games/circuit-climb-2/devtools/buildPortable16A.mjs
+          node src/games/circuit-climb-2/devtools/cc2-16a-portable-smoke.mjs
+          npm run build
+          test -s dist/cc2-30.html
+          grep -q 'cc230-creature-controller' dist/cc2-30.html
+          grep -q 'cc230-creature-style' dist/cc2-30.html
+          sha256sum dist/cc2-30.html
+      - name: Archive one-creature candidate for physical testing
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-30A-Molasses-Owner-Demo
+          path: |
+            dist/cc2-30.html
+            cc2-standalone/
+            cc2-28-evidence/
+            cc2-30-evidence/
+          if-no-files-found: warn
