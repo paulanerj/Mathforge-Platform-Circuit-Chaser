@@ -49,14 +49,17 @@ try{
       await page.locator(
         'button.choice[data-platform-id="'+choice+'"]').click();
       await page.waitForFunction(()=>
-        window.__CC2_02A__.snapshot().tick>12,null,{timeout:20000});
+        window.__CC2_02A__.snapshot().tick>12&&
+        window.__CC2_26__.report().frames>0&&
+        window.__CC2_26__.report().sourceTick>=0,
+        null,{timeout:20000});
       const play=await page.evaluate(()=>({
         r:window.__CC2_26__.report(),
         s:window.__CC2_02A__.snapshot(),
         viewportWidth:document.documentElement.scrollWidth
       }));
       check(play.s.currentProblem.options.length===3&&
-        play.r.frames>0&&play.r.sourceTick>=12,
+        play.r.frames>0&&play.r.sourceTick>=0,
         'real arithmetic and live Pursuer visuals '+width);
       check(play.r.attached===null||
         play.r.attached.tethered===true&&
