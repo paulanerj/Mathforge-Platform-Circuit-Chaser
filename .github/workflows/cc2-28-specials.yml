@@ -1,0 +1,97 @@
+name: CC2-28 Special Platforms Hazards and Strategy Qualification
+on:
+  push:
+    branches: [feature/cc2-28-special-platforms-hazards-ability-strategy]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-and-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Preserve accepted CC2-24/25 and independent CC2-26/27 boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          parent=4f755aa76f783557742fa86743005921e5fdabfc
+          git merge-base --is-ancestor "$parent" HEAD
+          while IFS= read -r file; do
+            case "$file" in
+              src/games/circuit-climb-2/features/specialDirector28.ts|\
+              src/games/circuit-climb-2/features/specialDirector28.test.ts|\
+              src/games/circuit-climb-2/pursuer/CircuitClimbChaseCore.ts|\
+              src/games/circuit-climb-2/devtools/cc2-02a.ts|\
+              src/games/circuit-climb-2/devtools/cc2-16a.html|\
+              src/games/circuit-climb-2/devtools/cc2-28-*|\
+              src/games/circuit-climb-2/devtools/buildPortable16A.mjs|\
+              src/games/circuit-climb-2/devtools/publishCC227Preview.mjs|\
+              docs/circuit-climb-2/CC2-28-SPECIAL-PLATFORMS-ACCEPTANCE.md|\
+              package.json|\
+              .github/workflows/cc2-28-specials.yml)
+                echo "CC228_EXPLICIT_PHASE_CHANGE: $file";;
+              *) echo "CC228_PROTECTED_SOURCE_DRIFT: $file" >&2;exit 1;;
+            esac
+          done < <(git diff --name-only "$parent" HEAD)
+          git diff --exit-code "$parent" HEAD -- \
+            src/games/circuit-climb-2/core \
+            src/games/circuit-climb-2/math \
+            src/games/circuit-climb-2/world \
+            src/games/circuit-climb-2/config \
+            src/games/circuit-climb-2/enemies \
+            src/games/circuit-climb-2/music \
+            src/games/circuit-climb-2/progression \
+            src/games/circuit-climb-2/devtools/cc2-19-red-shell.js \
+            src/games/circuit-climb-2/devtools/cc2-20-living-pursuer.js \
+            src/games/circuit-climb-2/devtools/cc2-25-run-debrief.js
+      - name: Install, TS type checking and source validation
+        run: |
+          npm ci
+          npm run lint
+          if test -f src/games/circuit-climb-2/devtools/cc2-28-special-visuals.js; then
+            node --check src/games/circuit-climb-2/devtools/cc2-28-special-visuals.js
+          fi
+      - name: All source math, replay, abilities, Pursuer and CC2-28 tests
+        run: npx vitest run src/games/circuit-climb-2/
+      - name: Real browser first-choice, special UX and regression tests
+        run: |
+          if test -f src/games/circuit-climb-2/devtools/cc2-28-owner-smoke.mjs; then
+            node src/games/circuit-climb-2/devtools/cc2-28-owner-smoke.mjs
+          fi
+          node src/games/circuit-climb-2/devtools/cc2-27-owner-smoke.mjs
+          node src/games/circuit-climb-2/devtools/cc2-24-25-browser-smoke.mjs
+          node src/games/circuit-climb-2/devtools/cc2-21-cohesion-smoke.mjs
+          node src/games/circuit-climb-2/devtools/cc2-16b-input-smoke.mjs
+      - name: Fully offline package, hosted preview page and production build
+        run: |
+          node src/games/circuit-climb-2/devtools/buildPortable16A.mjs
+          node src/games/circuit-climb-2/devtools/cc2-16a-portable-smoke.mjs
+          cp cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html \
+            cc2-standalone/CC2-28-Special-Platforms-Hazards-Strategy-Playable.html
+          sha256sum cc2-standalone/CC2-28-Special-Platforms-Hazards-Strategy-Playable.html
+          npm run build
+          test -s dist/cc2-26-27.html
+          if test -f dist/cc2-28.html; then
+            grep -q 'cc228-special-visuals' dist/cc2-28.html
+          fi
+      - name: Preserve review screenshots and playable game
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-28-Special-Platforms-Owner-Review
+          path: |
+            cc2-28-evidence/
+            cc2-27-evidence/
+            cc2-21-evidence/
+            cc2-24-25-evidence/
+            cc2-standalone/CC2-28-Special-Platforms-Hazards-Strategy-Playable.html
+          if-no-files-found: warn
+          retention-days: 90
