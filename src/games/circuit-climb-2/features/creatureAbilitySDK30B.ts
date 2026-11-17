@@ -70,6 +70,8 @@ export interface GelCastRequest {
   readonly fieldTicks:number;
   readonly radiusInRowGaps:number;
   readonly slowMultiplier:number;
+  /** Opt-in source mode; omitted means historical CC2-30C local field. */
+  readonly coverage?:'BELOW_PLATFORM';
 }
 export interface GelFieldState {
   readonly x:number;
@@ -77,6 +79,10 @@ export interface GelFieldState {
   readonly radius:number;
   readonly expiresTick:number;
   readonly direction:'left'|'right';
+  /** A permanent horizontal boundary for the rest of this run. */
+  readonly coverage?:'BELOW_PLATFORM';
+  readonly sourcePlatformId?:string;
+  readonly sourceRow?:number;
 }
 export interface CreatureEffectReceipt {
   readonly type:'FIELD_CAST'|'FIELD_EXPIRED'|
@@ -130,6 +136,9 @@ export class MolassesAbility implements CreatureAbilityHandler {
   advance(state:EngineStateV1,emit:(e:CreatureEffectReceipt)=>void):void{
     if(state.runId!==this.runId)throw Error('CREATURE_EFFECT_RUN_ISOLATION');
     if(!this.field||state.paused||state.phase==='ended')return;
+    // A source-owned blanket does not evaporate on an arbitrary clock.
+    // It remains stationary until the run ends or is restarted.
+    if(this.field.coverage==='BELOW_PLATFORM')return;
     if(state.tick>=this.field.expiresTick){
       if(this.contact)emit({type:'FIELD_CONTACT_EXIT',
         detail:{reason:'FIELD_EXPIRED'}});
@@ -145,7 +154,9 @@ export class MolassesAbility implements CreatureAbilityHandler {
       state.paused||state.phase==='ended')throw Error('CREATURE_EFFECT_AUTHORITY');
     check(request.fieldTicks,20,600);
     check(request.radiusInRowGaps,.2,1.5);
-    check(request.slowMultiplier,.55,1);
+    if(request.coverage!==undefined&&request.coverage!=='BELOW_PLATFORM')
+      throw Error('CREATURE_EFFECT_COVERAGE');
+    check(request.slowMultiplier,request.coverage==='BELOW_PLATFORM'?.45:.55,1);
     if(request.direction!=='left'&&request.direction!=='right')
       throw Error('CREATURE_EFFECT_DIRECTION');
     const platform=state.world.rows.flatMap(r=>r.platforms)
@@ -160,21 +171,34 @@ export class MolassesAbility implements CreatureAbilityHandler {
     this.field={
       x:platform.x,y:platform.y,
       radius:state.world.geometry.rowGap*request.radiusInRowGaps,
-      expiresTick:state.tick+request.fieldTicks,
+      expiresTick:request.coverage==='BELOW_PLATFORM'?
+        Number.MAX_SAFE_INTEGER:state.tick+request.fieldTicks,
       direction:request.direction,
+      ...(request.coverage==='BELOW_PLATFORM'?{
+        coverage:'BELOW_PLATFORM' as const,
+        sourcePlatformId:platform.id,sourceRow:platform.row,
+      }:{})
     };
     emit({type:'FIELD_CAST',detail:{
       platformId:platform.id,expiresTick:this.field.expiresTick,
       direction:request.direction,
+      ...(request.coverage==='BELOW_PLATFORM'?{
+        coverage:'BELOW_PLATFORM',sourceRow:platform.row
+      }:{})
     }});
     return true;
   }
   observePursuer(bot:{x:number;y:number},tick:number,
     emit:(e:CreatureEffectReceipt)=>void):number{
     const f=this.field;
+    // World Y decreases uphill: all larger Y are BELOW the platform.
+    // At the boundary itself, bot remains in the blanket; only when it
+    // crosses strictly above (bot.y < f.y) is it released.
     const within=Boolean(f&&tick<f.expiresTick&&
-      Math.hypot(bot.x-f.x,bot.y-f.y)<=f.radius&&
-      (f.direction==='left'?bot.x<=f.x:bot.x>=f.x));
+      (f.coverage==='BELOW_PLATFORM'
+        ?bot.y>=f.y
+        :Math.hypot(bot.x-f.x,bot.y-f.y)<=f.radius&&
+          (f.direction==='left'?bot.x<=f.x:bot.x>=f.x)));
     if(within!==this.contact){
       this.contact=within;
       emit({type:within?'FIELD_CONTACT_ENTER':'FIELD_CONTACT_EXIT',
