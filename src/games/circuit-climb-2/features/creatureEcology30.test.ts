@@ -103,19 +103,25 @@ describe('CC2-30A reusable creature source system',()=>{
     expect(g.creatureSnapshot()?.activeField).toBeNull();
   });
   it('1000 varied skip gates yield one unique correct answer',()=>{
+    // Reuse ONE real mathematically completed world; vary only the isolated
+    // creature seed. Re-running thousands of full chases makes CI artificially
+    // slow and measures the Pursuer rather than this independent generator.
+    const fixture=make('gate-world-fixture');
+    reachFirstCreature(fixture);
+    const state=fixture.learnerSnapshot();
+    let checked=0;
     for(let i=0;i<1000;i++){
       const config={...defaultCreatureConfig(),gateStep:2+i%8};
       const director=new CreatureEcologyDirector(String(i),'run-'+i,config);
-      const dummy=make('seed-'+i);
-      reachFirstCreature(dummy);
-      const st=dummy.learnerSnapshot();
-      const world={...st,runId:'run-'+i};
+      const world={...state,runId:'run-'+i};
       director.advance(world);
-      if(director.snapshot().gate!=='AVAILABLE')continue;
+      expect(director.snapshot().gate).toBe('AVAILABLE');
       expect(director.offer(world).ok).toBe(true);
       const q=director.snapshot().question!;
       const step=q.sequence[1]-q.sequence[0];
       expect(q.options.filter(n=>n===q.sequence[2]+step)).toHaveLength(1);
+      checked++;
     }
+    expect(checked).toBe(1000);
   });
 });
