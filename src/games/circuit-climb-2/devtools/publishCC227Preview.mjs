@@ -17,6 +17,7 @@ import {createHash} from 'node:crypto';
 const src=resolve('cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html');
 const destination=resolve('dist/cc2-26-27.html');
 const latest=resolve('dist/cc2-28.html');
+const creatureLatest=resolve('dist/cc2-30.html');
 
 // Always reconstruct from EXACT repository source, never from stale local
 // test outputs. This is deterministic and uses no remote scripts/assets.
@@ -28,6 +29,7 @@ const mustHave=[
   'cc226-oxide-controller',
   'cc226-oxide-material',
   'cc227-role-controller',
+  'cc230-creature-controller',
   'cc227-role-style',
   'cc228-special-controller',
   'cc228-special-visuals',
@@ -47,6 +49,7 @@ if(/<script\b[^>]*\bsrc\s*=|<link\b[^>]*\brel\s*=\s*["']stylesheet["']/i.test(ht
   throw Error('CC227_PUBLIC_PREVIEW_NOT_FULLY_STANDALONE');
 copyFileSync(src,destination);
 copyFileSync(src,latest);
+copyFileSync(src,creatureLatest);
 const digest=createHash('sha256').update(html).digest('hex');
 console.log(JSON.stringify({
   schema:'cc2-public-preview/v2',
