@@ -167,6 +167,9 @@ function creatureConfigFromURL():CreatureConfig|undefined{
   const raw=cc223Params.get('cc230Cfg');
   if(!raw){
     const standard=defaultCreatureConfig();
+    // Owner-review zero-query preview: see the Guardian after the FIRST
+    // genuine completed row. No synthetic math, no auto-granted power.
+    if(cc223Params.get('cc230Early')==='1')standard.firstEligibleRow=1;
     // CC2-30E is deliberately opt-in and does not rewrite legacy replays.
     // A blanket's source speed multiplier is 0.50 and never expires by TTL.
     return cc223Params.get('cc230Blanket')==='1'?
@@ -851,18 +854,32 @@ function draw(): void {
     const right=g.columns[2]+g.platformWidth*.74;
     const lineY=y+g.platformHeight*.54;
     context.strokeStyle=sixRowFlow?
-      'rgba(129,190,198,.38)':'rgba(129,190,198,.26)';
-    context.lineWidth=sixRowFlow?2.8:2.4;
+      'rgba(121,181,187,.58)':'rgba(129,190,198,.26)';
+    context.lineWidth=sixRowFlow?3.2:2.4;
     context.beginPath();context.moveTo(left,lineY);context.lineTo(right,lineY);
     context.stroke();
     context.fillStyle=sixRowFlow?
-      'rgba(78,134,145,.32)':'rgba(63,114,126,.19)';
+      'rgba(82,133,143,.58)':'rgba(63,114,126,.19)';
     context.strokeStyle=sixRowFlow?
-      'rgba(154,211,207,.39)':'rgba(131,185,188,.21)';
+      'rgba(168,213,214,.70)':'rgba(131,185,188,.21)';
     for(const x of g.columns){
-      roundedRect(x-g.platformWidth*.40,y+g.platformHeight*.36,
-        g.platformWidth*.80,g.platformHeight*.32,7);
+      // Distinct, continuously present physical landing silhouettes.
+      // Never write future numbers or attach fake mathematical hit targets.
+      roundedRect(x-g.platformWidth*.44,
+        y+g.platformHeight*(sixRowFlow?.20:.36),
+        g.platformWidth*.88,
+        g.platformHeight*(sixRowFlow?.62:.32),7);
       context.fill();context.stroke();
+      if(sixRowFlow){
+        context.save();
+        context.strokeStyle='rgba(222,241,234,.25)';
+        context.lineWidth=1.2;
+        context.beginPath();
+        context.moveTo(x-g.platformWidth*.28,y+g.platformHeight*.36);
+        context.lineTo(x+g.platformWidth*.28,y+g.platformHeight*.36);
+        context.stroke();
+        context.restore();
+      }
     }
     context.restore();
   }
