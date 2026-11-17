@@ -180,14 +180,16 @@ function refresh(){
       const b=reference.getBoundingClientRect();
       let x=b.left+b.width/2-boardRect.left;
       let y=b.top+b.height/2-boardRect.top;
-      if(blanket&&!target){
-        // An old activation platform can scroll out of the rendered row.
-        // Project the original row beneath the currently displayed row.
-        // Collision never uses this pixel approximation.
-        const currentRow=state.currentProblem.rowIndex;
-        const gapEstimate=boardRect.height/3.5;
-        const delta=currentRow-(field.sourceRow??currentRow);
-        y+=Math.max(0,delta)*gapEstimate;
+      if(blanket){
+        // Project the permanently anchored WORLD Y through the same actual
+        // source camera that paints Spark and the platform network.
+        // This stays correct after arbitrarily many scrolling rows.
+        const view=a.rendererStats?.();
+        if(view&&Number.isFinite(view.cameraY)&&
+          Number.isFinite(view.effectiveZoom)){
+          y=(field.y-view.cameraY)*view.effectiveZoom*
+            (boardRect.width/state.world.geometry.logicalWidth);
+        }
       }
       gel.hidden=false;
       gel.dataset.coverage=blanket?'blanket':'local';
@@ -201,6 +203,19 @@ function refresh(){
         gel.style.left='0px';gel.style.top=top+'px';
         gel.style.width=boardRect.width+'px';
         gel.style.height=height+'px';
+        // The blanket affects only the killer bot. Keep the learner Spark
+        // visually unobscured, even when it is below the boundary.
+        const view=a.rendererStats?.();
+        if(view?.visualSparkPosition){
+          const sx=(boardRect.width/2+
+            (view.visualSparkPosition.x-state.world.geometry.logicalWidth/2)*
+              view.horizontalCameraScale)*
+              (boardRect.width/state.world.geometry.logicalWidth);
+          const sy=(view.visualSparkPosition.y-view.cameraY)*
+            view.effectiveZoom*(boardRect.width/state.world.geometry.logicalWidth)-top;
+          gel.style.setProperty('--cc230-spark-x',sx.toFixed(1)+'px');
+          gel.style.setProperty('--cc230-spark-y',sy.toFixed(1)+'px');
+        }
         gel.style.removeProperty('--cc230-field-diameter');
         gel.dataset.direction='down';
         const tickPhase=state.tick;
@@ -214,6 +229,7 @@ function refresh(){
           sourceRow:field.sourceRow,
           boundaryWorldY:field.y,
           visibleBoundaryY:top,
+          cameraAligned:true,playerExcluded:true,
           width:boardRect.width,height,
           fullWidth:true,extendsDown:true,
           sourceContact:c.contactActive,
