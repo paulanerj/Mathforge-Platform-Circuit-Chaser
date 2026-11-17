@@ -1,0 +1,281 @@
+/**
+ * CC2-28 — Mineral-contrast special platform visual grammar.
+ *
+ * Every special is a bounded decoration of existing clickable choices.
+ * Never insert a full-board compositor, never move a choice hitbox, and
+ * never cover live Spark/Pursuer, scoreboard, landing, or capture layers.
+ * source ownership: JS data-cc228-kind from real row-wide receipts only.
+ */
+html[data-cc228="on"]{
+  --cc228-cap:#b88e42;
+  --cc228-relay:#327f9e;
+  --cc228-surge:#a5503d;
+  --cc228-intensity:.75;
+  --cc228-loop:1;
+}
+html[data-cc228="on"] #choices button.choice{
+  isolation:isolate;
+  overflow:visible;
+}
+html[data-cc228="on"] #choices button.choice .cc228-sigil,
+html[data-cc228="on"] #choices button.choice .cc228-sigil *{
+  pointer-events:none!important;
+  user-select:none!important;
+}
+html[data-cc228="on"] #choices button.choice .cc228-sigil{
+  position:absolute;
+  width:26px;height:26px;
+  top:-10px;right:-11px;
+  display:grid;place-items:center;
+  z-index:4;
+  border:1.5px solid currentColor;
+  border-radius:5px;
+  background:#f8faf9;
+  box-shadow:0 2px 5px #31445024,inset 0 1px #ffffff99;
+  color:var(--cc228-mark,#536a75);
+  opacity:1;
+}
+html[data-cc228="on"] #choices button.choice[data-cc228-kind="NORMAL"]
+ .cc228-sigil{display:none}
+html[data-cc228="on"] #choices button.choice[data-cc228-kind="CAPACITOR"]{
+  --cc228-mark:var(--cc228-cap);
+  border-color:#bda16c!important;
+  box-shadow:inset 0 0 0 1px #bb9d6644,0 2px 9px #8266373a!important;
+}
+html[data-cc228="on"] #choices button.choice[data-cc228-kind="RELAY"]{
+  --cc228-mark:var(--cc228-relay);
+  border-color:#5c9bb4!important;
+  box-shadow:inset 0 0 0 1px #418ca144,0 2px 9px #427b9c3a!important;
+}
+html[data-cc228="on"] #choices button.choice[data-cc228-kind="SURGE"]{
+  --cc228-mark:var(--cc228-surge);
+  border-color:#b98775!important;
+  box-shadow:inset 0 0 0 1px #b46f574b,0 2px 9px #a46b4e3e!important;
+}
+html[data-cc228="on"] #choices button.choice .cc228-glyph{
+  position:relative;z-index:2;
+  display:block;font:800 18px/1 system-ui,sans-serif;
+  color:var(--cc228-mark);
+  text-shadow:0 1px #fff;
+  transform-origin:50% 50%;
+}
+html[data-cc228="on"] #choices button.choice .cc228-circuits{
+  position:absolute;inset:4px;border-radius:2px;
+  border:1px solid currentColor;opacity:.26;
+  transform:rotate(45deg);
+}
+html[data-cc228="on"] #choices button.choice .cc228-loop{
+  position:absolute;inset:1px;
+  border:1.5px dotted var(--cc228-mark);
+  border-radius:3px;opacity:.35;
+  animation:cc228-orbit calc(3.5s * var(--cc228-loop))
+    linear infinite;
+}
+html[data-cc228="on"] #choices button.choice .cc228-motes{
+  position:absolute;inset:-4px;
+}
+html[data-cc228="on"] #choices button.choice .cc228-motes i{
+  --angle:calc(var(--index) * 90deg);
+  position:absolute;left:50%;top:50%;
+  width:3px;height:3px;background:var(--cc228-mark);
+  border-radius:1px;
+  opacity:calc(var(--cc228-intensity)*.42);
+  transform:rotate(var(--angle)) translateY(-16px);
+  animation:cc228-twink calc((1.8s + var(--index)*.3s) * var(--cc228-loop))
+    ease-in-out infinite alternate;
+}
+html[data-cc228="on"] #choices button.choice[data-cc228-touch="on"] .cc228-glyph{
+  transform:scale(1.25) rotate(-10deg);
+  filter:drop-shadow(0 0 4px var(--cc228-mark));
+}
+html[data-cc228="on"] #choices button.choice[data-cc228-touch="on"] .cc228-sigil{
+  box-shadow:0 0 0 3px #ffffffbb,0 0 12px var(--cc228-mark);
+}
+html[data-cc228="on"] #choices button.choice.selected .cc228-sigil{
+  outline:1px solid var(--cc228-mark);
+  outline-offset:2px;
+}
+html[data-cc228="on"] #choices button.choice.short .cc228-sigil{
+  opacity:.38;
+}
+/* Three experimentally selectable material vocabularies, selected in
+ * Developer Settings and exported as a strict JSON preset. */
+html[data-cc228-material="glass"] #choices .cc228-sigil{
+  border-radius:12px!important;
+  background:linear-gradient(135deg,#ffffff,#dcecf1b5)!important;
+  backdrop-filter:blur(2px);
+}
+html[data-cc228-material="wire"] #choices .cc228-sigil{
+  background:#f7f7f5!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+}
+html[data-cc228-material="wire"] #choices .cc228-loop{
+  border-style:solid!important;
+}
+/* The next special is a compact information line in the existing HUD,
+ * not an opaque panel over the player's visible climbing route. */
+#cc228-live[hidden],#cc228-feedback[hidden],#cc228-wave[hidden]{
+  display:none!important;
+}
+#cc228-live{
+  margin-top:3px;padding:3px 5px;
+  width:fit-content;max-width:100%;
+  border-left:3px solid #b68e47;
+  color:#76532c;background:#f8f0e1;
+  font:750 10px/1.35 system-ui,sans-serif;
+  letter-spacing:.01em;
+  overflow-wrap:anywhere;
+}
+#cc228-live[data-cc228-phase="WARNING"]{
+  color:#8a4b2e;background:#fff1e7;border-color:#b56844;
+}
+#cc228-live[data-cc228-phase="ACTIVE"]{
+  color:#8e382c;background:#ffeae5;border-color:#bb5143;
+}
+#cc228-next{
+  margin-top:3px;
+  color:#657a86;
+  font:650 9px/1.3 system-ui,sans-serif;
+}
+.cc228-sr-only{
+  position:absolute!important;
+  width:1px!important;height:1px!important;
+  overflow:hidden!important;
+  clip:rect(0,0,0,0)!important;
+  white-space:nowrap!important;
+}
+html[data-cc228="on"] #pulse[data-cc228-ready="yes"]{
+  outline:2px solid #429f86;
+  outline-offset:-2px;
+  box-shadow:inset 0 0 0 1px #fff6,0 0 8px #4c9e8340!important;
+}
+html[data-cc228="on"] #pulse[data-cc228-ready="yes"][data-cc228-range="out"]{
+  outline-color:#d09255;
+  background:#fff5e7!important;
+  color:#784e2d!important;
+}
+html[data-cc228="on"] #pulse[data-cc228-ready="yes"][data-cc228-range="in"]{
+  background:#d9f3e9!important;
+}
+#cc228-feedback{
+  pointer-events:none!important;
+  position:absolute;
+  left:50%;bottom:13%;
+  transform:translateX(-50%);
+  max-width:90%;min-width:148px;
+  padding:8px 12px;
+  z-index:11;
+  border:1px solid #b9c0be;
+  border-radius:6px;
+  background:#fcfbf7ed;
+  color:#435460;
+  font:800 11px/1.35 system-ui,sans-serif;
+  letter-spacing:.05em;
+  text-align:center;
+  box-shadow:0 3px 14px #2d3b4628;
+  animation:cc228-feedback 1.16s ease-out both;
+}
+#cc228-feedback[data-cc228-type="capacitor"]{
+  color:#765020;border-color:#bc9954;background:#fff8ebec;
+}
+#cc228-feedback[data-cc228-type="relay"],
+#cc228-feedback[data-cc228-type="ground"]{
+  color:#28556a;border-color:#75a6b8;background:#eef9fbeb;
+}
+#cc228-feedback[data-cc228-type="surge"],
+#cc228-feedback[data-cc228-type="miss"]{
+  color:#863e33;border-color:#b87966;background:#fff1eae9;
+}
+#cc228-feedback[data-cc228-type="discharge"]{
+  color:#376857;border-color:#76b69a;background:#eff9f4e9;
+}
+/* A ring is anchored to the physically displayed Pursuer center. It is
+ * locally bounded, cannot black out the board, and receives zero input. */
+#cc228-wave{
+  pointer-events:none!important;
+  position:absolute;z-index:9;
+  width:18px;height:18px;
+  transform:translate(-50%,-50%);
+  border:2px solid #4da792;
+  border-radius:50%;
+  background:transparent!important;
+  opacity:.7;
+  animation:cc228-shock .65s ease-out both;
+}
+#cc228-wave[data-cc228-type="ground"]{
+  border-color:#4a87a2;
+}
+/* Designer lives in Developer Settings. The game board is never reflowed. */
+#cc228-panel{
+  margin:9px 0;padding:10px 11px;
+  color:#324d5f;background:#f3f7f8;
+  border:1px solid #b7cbd4;border-radius:7px;
+  font:500 12px/1.45 system-ui,sans-serif;
+}
+#cc228-panel summary{font-weight:800;cursor:pointer;color:#285974}
+#cc228-panel p{font-size:11px;color:#536c7c;line-height:1.5}
+#cc228-panel label{
+  display:flex;flex-wrap:wrap;align-items:center;
+  gap:7px;margin:7px 0;color:#354e61;
+}
+#cc228-panel input[type="range"]{flex:1;min-width:75px}
+#cc228-panel select{
+  flex:1;min-width:95px;width:auto;
+}
+#cc228-panel input[type="checkbox"]{width:17px;min-width:17px}
+#cc228-panel button{
+  cursor:pointer;min-height:41px;
+  padding:7px 10px;border:1px solid #a6bfcb;
+  border-radius:6px;background:#fff;color:#28536b;
+  font:700 11px/1.4 system-ui,sans-serif;
+}
+#cc228-panel button:focus-visible{
+  outline:3px solid #317f9f;outline-offset:2px;
+}
+#cc228-panel .cc228-samples{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;margin:8px 0;
+}
+#cc228-panel .cc228-settings-actions{
+  display:flex;flex-wrap:wrap;gap:6px;margin:6px 0;
+}
+#cc228-panel textarea{
+  display:block;width:100%;max-width:100%;
+  min-height:95px;background:#fff;color:#223e53;
+  font:11px/1.35 ui-monospace,monospace;
+}
+#cc228-sample-status{min-height:15px}
+@keyframes cc228-orbit{
+  from{transform:rotate(0deg)}to{transform:rotate(360deg)}
+}
+@keyframes cc228-twink{
+  from{opacity:.08;scale:.7}to{opacity:.55;scale:1}
+}
+@keyframes cc228-feedback{
+  0%{opacity:0;translate:0 7px;scale:.95}
+  16%{opacity:1;translate:0 0;scale:1}
+  78%{opacity:1}
+  100%{opacity:0;translate:0 -6px}
+}
+@keyframes cc228-shock{
+  0%{opacity:.95;scale:.45}
+  100%{opacity:0;scale:5.6}
+}
+@media(max-width:390px){
+  #cc228-live{font-size:9px;padding:2px 4px}
+  #cc228-next{font-size:8px}
+  #cc228-feedback{font-size:10px;padding:6px 9px}
+  html[data-cc228="on"] #choices button.choice .cc228-sigil{
+    width:23px;height:23px;right:-9px;top:-8px;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  html[data-cc228="on"] #choices button.choice .cc228-sigil *,
+  #cc228-feedback,#cc228-wave{animation:none!important;transition:none!important}
+}
+html[data-cc228-reduced="yes"] #choices button.choice .cc228-sigil *,
+html[data-cc228-reduced="yes"] #cc228-feedback,
+html[data-cc228-reduced="yes"] #cc228-wave{
+  animation:none!important;transition:none!important;
+}
