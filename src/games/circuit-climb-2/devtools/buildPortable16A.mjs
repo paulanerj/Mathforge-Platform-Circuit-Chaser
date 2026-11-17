@@ -114,9 +114,15 @@ let html=source.replace(entry,()=>'<script>\n/* source-authoritative CC2 engine 
 const standalonePreviewBootstrap=String.raw`
 <script id="cc230g-preview-defaults">
 (()=>{'use strict';
-  const isPreview=/\/cc2-30\.html$/i.test(location.pathname);
-  const isOffline=location.protocol==='file:' &&
-    /\.html$/i.test(location.pathname);
+  // This standalone output is also delivered through ChatGPT as a renamed
+  // HTML attachment. No route-dependent silent disabling is allowed.
+  // The same assembly is copied to historical /cc2-28.html and /index.html,
+  // so explicitly preserve those known legacy route behaviors.
+  const isStandaloneHtml=/\.html$/i.test(location.pathname);
+  const isLegacyRoute=/(?:^|\/)(?:cc2-28|cc2-26-27|index)\.html$/i
+    .test(location.pathname);
+  const isPreview=isStandaloneHtml&&!isLegacyRoute;
+  const isOffline=location.protocol==='file:'&&isStandaloneHtml;
   if(!isPreview&&!isOffline)return;
   const url=new URL(location.href),p=url.searchParams;
   const explicitCreature=p.has('cc230');
