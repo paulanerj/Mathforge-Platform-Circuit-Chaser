@@ -29,6 +29,7 @@ jobs:
               src/games/circuit-climb-2/enemies/secondaryEnemies.ts|\
               src/games/circuit-climb-2/enemies/secondaryRoles27.test.ts|\
               src/games/circuit-climb-2/devtools/cc2-02a.ts|\
+              src/games/circuit-climb-2/devtools/cc2-26-owner-smoke.mjs|\
               src/games/circuit-climb-2/devtools/cc2-16a.html|\
               src/games/circuit-climb-2/devtools/buildPortable16A.mjs|\
               src/games/circuit-climb-2/devtools/cc2-27-*|\
