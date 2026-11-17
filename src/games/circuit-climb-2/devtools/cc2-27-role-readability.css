@@ -1,0 +1,61 @@
+/*
+ * CC2-27: tactical role readability on bounded existing SVG actors.
+ * No full-screen paint layer, targeting reticle, spoofed damage, or input.
+ */
+#cc223-secondary-layer .cc223-actor[data-cc227-role="MOBILE_RECON"]
+  .cc223-body svg{
+  filter:drop-shadow(0 1px 3px rgba(139,88,35,.25));
+}
+#cc223-secondary-layer .cc223-actor[data-cc227-role="DIRECTIONAL_LOCK"]
+  .cc223-body svg{
+  filter:drop-shadow(0 1px 3px rgba(87,66,142,.22));
+}
+#cc223-secondary-layer .cc227-sentry-cone{
+  fill:rgba(126,104,177,.12);
+  stroke:rgba(135,102,184,.46);
+  stroke-width:1;
+  stroke-dasharray:2 2;
+}
+#cc223-secondary-layer .cc223-actor[data-phase="TELEGRAPH"]
+  .cc227-sentry-cone{
+  fill:rgba(135,111,187,.18);
+  stroke-width:1.4;
+}
+#cc223-secondary-layer .cc223-actor[data-phase="ALERT"]
+  .cc227-sentry-cone{
+  fill:rgba(177,119,208,.34);
+  stroke:rgba(104,60,136,.75);
+}
+#cc223-secondary-layer .cc223-actor[data-cc227-role="MOBILE_RECON"]
+  .cc223-warning-ring{
+  stroke:#ad763d;
+  stroke-dasharray:3 3;
+}
+#cc223-secondary-layer .cc223-actor[data-cc227-role="DIRECTIONAL_LOCK"]
+  .cc223-warning-ring{
+  stroke:#805aab;
+  stroke-width:2.5;
+}
+/* The explanatory controls live under Settings > Developer. */
+#cc227-panel{
+  margin:8px 0;padding:10px 12px;
+  color:#35495d;background:#f2f6f8;
+  border:1px solid #b8ccd7;border-radius:8px;
+  font:500 12px/1.45 system-ui,sans-serif;
+}
+#cc227-panel summary{color:#32506a;font-weight:800;cursor:pointer}
+#cc227-panel p{margin:8px 0}
+#cc227-panel button{
+  min-height:44px;cursor:pointer;padding:8px 11px;
+  border:1px solid #a5c3d3;border-radius:8px;
+  background:#fff;color:#2a5271;
+  font:750 12px/1.4 system-ui,sans-serif;
+}
+#cc227-panel button:focus-visible{outline:3px solid #2077b8;outline-offset:2px}
+#cc227-status{font-size:11px;color:#657382}
+@media(prefers-reduced-motion:reduce){
+  #cc223-secondary-layer .cc227-sentry-cone,
+  #cc223-secondary-layer .cc223-actor{
+    transition:none!important;animation:none!important;
+  }
+}
