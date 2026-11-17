@@ -15,12 +15,78 @@
 }
 .cc230-root[data-material="mineral-gel"] .cc230-creature{border-radius:35%;filter:saturate(.8)}
 .cc230-root[data-material="glass"] .cc230-creature{background:linear-gradient(120deg,#d3fff3cf,#7acbc09a,#2d7e6bb4)}
-.cc230-gel{position:absolute;pointer-events:none;z-index:1;transform-origin:50% 50%;
- background:linear-gradient(90deg,#49976d18,#75c89976,#baffc1b9,#6bcc8f58);
- border:2px solid rgba(166,237,185,.84);border-radius:48% 37% 44% 50%;
- box-shadow:inset 0 -6px 8px #104d2445,0 1px 3px #06120c40;
- opacity:calc(.2 + var(--cc230-glow,.7) * .8);
- animation:cc230-wave calc(1.4s / var(--cc230-flow,1)) ease-in-out infinite;
+/* CC2-30C: the field is a clipped directional HALF-DISC, not a freeform
+ * visual stream claiming collisions outside the source circle.
+ * Its bounds are source-projected; only contactActive proves actual contact.
+ * Four low-cost fluid layers, no extra full-screen canvas/compositor.
+ */
+.cc230-gel{
+ position:absolute;pointer-events:none;z-index:1;
+ width:var(--cc230-field-diameter,110px);height:var(--cc230-field-diameter,110px);
+ transform:translate(-50%,-50%);
+ border-radius:50%;overflow:hidden;isolation:isolate;
+ opacity:calc(.28 + var(--cc230-glow,.7) * .54);
+ background:radial-gradient(circle at 50% 52%,#bfffd947 0 8%,#7cd8ab6d 35%,#3c94775c 72%,transparent 100%);
+ clip-path:inset(0 50% 0 0);
+ contain:layout paint style;
+}
+.cc230-gel[data-direction="right"]{clip-path:inset(0 0 0 50%)}
+.cc230-gel::before,.cc230-gel::after,.cc230-gel .cc230-fluid-thread,
+.cc230-gel .cc230-fluid-core{content:"";position:absolute;pointer-events:none}
+.cc230-gel::before{
+ inset:3px;border-radius:50%;
+ border:2px solid #a6e8c17c;
+ box-shadow:inset 0 0 14px #e6fff14b;
+}
+.cc230-gel::after{
+ left:18%;top:25%;width:76%;height:54%;border-radius:48%;
+ background:radial-gradient(ellipse,#bbffe287,transparent 70%);
+ filter:blur(6px);
+ transform:translate3d(var(--cc230-slosh-x,0px),var(--cc230-slosh-y,0px),0);
+ transition:transform calc(440ms * var(--cc230-viscosity,.55)) cubic-bezier(.2,.8,.25,1);
+}
+.cc230-fluid-core{
+ inset:12%;border-radius:46% 54% 48% 52%;
+ background:conic-gradient(from 40deg at 47% 48%,#8cd0a917,#d6ffe2a8,#62a99274,#e6fff3a4,#8cd0a917);
+ opacity:.7;
+ animation:cc230-fluid-slosh calc(2.8s / var(--cc230-flow,1)) ease-in-out infinite alternate;
+}
+.cc230-fluid-thread{
+ left:22%;top:44%;width:78%;height:18%;
+ border-radius:50%;
+ background:linear-gradient(90deg,transparent,#d9ffe5bb,transparent);
+ transform:rotate(-17deg);
+ filter:blur(3px);
+ animation:cc230-fluid-pull calc(1.9s / var(--cc230-flow,1)) ease-in-out infinite alternate;
+}
+.cc230-gel[data-contact="stuck"]{
+ opacity:.91;filter:saturate(1.22);
+}
+.cc230-gel[data-contact="stuck"] .cc230-fluid-core{
+ animation-duration:calc(1.3s / var(--cc230-flow,1));
+}
+.cc230-creature::before{
+ content:"";position:absolute;z-index:-1;pointer-events:none;
+ width:calc(var(--cc230-size) * 1.35);height:calc(var(--cc230-size) * .78);
+ left:50%;top:50%;border-radius:48%;
+ background:radial-gradient(ellipse,#84dbad91,#427d6475 52%,transparent 73%);
+ transform:translate(calc(-50% + var(--cc230-lag-x,0px)),calc(-50% + var(--cc230-lag-y,0px)));
+ filter:blur(calc(3px + 6px * var(--cc230-viscosity,.55)));
+ transition:transform calc(90ms + 360ms * var(--cc230-viscosity,.55)) ease-out;
+}
+.cc230-creature[data-phase="HOPPING"]{
+ box-shadow:inset -6px -8px 12px #143f2e87,0 0 15px #70ca91a9;
+}
+.cc230-root[data-contact="stuck"] .cc230-creature{
+ border-color:#d5ffe6;
+}
+@keyframes cc230-fluid-slosh{
+ from{transform:rotate(-12deg) scale(.96)}
+ to{transform:rotate(13deg) scale(1.04)}
+}
+@keyframes cc230-fluid-pull{
+ from{transform:rotate(-23deg) scaleX(.86) translateX(-5%)}
+ to{transform:rotate(16deg) scaleX(1.12) translateX(5%)}
 }
 .cc230-gate{pointer-events:auto;position:absolute;top:10px;left:50%;transform:translateX(-50%);
  width:min(94%,360px);z-index:8;border:1px solid #b2eac6;border-radius:12px;
@@ -49,5 +115,22 @@
   50%{border-radius:46% 54% 43% 57%;filter:brightness(1.14)}}
 @keyframes cc230-wave{0%,100%{transform:scaleX(.97) skewX(-2deg)}
   50%{transform:scaleX(1.02) skewX(2deg)}}
-@media(prefers-reduced-motion:reduce){.cc230-creature,.cc230-gel{animation:none}}
+@media(prefers-reduced-motion:reduce){
+  .cc230-creature,.cc230-gel,.cc230-fluid-core,.cc230-fluid-thread{
+    animation:none!important;transition:none!important;
+  }
+}
+@media(max-width:430px){
+  .cc230-fluid-core{animation-duration:3.2s}
+  .cc230-studio .cc230-gameplay-controls{grid-template-columns:1fr}
+}
+.cc230-gameplay-controls{
+ display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));
+ gap:9px;margin:12px 0;
+}
+.cc230-gameplay-controls label{display:grid;gap:5px;font-size:12px}
+.cc230-gameplay-controls output{font-variant-numeric:tabular-nums;color:#b5f4d3}
+.cc230-studio .cc230-authority{border:1px solid #759a88;padding:10px;border-radius:8px}
+.cc230-gameplay-message{display:block;margin-top:7px;font-size:11px}
+
 [hidden].cc230-creature,[hidden].cc230-gel,[hidden].cc230-gate{display:none!important}
