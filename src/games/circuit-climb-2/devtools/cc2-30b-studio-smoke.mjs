@@ -41,15 +41,14 @@ try{
       // A hidden shell details element must never count as accessible UI.
       await page.locator('#cc209c-enter').click();
       await page.locator('#cc209-settings-btn').click();
-      const developerDetails=page.locator('#cc209-settings .cc209-dialog > details').last();
-      // Some accepted UI controllers pre-open the Developer section.
-      // Clicking unconditionally in that case CLOSES it, hiding the Studio.
-      if(!(await developerDetails.evaluate(el=>el.open))){
-        await developerDetails.locator('summary').first().click();
-      }
-      await page.locator('.cc230-studio > summary').click();
-
-      await page.locator('.cc230-authority > summary').click();
+      const accessible=await page.evaluate(()=>{
+        const dev=document.querySelector('#cc209-developer-slot').closest('details');
+        const studio=document.querySelector('.cc230-studio');
+        const authority=document.querySelector('.cc230-authority');
+        return {devOpen:dev.open,studioOpen:studio.open,authorityOpen:authority.open};
+      });
+      check(accessible.devOpen&&accessible.studioOpen&&accessible.authorityOpen,
+        'source studio expanded in actual Settings '+width);
       await page.locator('.cc230-apply-gameplay').click();
       await page.waitForFunction(()=>
         window.__CC2_02A__?.creature?.()?.config?.fieldTicks===210,
