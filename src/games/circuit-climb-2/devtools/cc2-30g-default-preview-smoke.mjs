@@ -68,15 +68,16 @@ try{
    const target=page.locator('button.choice[data-platform-id="'+id+'"]');
    await target.waitFor({state:'visible',timeout:6000});
    await target.click();
-   const traveled=await page.evaluate(()=>{
-     const a=window.__CC2_02A__;
-     for(let i=0;i<240;i++){
-       if(a.snapshot().completedRows>=1||a.snapshot().phase==='ended')break;
-       a.advanceForQA(6);
-     }
-     a.advanceForQA(1);
-     return {rows:a.snapshot().completedRows,source:a.creature()};
-   });
+   // Bare-link acceptance must run genuine real-time gameplay. The
+   // QA-only advanceForQA method intentionally requires ?manual=1 and is
+   // forbidden here: it would invalidate the zero-config test itself.
+   await page.waitForFunction(()=>
+     window.__CC2_02A__.snapshot().completedRows>=1,
+     null,{timeout:14000});
+   const traveled=await page.evaluate(()=>({
+     rows:window.__CC2_02A__.snapshot().completedRows,
+     source:window.__CC2_02A__.creature(),
+   }));
    assert(traveled.rows>=1,'first genuine climb completed '+width,traveled);
    await page.waitForFunction(()=>window.__CC2_30__?.presentation?.creatureVisible,
      null,{timeout:9000});
