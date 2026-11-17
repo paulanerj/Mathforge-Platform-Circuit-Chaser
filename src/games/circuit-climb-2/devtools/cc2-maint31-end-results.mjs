@@ -103,13 +103,22 @@ try{
    const a=window.__CC2_02A__,s=a.snapshot();
    return {runId:s.runId,rows:s.completedRows,attempts:s.attempts,
      score:s.score,solved:s.solved.length,phase:s.phase,
-     guardian:a.creature(),summaryHidden:document.querySelector('#summaryPanel').hidden};
+     guardian:a.creature(),summaryHidden:document.querySelector('#summaryPanel').hidden,
+     events:a.events().map(e=>e.type),
+     featureEvents:a.featureEvents().map(e=>e.type),
+     recorded:a.sessionReport().metrics,
+   };
   });
-  check(started.runId!==before.runId&&
-    started.rows===0&&started.attempts===0&&
+  // Run ID is intentionally deterministic from seed + run ordinal on a
+  // newly constructed engine. Do NOT alter math RNG or replay just to force
+  // uniqueness. Require actual event and state isolation instead.
+  check(started.rows===0&&started.attempts===0&&
     started.score===0&&started.solved===0&&
-    started.guardian?.activeField===null&&started.summaryHidden,
-    'summary restart creates isolated clean run',started);
+    started.guardian?.activeField===null&&started.summaryHidden&&
+    started.events.filter(x=>x==='RUN_STARTED').length===1&&
+    !started.events.includes('RUN_ENDED')&&
+    started.featureEvents.every(x=>x!=='ABILITY_ACTIVATED'),
+    'summary restart creates isolated state and clean source ledgers',started);
   check(errors.length===0,'no runtime exception during end/replay',{errors});
  }finally{await page.close();}
 }finally{
