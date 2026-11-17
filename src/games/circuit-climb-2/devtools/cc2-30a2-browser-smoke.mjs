@@ -143,5 +143,5 @@ try{
   console.log('CC2-30A2 BROWSER ACCEPTANCE: '+results.length+' checks passed');
 }finally{
   await browser.close();
-  await server.close();
+  await server.stop();
 }
