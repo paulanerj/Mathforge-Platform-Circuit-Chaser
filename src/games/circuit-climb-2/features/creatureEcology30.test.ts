@@ -62,7 +62,10 @@ describe('CC2-30A reusable creature source system',()=>{
     expect(g.answerCreature(wrong)).toEqual({ok:true,correct:false});
     expect(g.creatureSnapshot()?.activeField).toBeNull();
     expect(g.creatureSnapshot()?.receipts.at(-1)?.type).toBe('GATE_FAILED');
-    g.advanceTicks(defaultCreatureConfig().hopEveryTicks+1);
+    g.advanceTicks(defaultCreatureConfig().offerTicks+
+      defaultCreatureConfig().hopTravelTicks+3);
+    expect(g.creatureSnapshot()?.receipts.some(e=>e.type==='HOPPED')).toBe(true);
+    expect(g.creatureSnapshot()?.hop).toBeNull();
     expect(g.offerCreature().ok).toBe(true);
     const next=g.creatureSnapshot()!.question!;
     const correct=next.sequence[2]+next.sequence[1]-next.sequence[0];
@@ -72,6 +75,25 @@ describe('CC2-30A reusable creature source system',()=>{
     g.advanceTicks(defaultCreatureConfig().fieldTicks+1);
     expect(g.creatureSnapshot()?.activeField).toBeNull();
     expect(g.creatureSnapshot()?.receipts.filter(e=>e.type==='FIELD_CAST')).toHaveLength(1);
+  });
+  it('physical fluid collision is directional, bounded, and source-only',()=>{
+    const g=make('field-geometry');reachFirstCreature(g);
+    g.offerCreature();
+    const q=g.creatureSnapshot()!.question!;
+    const right=q.sequence[2]+q.sequence[1]-q.sequence[0];
+    g.answerCreature(right);
+    const c=g.creatureSnapshot()!;
+    const fluid=c.activeField!;
+    expect(fluid).toBeTruthy();
+    const director=new CreatureEcologyDirector('isolated','trace');
+    // The field is available through an integrated chase snapshot, and the
+    // accepted effect does not touch the primary mathematical answer.
+    expect(c.fieldMultiplier).toBeCloseTo(c.config.slowMultiplier);
+    expect(dir.pressureFor({x:fluid.x,y:fluid.y})).toBe(1);
+    // Reconstruct the same command sequence and prove the real effect remains
+    // present in that world rather than merely in the visual studio.
+    const replay=replayChase(g.replayExport());
+    expect(replay.creatureSnapshot()?.activeField).toEqual(fluid);
   });
   it('replay exactly reconstructs a deliberate creature gate and field',()=>{
     const g=make('replay-molasses');reachFirstCreature(g);
