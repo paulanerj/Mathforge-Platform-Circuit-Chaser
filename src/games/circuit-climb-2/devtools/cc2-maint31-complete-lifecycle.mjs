@@ -55,6 +55,7 @@ const state=async page=>page.evaluate(()=>{
     pauseDisabled:document.getElementById('pause')?.disabled,
     pauseLabel:document.getElementById('pause')?.textContent,
     params:Object.fromEntries(new URLSearchParams(location.search)),
+    domChoices:document.querySelectorAll('button.choice').length,
     visibleChoices:[...document.querySelectorAll('button.choice')]
       .filter(el=>getComputedStyle(el).visibility!=='hidden').length,
     spill:/(?:vfxIntensity|Math\.sin\(t\.tick|\.beginPath\(\))/
@@ -83,8 +84,8 @@ try{
         window.__CC2_09B__?.summary?.()?.frames>3,null,{timeout:16000});
       const intro=await state(page);
       check(intro.hiddenIntro===false&&intro.tick===0 &&
-        intro.visibleChoices===3,
-        'intro loads real three-choice source '+width,intro);
+        intro.domChoices===3&&intro.visibleChoices===0,
+        'intro properly hides three real source choices until entered '+width,intro);
       const help=page.locator('#cc209c-intro-help');
       check(await help.isVisible()&&await help.isEnabled(),
         'help is reachable on intro '+width);
@@ -96,8 +97,9 @@ try{
       await page.waitForFunction(()=>
         document.getElementById('cc209-help').hidden);
       const entered=await state(page);
-      check(entered.hiddenIntro===true&&entered.boardVisibility==='visible',
-        'intro exit exposes visible active board '+width,entered);
+      check(entered.hiddenIntro===true&&entered.boardVisibility==='visible'&&
+        entered.visibleChoices===3,
+        'intro exit exposes three visible active choices '+width,entered);
       // Opening Help is one entry route. The normal "View tower" click
       // remains tested separately below on a fresh page.
       await page.locator('#cc209-settings-btn').click();
