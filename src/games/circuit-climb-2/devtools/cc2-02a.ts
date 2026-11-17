@@ -167,6 +167,9 @@ function creatureConfigFromURL():CreatureConfig|undefined{
   const raw=cc223Params.get('cc230Cfg');
   if(!raw){
     const standard=defaultCreatureConfig();
+    // Owner-review zero-query preview: see the Guardian after the FIRST
+    // genuine completed row. No synthetic math, no auto-granted power.
+    if(cc223Params.get('cc230Early')==='1')standard.firstEligibleRow=1;
     // CC2-30E is deliberately opt-in and does not rewrite legacy replays.
     // A blanket's source speed multiplier is 0.50 and never expires by TTL.
     return cc223Params.get('cc230Blanket')==='1'?
