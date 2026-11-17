@@ -29,6 +29,8 @@ jobs:
               src/games/circuit-climb-2/enemies/secondaryEnemies.ts|\
               src/games/circuit-climb-2/enemies/secondaryRoles27.test.ts|\
               src/games/circuit-climb-2/devtools/cc2-02a.ts|\
+              src/games/circuit-climb-2/devtools/publishCC227Preview.mjs|\
+              package.json|\
               src/games/circuit-climb-2/devtools/cc2-26-owner-smoke.mjs|\
               src/games/circuit-climb-2/devtools/cc2-16a.html|\
               src/games/circuit-climb-2/devtools/buildPortable16A.mjs|\
@@ -72,6 +74,8 @@ jobs:
              cc2-standalone/CC2-26-27-Living-Pursuer-Enemy-Ecology-Playable.html
           sha256sum cc2-standalone/CC2-26-27-Living-Pursuer-Enemy-Ecology-Playable.html
           npm run build
+          test -s dist/cc2-26-27.html
+          node -e "const fs=require('fs');const h=fs.readFileSync('dist/cc2-26-27.html','utf8');if(!h.includes('cc227-role-controller')||!h.includes('cc226-oxide-controller'))process.exit(1)"
       - name: Preserve replay, source and owner visual evidence
         if: always()
         uses: actions/upload-artifact@v4
