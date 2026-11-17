@@ -343,8 +343,16 @@ panel.querySelector('.cc230-import-gameplay').onclick=()=>{
 // CC2-09 owner menu intentionally hides game-shell details; place this
 // inside the designated developer slot instead of inventing a new panel.
 const developerSlot=document.querySelector('#cc209-developer-slot');
-if(developerSlot)developerSlot.appendChild(panel);
-else console.error('CC2-30B developer slot missing; source controls hidden');
+if(developerSlot){
+  developerSlot.appendChild(panel);
+  // In an opt-in Creature Studio build, never bury the source controls
+  // behind the inherited nested-accordion default (physical owner blocker).
+  const developerAccordion=developerSlot.closest('details');
+  if(developerAccordion)developerAccordion.open=true;
+  panel.open=true;
+  const authorityAccordion=panel.querySelector('.cc230-authority');
+  if(authorityAccordion)authorityAccordion.open=true;
+}else console.error('CC2-30B developer slot missing; source controls hidden');
 window.__CC2_30__={
   get config(){return {...config}},
   get source(){return api()?.creature?.()??null},
