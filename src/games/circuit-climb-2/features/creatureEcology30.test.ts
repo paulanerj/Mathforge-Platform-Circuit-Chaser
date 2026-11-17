@@ -15,7 +15,7 @@ const make=(seed='cc230-molasses')=>new CircuitClimbChaseCore(seed,
 function reachFirstCreature(g:CircuitClimbChaseCore){
   for(let n=0;n<2;n++){
     const problem=g.learnerSnapshot().currentProblem;
-    const correct=problem.options.find(o=>o.correct)!;
+    const correct=problem.options.find(o=>o.platformId===problem.correctPlatformId)!;
     expect(g.selectPlatform(correct.platformId).ok).toBe(true);
     let k=0;
     while(g.learnerSnapshot().phase!=='ready'&&
