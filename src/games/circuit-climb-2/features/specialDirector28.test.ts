@@ -27,12 +27,16 @@ function liveRows(n:number,c:SpecialConfig28=defaultSpecialConfig28()){
     expect(core.selectPlatform(problem.correctPlatformId)).toMatchObject({
       ok:true,correct:true
     });
-    core.advanceTicks(300);
+    // Inspect the EXACT source tick when the physical landing occurs.
+    // A 300-tick jump would let a 45+120-tick Surge expire before QA sees it.
+    for(let ticks=0;ticks<500&&core.snapshot().completedRows<row;ticks++){
+      core.advanceTicks(1);
+      features.consume(core.eventLog());
+      specials.consume(core.eventLog(),features.eventLog(),'climb');
+      specials.advance(core.snapshot().runId,core.snapshot().tick,
+        core.snapshot().phase);
+    }
     expect(core.snapshot().completedRows).toBe(row);
-    features.consume(core.eventLog());
-    specials.consume(core.eventLog(),features.eventLog(),'climb');
-    specials.advance(core.snapshot().runId,core.snapshot().tick,
-      core.snapshot().phase);
     history.push(specials.snapshot());
   }
   return {core,features,specials,history};
