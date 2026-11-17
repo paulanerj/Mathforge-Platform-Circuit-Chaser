@@ -2,6 +2,8 @@ name: CC2-30A Molasses Creature Architectural Qualification
 on:
   push:
     branches: [feature/cc2-30a-molasses-creature-architecture]
+  pull_request:
+    branches: [feature/cc2-28-special-platforms-hazards-ability-strategy]
   workflow_dispatch:
 permissions:
   contents: read
