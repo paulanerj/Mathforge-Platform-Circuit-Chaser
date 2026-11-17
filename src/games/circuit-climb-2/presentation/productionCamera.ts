@@ -23,6 +23,8 @@ export interface ProductionCameraInput {
   fitRowGap?:number;
   /** Presentation-only extra world around the active Spark. */
   coverageExpansion?:number;
+  /** CC2-30F visual-only six-row flowing-world mode. */
+  minimumRowsEachSide?:2|3;
 }
 export interface ProductionCameraFrame {
   xScale:number;
@@ -44,6 +46,8 @@ export function computeProductionCamera(v:ProductionCameraInput):ProductionCamer
     !Number.isFinite(v.maxZoom) || v.maxZoom<=0 || v.maxZoom>1 ||
     !Number.isFinite(v.follow) || v.follow<=0 || v.follow>1 ||
     (v.fitRowGap!==undefined && (!Number.isFinite(v.fitRowGap)||v.fitRowGap<=0)) ||
+    (v.minimumRowsEachSide!==undefined &&
+      v.minimumRowsEachSide!==2&&v.minimumRowsEachSide!==3) ||
     (v.coverageExpansion!==undefined &&
       (!Number.isFinite(v.coverageExpansion)||v.coverageExpansion<1||v.coverageExpansion>1.5))) {
     throw Error('CC2_PRODUCTION_CAMERA_INVALID');
@@ -56,9 +60,9 @@ export function computeProductionCamera(v:ProductionCameraInput):ProductionCamer
   // platforms" illusion even while source-owned Spark moves continuously.
   // With a bounded follow lag, Spark visibly moves inside its own viewport.
   const fitGap=v.fitRowGap??v.rowGap;
-  const desiredSpan=2*MIN_VISIBLE_ROWS_EACH_SIDE*fitGap+
-    v.platformHeight+96;
-  const trackingHeadroom=0.8*fitGap;
+  const desiredSpan=2*(v.minimumRowsEachSide??MIN_VISIBLE_ROWS_EACH_SIDE)*
+    fitGap+v.platformHeight+96;
+  const trackingHeadroom=(v.minimumRowsEachSide===3?1.0:.8)*fitGap;
   const yScale=Math.max(0.10,Math.min(v.maxZoom,
     v.logicalHeight/(desiredSpan+trackingHeadroom))/(v.coverageExpansion??1));
   const idealCameraY=v.sparkY-v.logicalHeight/(2*yScale);
