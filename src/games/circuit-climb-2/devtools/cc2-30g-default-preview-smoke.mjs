@@ -104,6 +104,35 @@ try{
    assert(errors.length===0,'no browser exceptions '+width,{errors});
   }finally{await page.close();}
  }
+ // ChatGPT exports and iOS downloads may change the HTML basename.
+ // The exact same standalone bytes must still enable the whole experience.
+ const renamed=await browser.newPage({viewport:{width:390,height:844}});
+ try{
+  await renamed.goto('http://127.0.0.1:'+server.address().port+
+    '/CircuitClimb-CC2-30G-Playable.html',{waitUntil:'domcontentloaded'});
+  await renamed.waitForFunction(()=>window.__CC2_02A__?.rendererStats?.()&&
+    window.__CC2_30__?.presentation?.draws>0,null,{timeout:15000});
+  const result=await renamed.evaluate(()=>({
+    flow:window.__CC2_02A__.rendererStats().flowRowsEachSide,
+    first:window.__CC2_02A__.creature()?.config?.firstEligibleRow,
+    flag:new URLSearchParams(location.search).get('cc230'),
+  }));
+  assert(result.flow===3&&result.first===1&&result.flag==='1',
+    'renamed downloaded HTML has full game and early Guardian by default',result);
+ }finally{await renamed.close();}
+ // A historical CC2-28 preview alias must NEVER silently inherit CC230G.
+ const oldRoute=await browser.newPage({viewport:{width:390,height:844}});
+ try{
+  await oldRoute.goto('http://127.0.0.1:'+server.address().port+
+    '/cc2-28.html',{waitUntil:'domcontentloaded'});
+  await oldRoute.waitForFunction(()=>window.__CC2_02A__?.rendererStats?.());
+  const result=await oldRoute.evaluate(()=>({
+    flow:window.__CC2_02A__.rendererStats().flowRowsEachSide,
+    creature:window.__CC2_02A__.creature(),
+  }));
+  assert(result.flow===2&&!result.creature,
+    'historical cc2-28 alias never auto-enables experimental creatures',result);
+ }finally{await oldRoute.close();}
  // A caller explicitly requesting cc230=0, cc2Flow=0 must NOT be forced
  // back into creature mode merely because it uses the CC2-30 route.
  const legacy=await browser.newPage({viewport:{width:390,height:844}});
