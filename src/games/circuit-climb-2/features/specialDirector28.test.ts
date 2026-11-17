@@ -8,6 +8,7 @@
 import {describe,it,expect} from 'vitest';
 import {CircuitClimbCore} from '../core/CircuitClimbCore';
 import {defaultRunConfig} from '../config/runConfig';
+import {paceProfile} from '../config/paceProfiles';
 import {FeatureProgression} from '../features/progression';
 import {
   SpecialDirector28,defaultSpecialConfig28,validateSpecialConfig28,
@@ -208,6 +209,34 @@ describe('CC2-28 ChaseCore backward compatibility and versioned replay',()=>{
       expect(standard.replayExport()).toEqual(absent.replayExport());
       expect(standard.specialSnapshot()).toBeNull();
     }
+  });
+  it('eight real Pursuer-chase landings deliver real specials and replay exact',()=>{
+    const training=paceProfile('training');
+    const game=new CircuitClimbChaseCore('cc2-28-eight-row-integration',
+      training.run,training.pursuer,undefined,training.learner,
+      training.personality,undefined,defaultSpecialConfig28());
+    for(let row=1;row<=8;row++){
+      const state=game.learnerSnapshot();
+      expect(state.phase).toBe('ready');
+      const choice=state.currentProblem.correctPlatformId;
+      expect(game.selectPlatform(choice)).toMatchObject({ok:true,correct:true});
+      game.advanceTicks(300);
+      expect(game.learnerSnapshot().completedRows).toBe(row);
+    }
+    const events=game.specialEvents();
+    expect(events.filter(e=>e.type==='CAPACITOR_BONUS').map(e=>e.row))
+      .toEqual([6]);
+    expect(events.filter(e=>e.type==='SURGE_WARNING').map(e=>e.row))
+      .toEqual([7]);
+    expect(events.filter(e=>e.type==='RELAY_GUARD_EARNED').map(e=>e.row))
+      .toEqual([8]);
+    expect(game.runSummary().rowsSolved).toBe(8);
+    expect(game.learnerSnapshot().solved).toHaveLength(8);
+    const replay=replayChase(game.replayExport());
+    expect(replay.stateDigest()).toBe(game.stateDigest());
+    expect(replay.specialEvents()).toEqual(events);
+    expect(replay.learnerSnapshot()).toEqual(game.learnerSnapshot());
+    expect(replay.runSummary()).toEqual(game.runSummary());
   });
   it('an opt-in special policy survives a deterministic real source replay',()=>{
     const config=defaultSpecialConfig28();
