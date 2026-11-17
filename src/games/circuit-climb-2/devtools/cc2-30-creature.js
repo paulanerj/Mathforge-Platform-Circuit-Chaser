@@ -79,6 +79,7 @@ function refresh(){
   if(state.runId!==refresh.runId){
     refresh.runId=state.runId;lastQuestion='';lastEvent='';
     lastPosition='';smoothedPoint=null;fieldProjection=null;
+    status.textContent='';
   }
   // Primary platform buttons remain authoritative world projection.
   // The character has its own hitbox and never relocates primary answer controls.
@@ -94,6 +95,16 @@ function refresh(){
   const visible=btn&&c.gate!=='DORMANT'&&
     state.phase!=='ended'&&!state.paused;
   creature.hidden=!visible;
+  // Expose the power's existence without fabricating an encounter or
+  // granting its mathematical gate. This status is purely instructional.
+  if(state.phase==='ready'&&!c.activeField&&!c.question &&
+      (!c.receipts.length||!c.receipts.some(e=>e.type==='GATE_SOLVED'))){
+    if(c.gate==='AVAILABLE'&&visible){
+      status.textContent='GREEN GUARDIAN · tap the creature to slow the killer bot';
+    }else if(c.gate==='DORMANT'&&state.completedRows===0){
+      status.textContent='Green Guardian arrives after your first climb';
+    }
+  }
   if(visible){
     const dest=getPoint(btn);
     let {x,y}=dest;
