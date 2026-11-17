@@ -23,6 +23,8 @@ jobs:
           sha256sum dist/cc2-30.html
       - name: Test actual first tap, movement, pause, restart, Guardian and file URI
         run: node src/games/circuit-climb-2/devtools/cc2-maint31-complete-lifecycle.mjs
+      - name: "Maintenance: authoritative end of run and summary restart"
+        run: node src/games/circuit-climb-2/devtools/cc2-maint31-end-results.mjs
       - name: Preserve failure evidence
         if: always()
         uses: actions/upload-artifact@v4
