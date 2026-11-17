@@ -54,6 +54,8 @@ jobs:
         run: node src/games/circuit-climb-2/devtools/cc2-30h-heritage-visible-smoke.mjs
       - name: "Maintenance: actual complete user journey on exact standalone"
         run: node src/games/circuit-climb-2/devtools/cc2-maint31-complete-lifecycle.mjs
+      - name: "Maintenance: authoritative end of run and summary restart"
+        run: node src/games/circuit-climb-2/devtools/cc2-maint31-end-results.mjs
       - name: Preserve owner review artifact
         if: always()
         uses: actions/upload-artifact@v4
