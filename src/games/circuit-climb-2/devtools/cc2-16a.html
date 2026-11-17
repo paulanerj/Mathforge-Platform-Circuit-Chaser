@@ -1358,6 +1358,61 @@ window.addEventListener("DOMContentLoaded", () => {
     }
     ctx.restore();
   }
+  // CC2-30H: The approved pale Heritage painter is the VISIBLE canvas.
+  // Earlier camera work painted 3+3 tier silhouettes on #worldCanvas,
+  // which CC2-09B explicitly hides (opacity:0!important). These physical
+  // architectural previews MUST be drawn here; only the source owns math.
+  let futureTierReport={rows:0,cells:0,centers:[]};
+  function drawFutureStructuralTiers(state,r,w,h){
+    const report={rows:0,cells:0,centers:[]};
+    if(r.flowRowsEachSide!==3){futureTierReport=report;return;}
+    const g=state.world.geometry,known=new Set(state.world.rows.map(v=>v.index));
+    const sparkRow=state.spark.row;
+    const horizontal=r.horizontalCameraScale*w/600;
+    const vertical=r.effectiveZoom*w/600;
+    // Exact same world row coordinates and projection as real platforms.
+    for(let row=Math.max(0,sparkRow-3);row<=sparkRow+3;row++){
+      if(known.has(row))continue;
+      const worldY=-row*g.rowGap;
+      const y=pt(g.columns[1],worldY,r,w).y;
+      const platformHeight=Math.max(17,g.platformHeight*vertical*.85);
+      if(y+platformHeight<0||y>h)continue;
+      const platformWidth=Math.max(54,g.platformWidth*horizontal*.92);
+      const centers=g.columns.map(x=>pt(x,worldY,r,w).x);
+      report.rows++;
+      ctx.save();
+      ctx.lineWidth=1.5;
+      ctx.strokeStyle='#a9c7cc';
+      ctx.globalAlpha=.78;
+      ctx.beginPath();
+      ctx.moveTo(centers[0],y+platformHeight*.5);
+      ctx.lineTo(centers[2],y+platformHeight*.5);
+      ctx.stroke();
+      ctx.restore();
+      for(const x of centers){
+        const left=x-platformWidth/2;
+        ctx.save();
+        ctx.shadowColor='#4f7d8c45';ctx.shadowBlur=6;
+        ctx.fillStyle='#e0edf0';
+        ctx.strokeStyle='#719eac';
+        ctx.lineWidth=1.8;
+        roundedRect(ctx,left,y,platformWidth,platformHeight,5);
+        ctx.fill();ctx.stroke();
+        ctx.shadowBlur=0;
+        ctx.strokeStyle='#ffffff';
+        ctx.lineWidth=1.4;
+        ctx.beginPath();
+        ctx.moveTo(left+7,y+5);
+        ctx.lineTo(left+platformWidth-7,y+5);
+        ctx.stroke();
+        ctx.restore();
+        report.cells++;
+        report.centers.push({row,x,y:y+platformHeight/2,
+          width:platformWidth,height:platformHeight});
+      }
+    }
+    futureTierReport=report;
+  }
   function actor(x,y,value,mode,r,w,t){
     const pos=pt(x,y,r,w),isBot=mode==='bot-search'||mode==='bot-pursuit',radius=isBot?11:19;
     const breathing=reduceMotion?0:Math.sin(t*(isBot?.004:.006))*2;
@@ -1439,6 +1494,9 @@ window.addEventListener("DOMContentLoaded", () => {
       for(const old of log.pathHistory){const age=now-old.born;if(age<25000)curve(old.points,renderer,w,'#00a6e9',clamp(1-age/25000,.16,.9));}
       log.pathHistory=log.pathHistory.filter(p=>now-p.born<25000);
       if(state.travel?.movement==='circuit')curve(travelPartial(state.travel),renderer,w);
+      // Draw all pre-existing unlabeled future tier architecture BEFORE
+      // real platforms; this maintains depth and avoids fake answer choices.
+      drawFutureStructuralTiers(state,renderer,w,h);
       const rows=state.world.rows||[];
       for(const row of rows)for(const platformItem of row.platforms)platform(platformItem,renderer,w,now);
       // Source's display interpolation affects visuals only; it never edits
@@ -1479,6 +1537,8 @@ window.addEventListener("DOMContentLoaded", () => {
       sourceAudioMuted:!api()?.feedbackSettings?.()?.enabled,
       originalCueEvents:log.originalCueEvents,cornerEvents:log.recordedCornerEvents,
       sourceDigest:api()?.sessionReport?.()?.stateDigest,screenSizes:[...log.screenSizes],
+      futureTiers:{rows:futureTierReport.rows,cells:futureTierReport.cells,
+        centers:futureTierReport.centers.map(v=>({...v}))},
       audioHistory:[...audioHistory]}),
   };
   requestAnimationFrame(frame);
