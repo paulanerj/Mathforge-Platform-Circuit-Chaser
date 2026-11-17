@@ -53,8 +53,7 @@ try{
       const play=await page.evaluate(()=>({
         r:window.__CC2_26__.report(),
         s:window.__CC2_02A__.snapshot(),
-        bg:getComputedStyle(document.querySelector(
-          '#cc223-secondary-layer')??document.body).backgroundColor
+        viewportWidth:document.documentElement.scrollWidth
       }));
       check(play.s.currentProblem.options.length===3&&
         play.r.frames>0&&play.r.sourceTick>=12,
@@ -63,7 +62,7 @@ try{
         play.r.attached.tethered===true&&
         play.r.attached.centerDistancePx<=play.r.attached.maxAllowedPx+.15,
         'physical membrane attached to real Pursuer '+width,play.r.attached);
-      check(document.documentElement?.clientWidth<=width+2,
+      check(play.viewportWidth<=width+2,
         'no horizontal overflow '+width);
       check(errors.length===0,'no runtime exceptions '+width,{errors});
       await page.screenshot({path:folder+'/CC2-26-'+width+'-playing.png'});
