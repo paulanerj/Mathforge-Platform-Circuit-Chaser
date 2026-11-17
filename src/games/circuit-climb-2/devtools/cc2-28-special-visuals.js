@@ -86,7 +86,8 @@
   }
   function decorateChoice(button,kind,description){
     if(button.dataset.cc228Kind!==kind)button.dataset.cc228Kind=kind;
-    button.dataset.cc228Special=description;
+    if(button.dataset.cc228Special!==description)
+      button.dataset.cc228Special=description;
     if(!button.querySelector('.cc228-sigil')){
       const sigil=document.createElement('span');
       sigil.className='cc228-sigil';sigil.setAttribute('aria-hidden','true');
@@ -115,13 +116,16 @@
         });
     }
     const mark=button.querySelector('.cc228-glyph');
-    if(mark)mark.textContent=kind==='CAPACITOR'?'✦':
+    const symbol=kind==='CAPACITOR'?'✦':
       kind==='RELAY'?'⟡':kind==='SURGE'?'ϟ':'';
-    button.title=description==='STANDARD'?'Normal mathematical platform':
+    if(mark&&mark.textContent!==symbol)mark.textContent=symbol;
+    const title=description==='STANDARD'?'Normal mathematical platform':
       description+'; all three options have the same special property.';
-    button.setAttribute('aria-describedby','cc228-description');
-    button.dataset.cc228Combo=kind==='SURGE'&&
-      description.includes('RELAY')?'on':'off';
+    if(button.title!==title)button.title=title;
+    if(button.getAttribute('aria-describedby')!=='cc228-description')
+      button.setAttribute('aria-describedby','cc228-description');
+    const combo=kind==='SURGE'&&description.includes('RELAY')?'on':'off';
+    if(button.dataset.cc228Combo!==combo)button.dataset.cc228Combo=combo;
   }
   function syncOptions(){
     const game=api(),s=game?.snapshot?.(),f=game?.features?.(),
@@ -145,21 +149,26 @@
       else if(kind==='SURGE')message='ϟ NEXT ROW · SURGE · correct landing starts warning';
       else if(mod==='CAPACITOR')message='✦ CAPACITOR · correct landing earns bonus charge';
       else if(mod==='RELAY')message='⟡ RELAY · correct landing grounds an active surge';
-      liveChip.textContent=message;liveChip.hidden=!message;
-      liveChip.dataset.cc228Phase=special.phase;
+      if(liveChip.textContent!==message)liveChip.textContent=message;
+      if(liveChip.hidden===Boolean(message))liveChip.hidden=!message;
+      if(liveChip.dataset.cc228Phase!==special.phase)
+        liveChip.dataset.cc228Phase=special.phase;
     }
     const pulse=$('pulse');
     if(pulse){
-      pulse.dataset.cc228Ready=f.pulseAvailable?'yes':'no';
-      pulse.dataset.cc228Range=f.targetInRange?'in':'out';
+      const ready=f.pulseAvailable?'yes':'no';
+      const range=f.targetInRange?'in':'out';
+      if(pulse.dataset.cc228Ready!==ready)pulse.dataset.cc228Ready=ready;
+      if(pulse.dataset.cc228Range!==range)pulse.dataset.cc228Range=range;
       const meaning=f.pulseAvailable?
         f.targetInRange?
           'Circuit Pulse ready. Nearby Pursuer in range. Will slow it and discharge an active Surge.':
           'Circuit Pulse ready, but Pursuer is out of range. Using Pulse will SPEND charge without slowing it.':
         'Circuit Pulse charging. '+f.charge+' of '+f.capacity+
           ' units. Requires full charge and grounded Spark.';
-      pulse.title=meaning;
-      pulse.setAttribute('aria-label',meaning);
+      if(pulse.title!==meaning)pulse.title=meaning;
+      if(pulse.getAttribute('aria-label')!==meaning)
+        pulse.setAttribute('aria-label',meaning);
     }
     const desc=$('cc228-description');
     if(desc&&desc.textContent!==description)
@@ -178,7 +187,8 @@
         nextRelay?'Relay '+nextRelay:null,
         nextSurge?'Surge '+nextSurge:null
       ].filter(Boolean);
-      guide.textContent='Upcoming · '+parts.join(' · ');
+      const text='Upcoming · '+parts.join(' · ');
+      if(guide.textContent!==text)guide.textContent=text;
     }
   }
   function audioAvailable(){
