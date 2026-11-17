@@ -195,7 +195,16 @@ panel.innerHTML=`<summary>Molasses Creature Studio · experimental</summary>
 <button class="cc230-export" type="button">Copy visual preset</button>
 <label>Import visual preset<textarea rows="3" placeholder="Paste cc2-30-vfx JSON"></textarea></label>
 <button class="cc230-import" type="button">Apply preset</button>
-<p>Visual controls only. Source mechanics and mathematical answers remain unchanged.</p>`;
+<p>Visual controls affect only presentation. Source controls below change gameplay only after an explicit restart, with the authoritative preset exported in replay.</p>
+<details class="cc230-authority"><summary>Creature physics & timing (restart required)</summary>
+<div class="cc230-gameplay-controls"></div>
+<button class="cc230-apply-gameplay" type="button">Apply source settings & restart</button>
+<button class="cc230-reset-gameplay" type="button">Reset creature gameplay defaults</button>
+<button class="cc230-export-gameplay" type="button">Copy creature gameplay preset</button>
+<label>Import creature gameplay preset<textarea class="cc230-import-gameplay-data" rows="3" placeholder="Paste cc2-creature/v1 JSON"></textarea></label>
+<button class="cc230-import-gameplay" type="button">Load source preset into controls</button>
+<output class="cc230-gameplay-message" aria-live="polite"></output>
+</details>`;
 const controls=panel.querySelector('.cc230-controls');
 [['glow',0,1,.05],['flowRate',.1,2,.05],['viscosity',0,1,.05],['bodySize',26,55,1]].forEach(([key,min,max,step])=>{
   const label=document.createElement('label');
@@ -224,12 +233,121 @@ panel.querySelector('.cc230-import').onclick=()=>{
     panel.querySelector('textarea').value='Applied';
   }catch(e){panel.querySelector('textarea').value='Invalid preset: '+e.message;}
 };
+/**
+ * Creature SDK v1 behavior editor. The rendered sprite has NO permission to
+ * edit mechanics during a run. A copy of the strict source configuration is
+ * round-tripped through the isolated ?cc230Cfg= URL and revalidated by TS.
+ */
+const sourceDefaults=api()?.creatureConfig?.()||api()?.creature?.()?.config;
+let sourceDraft=sourceDefaults?structuredClone(sourceDefaults):null;
+const gameplayMessage=panel.querySelector('.cc230-gameplay-message');
+const gameplayControls=panel.querySelector('.cc230-gameplay-controls');
+const sourceInputs=new Map();
+const numericalControls=[
+  ['firstEligibleRow',1,15,1,'First encounter row'],
+  ['hopEveryTicks',40,600,1,'Hop interval · 60Hz ticks'],
+  ['hopTravelTicks',6,80,1,'Hop travel · ticks'],
+  ['offerTicks',40,350,1,'Invitation lifetime · ticks'],
+  ['challengeWindowTicks',60,600,1,'Passkey time · ticks'],
+  ['gateStep',2,9,1,'Skip-count increment'],
+  ['fieldTicks',20,600,1,'Molasses lifetime · ticks'],
+  ['slowMultiplier',.55,1,.01,'Pursuer speed multiplier'],
+  ['fieldRadiusInRowGaps',.2,1.5,.05,'Gel collision radius · row gaps'],
+];
+if(sourceDraft){
+  for(const [key,min,max,step,label] of numericalControls){
+    const control=document.createElement('label');
+    control.textContent=label+' ';
+    const input=document.createElement('input');
+    input.type='range';input.min=min;input.max=max;input.step=step;
+    input.value=sourceDraft[key];
+    const number=document.createElement('output');
+    number.textContent=String(sourceDraft[key]);
+    input.oninput=()=>{
+      sourceDraft[key]=Number(input.value);
+      number.textContent=input.value;
+    };
+    sourceInputs.set(key,{input,number});
+    control.appendChild(input);control.appendChild(number);
+    gameplayControls.appendChild(control);
+  }
+}
+function showDraft(){
+  if(!sourceDraft)return;
+  for(const [key,ui] of sourceInputs){
+    ui.input.value=sourceDraft[key];
+    ui.number.textContent=String(sourceDraft[key]);
+  }
+}
+function validateDraft(raw){
+  if(!raw||raw.schema!=='cc2-creature/v1'||raw.species!=='MOLASSES_GUARDIAN')
+    throw Error('Creature preset version/species mismatch');
+  const expected=Object.keys(sourceDefaults).sort().join('|');
+  if(Object.keys(raw).sort().join('|')!==expected)
+    throw Error('Unknown or missing source preset keys');
+  if(!raw.visual||typeof raw.visual!=='object'||
+    Object.keys(raw.visual).sort().join('|')!==
+    Object.keys(sourceDefaults.visual).sort().join('|'))
+    throw Error('Creature visual schema mismatch');
+  for(const [key,min,max,step] of numericalControls){
+    const v=raw[key];
+    if(typeof v!=='number'||!Number.isFinite(v)||v<min||v>max||
+      (Number.isInteger(step)&&!Number.isInteger(v)))
+      throw Error('Out-of-range creature parameter: '+key);
+  }
+  if(raw.hopTravelTicks>=raw.hopEveryTicks)
+    throw Error('A hop cannot last longer than its interval');
+  if(!['clear-molasses','mineral-gel','glass'].includes(raw.visual.material))
+    throw Error('Invalid source material');
+  for(const [key,min,max] of [
+    ['hue',0,360],['opacity',.1,.92],
+    ['edgeSharpness',0,1],['motionScale',.1,2]]){
+    const n=raw.visual[key];
+    if(typeof n!=='number'||!Number.isFinite(n)||n<min||n>max)
+      throw Error('Invalid creature visual parameter '+key);
+  }
+  return structuredClone(raw);
+}
+function loadDraft(next){
+  sourceDraft=validateDraft(next);
+  showDraft();
+  gameplayMessage.textContent='Source preset loaded; Apply & Restart to activate';
+}
+panel.querySelector('.cc230-reset-gameplay').onclick=()=>{
+  loadDraft(sourceDefaults);
+};
+panel.querySelector('.cc230-apply-gameplay').onclick=()=>{
+  try{
+    const preset=validateDraft(sourceDraft);
+    // Revalidation and engine instantiation happen after page reload. This
+    // never edits a live run, so old replay/authoritative receipts stay valid.
+    const url=new URL(location.href);
+    url.searchParams.set('cc230','1');
+    url.searchParams.set('cc230Cfg',JSON.stringify(preset));
+    gameplayMessage.textContent='Restarting with validated source settings…';
+    location.assign(url.toString());
+  }catch(error){gameplayMessage.textContent='Not applied: '+error.message;}
+};
+panel.querySelector('.cc230-export-gameplay').onclick=()=>{
+  try{
+    const value=JSON.stringify(validateDraft(sourceDraft),null,2);
+    navigator.clipboard?.writeText(value);
+    gameplayMessage.textContent='Source gameplay preset copied';
+  }catch(error){gameplayMessage.textContent='Not exported: '+error.message;}
+};
+panel.querySelector('.cc230-import-gameplay').onclick=()=>{
+  try{
+    loadDraft(JSON.parse(panel.querySelector('.cc230-import-gameplay-data').value));
+  }catch(error){gameplayMessage.textContent='Not imported: '+error.message;}
+};
 document.querySelector('.shell')?.appendChild(panel);
 window.__CC2_30__={
   get config(){return {...config}},
   get source(){return api()?.creature?.()??null},
   apply,
   get events(){return api()?.creature?.()?.receipts??[]},
+  get sourcePreset(){return sourceDraft?structuredClone(sourceDraft):null},
+  loadSourcePreset(next){loadDraft(next)},
   get presentation(){return {draws,hopFrames,creatureVisible:!creature.hidden,
     questionVisible:!gate.hidden,gelVisible:!gel.hidden,
     verifiedContact:Boolean(api()?.creature?.()?.contactActive)}},
