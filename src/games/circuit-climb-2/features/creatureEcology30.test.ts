@@ -65,6 +65,9 @@ describe('CC2-30A reusable creature source system',()=>{
     g.advanceTicks(defaultCreatureConfig().offerTicks+
       defaultCreatureConfig().hopTravelTicks+3);
     expect(g.creatureSnapshot()?.receipts.some(e=>e.type==='HOPPED')).toBe(true);
+    // The first hop may have begun before the previous answer's receipt.
+    // Finish the actual source hop, not a guessed wall-clock duration.
+    for(let n=0;n<80&&g.creatureSnapshot()?.hop;n++)g.advanceTicks(1);
     expect(g.creatureSnapshot()?.hop).toBeNull();
     expect(g.offerCreature().ok).toBe(true);
     const next=g.creatureSnapshot()!.question!;
