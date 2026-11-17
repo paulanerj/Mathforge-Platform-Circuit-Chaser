@@ -3,7 +3,7 @@ on:
   push:
     branches: [fix/cc2-30f-standalone-html-render-integrity]
   pull_request:
-    branches: [feature/cc2-30e-molasses-downward-blanket]
+    branches: [feature/cc2-30f-six-row-flow-pursuer-only]
   workflow_dispatch:
 permissions:
   contents: read
