@@ -138,7 +138,9 @@ const cc223Choice=cc223Mode==='scout'||cc223Mode==='sentry'||
   cc223Mode==='both'?cc223Mode:'off';
 const cc223Config:SecondaryConfigV1|undefined=cc223Choice==='off'
   ?undefined:{...defaultSecondaryConfig(),mode:cc223Choice,
-    demoEarlySpawn:cc223Params.get('cc223Demo')==='1'};
+    demoEarlySpawn:cc223Params.get('cc223Demo')==='1',
+    ...(cc223Params.get('cc227')==='1'?
+      {encounterPolicy:'cc2-27-distinct/v1' as const}:{})};
 const featuresEnabled=document.body.dataset.features==='on';
 const summaryEnabled=document.body.dataset.summary==='on';
 const manualQA=featuresEnabled && new URLSearchParams(location.search).get('manual')==='1';
