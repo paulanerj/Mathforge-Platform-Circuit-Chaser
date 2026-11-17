@@ -171,8 +171,18 @@ export class CreatureEcologyDirector{
     if(this.platformId&&world.completedRows>this.platformRow!+1){
       this.platformId=null;this.hop=null;this.gate='DORMANT';this.question=null;
     }
-    if(!this.platformId||
-      (this.gate==='AVAILABLE'&&this.tick-this.lastHopTick>=this.config.hopEveryTicks)){
+    // Both designer controls are authoritative:
+    // - offerTicks: how long the creature waits in a targetable position
+    // - hopEveryTicks: maximum interval before a new autonomous hop
+    // COOLDOWN cannot be reopened for free on the same platform; the
+    // creature physically relocates before presenting another passkey.
+    const elapsed=this.tick-this.lastHopTick;
+    const needsHop=!this.platformId||
+      (this.gate==='AVAILABLE'&&
+        elapsed>=Math.min(this.config.offerTicks,this.config.hopEveryTicks))||
+      (this.gate==='COOLDOWN'&&!this.field&&
+        elapsed>=this.config.hopEveryTicks);
+    if(needsHop){
       const rowIndex=world.currentProblem.rowIndex;
       const row=world.world.rows.find(r=>r.index===rowIndex);
       if(!row||row.platforms.length===0)return;
@@ -190,10 +200,6 @@ export class CreatureEcologyDirector{
       this.question=null;this.gate='AVAILABLE';
       this.emit(this.ordinal===0?'SPAWNED':'HOPPED',
         {platformId:chosen.id,row:rowIndex,column:chosen.column});
-    }
-    if(this.gate==='COOLDOWN'&&!this.field&&
-      this.tick-this.lastHopTick>=this.config.hopEveryTicks){
-      this.gate='AVAILABLE';this.lastHopTick=this.tick;
     }
   }
   offer(world:EngineStateV1):{ok:boolean;reason?:string}{
