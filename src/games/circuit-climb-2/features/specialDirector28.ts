@@ -164,6 +164,12 @@ export class SpecialDirector28{
    * must have its source CHARGE_GAINED receipt. Missing proofs are errors,
    * never a basis for inventing powers.
    */
+  /** Cheap count-only gate avoids allocating/rebuilding the proof map at 60 Hz. */
+  needsCoreEvents(length:number):boolean{
+    if(!Number.isInteger(length)||length<0)throw Error('CC228_CORE_COUNT');
+    if(length<this.coreCount)throw Error('CC228_CORE_REWOUND');
+    return length>this.coreCount;
+  }
   consume(
     coreEvents:readonly GameEventV1[],
     featureEvents:readonly FeatureEventV1[],
@@ -171,6 +177,7 @@ export class SpecialDirector28{
   ):void{
     if(coreEvents.length<this.coreCount)throw Error('CC228_CORE_REWOUND');
     this.mode=mode;
+    if(coreEvents.length===this.coreCount)return;
     const proof=new Map<string,FeatureEventV1[]>();
     for(const e of featureEvents){
       if(e.runId!==this.runId)continue;
