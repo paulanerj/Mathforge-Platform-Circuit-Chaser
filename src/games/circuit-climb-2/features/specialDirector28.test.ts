@@ -126,6 +126,7 @@ describe('CC2-28 real Capacitor, Surge, Relay counterplay',()=>{
     // The real charge economy must independently authorize activation.
     const outcome=features.activate(tick,'climb','ready',false,100);
     expect(outcome).toEqual({ok:true,affected:true});
+    if(!outcome.ok)throw Error('CC228_EXPECT_REAL_PULSE_ACCEPTANCE');
     expect(specials.onPulse(run,tick,outcome.affected)).toBe(true);
     expect(specials.snapshot().phase).toBe('IDLE');
     expect(specials.snapshot().counters.discharged).toBe(1);
