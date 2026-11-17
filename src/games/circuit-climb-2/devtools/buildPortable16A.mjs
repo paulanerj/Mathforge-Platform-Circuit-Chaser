@@ -8,7 +8,7 @@ import {resolve,dirname} from 'node:path';
 import {createHash} from 'node:crypto';
 const dir=resolve('src/games/circuit-climb-2/devtools');
 const source=await readFile(resolve(dir,'cc2-16a.html'),'utf8');
-const [css,fx,glow,phaseCss,phaseJs,learnCss,integrityCss,integrityJs,eclipseCss,eclipseJs,visCss,physicsJs,visJs,oxideCss,oxideJs,secondaryCss,secondaryJs,roleCss,roleJs,specialCss,specialJs,slateFocusCss,finaleCss,finaleJs]=await Promise.all([
+const [css,fx,glow,phaseCss,phaseJs,learnCss,integrityCss,integrityJs,eclipseCss,eclipseJs,visCss,physicsJs,visJs,oxideCss,oxideJs,secondaryCss,secondaryJs,roleCss,roleJs,specialCss,specialJs,creatureCss,creatureJs,slateFocusCss,finaleCss,finaleJs]=await Promise.all([
  readFile(resolve(dir,'cc2-09d-presentation.css'),'utf8'),
  readFile(resolve(dir,'cc2-09e-presentation.js'),'utf8'),
  readFile(resolve(dir,'cc2-09e-presentation.css'),'utf8'),
@@ -30,6 +30,8 @@ const [css,fx,glow,phaseCss,phaseJs,learnCss,integrityCss,integrityJs,eclipseCss
  readFile(resolve(dir,'cc2-27-role-readability.js'),'utf8'),
  readFile(resolve(dir,'cc2-28-special-visuals.css'),'utf8'),
  readFile(resolve(dir,'cc2-28-special-visuals.js'),'utf8'),
+ readFile(resolve(dir,'cc2-30-creature.css'),'utf8'),
+ readFile(resolve(dir,'cc2-30-creature.js'),'utf8'),
  readFile(resolve(dir,'cc2-ui-slate-focus-43.css'),'utf8'),
  readFile(resolve(dir,'cc2-25-run-debrief.css'),'utf8'),
  readFile(resolve(dir,'cc2-25-run-debrief.js'),'utf8'),
@@ -57,6 +59,8 @@ const roleCssTag='<link rel="stylesheet" href="./cc2-27-role-readability.css">';
 const roleJsTag='<script defer src="./cc2-27-role-readability.js"></script>';
 const specialCssTag='<link rel="stylesheet" href="./cc2-28-special-visuals.css">';
 const specialJsTag='<script defer src="./cc2-28-special-visuals.js"></script>';
+const creatureCssTag='<link rel="stylesheet" href="./cc2-30-creature.css">';
+const creatureJsTag='<script defer src="./cc2-30-creature.js"></script>';
 const slateFocusCssTag='<link rel="stylesheet" href="./cc2-ui-slate-focus-43.css">';
 const finaleCssTag='<link rel="stylesheet" href="./cc2-25-run-debrief.css">';
 const finaleJsTag='<script defer src="./cc2-25-run-debrief.js"></script>';
@@ -95,6 +99,8 @@ const html=source.replace(entry,'<script>\n/* source-authoritative CC2 engine */
  .replace(roleJsTag,'<script id="cc227-role-controller">\n'+escapeScript(roleJs)+'\n</script>')
  .replace(specialCssTag,'<style id="cc228-special-visuals">\n'+specialCss+'\n</style>')
  .replace(specialJsTag,'<script id="cc228-special-controller">\n'+escapeScript(specialJs)+'\n</script>')
+ .replace(creatureCssTag,'<style id="cc230-creature-style">\n'+creatureCss+'\n</style>')
+ .replace(creatureJsTag,'<script id="cc230-creature-controller">\n'+escapeScript(creatureJs)+'\n</script>')
  .replace(slateFocusCssTag,'<style id="cc2-ui-slate-focus-43">\n'+slateFocusCss+'\n</style>')
  .replace(finaleCssTag,'<style id="cc225-debrief-style">\n'+finaleCss+'\n</style>')
  .replace(finaleJsTag,'<script id="cc225-debrief-controller">\n'+escapeScript(finaleJs)+'\n</script>')
