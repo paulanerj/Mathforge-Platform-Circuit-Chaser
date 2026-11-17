@@ -77,72 +77,8 @@ const extra=await build({entryPoints:[resolve(dir,'cc2-13-15.ts')],bundle:true,
 const extraBundle=extra.outputFiles?.[0]?.text;
 if(!extraBundle||extraBundle.length<4000)throw Error('CC2_15_MUSIC_BUNDLE_INVALID');
 const escapeScript=s=>s.replace(/<\/script/gi,'<\\/script');
-// Function replacers are essential: JavaScript string replacement interprets
-// const html=source.replace(entry,, $\u0060, ()=>'<script>\n/* source-authoritative CC2 engine */\n'+escapeScript(bundled)+'</script>')
- .replace(cssTag,()=>'<style id="cc209d-source-style">\n'+css+'\n</style>')
- .replace(glowTag,()=>'<style id="cc209e-target-style">\n'+glow+'\n</style>')
- .replace(phaseCssTag,()=>'<style id="cc212-source-style">\n'+phaseCss+'\n</style>')
- .replace(phaseJsTag,()=>'<script id="cc212-source-presentation">\n'+escapeScript(phaseJs)+'\n</script>')
- .replace(learnCssTag,()=>'<style id="cc215-source-style">\n'+learnCss+'\n</style>')
- .replace(learnJsTag,()=>'<script id="cc215-source-app">\n'+escapeScript(extraBundle)+'\n</script>')
- .replace(integrityCssTag,()=>'<style id="cc216a-integrity-style">\n'+integrityCss+'\n</style>')
- .replace(integrityJsTag,()=>'<script id="cc216a-integrity-lab">\n'+escapeScript(integrityJs)+'\n</script>')
- .replace(eclipseCssTag,()=>'<style id="cc218a-eclipse-style">\n'+eclipseCss+'\n</style>')
- .replace(eclipseJsTag,()=>'<script id="cc218a-eclipse-controller">\n'+escapeScript(eclipseJs)+'\n</script>')
- .replace(visCssTag,()=>'<style id="cc220-living-material">\n'+visCss+'\n</style>')
- .replace(physicsJsTag,()=>'<script id="cc220-plasma-dynamics">\n'+escapeScript(physicsJs)+'\n</script>')
- .replace(visJsTag,()=>'<script id="cc220-living-controller">\n'+escapeScript(visJs)+'\n</script>')
- .replace(oxideCssTag,()=>'<style id="cc226-oxide-material">\n'+oxideCss+'\n</style>')
- .replace(oxideJsTag,()=>'<script id="cc226-oxide-controller">\n'+escapeScript(oxideJs)+'\n</script>')
- .replace(secondaryCssTag,()=>'<style id="cc223-secondary-style">\n'+secondaryCss+'\n</style>')
- .replace(secondaryJsTag,()=>'<script id="cc223-secondary-presentation">\n'+escapeScript(secondaryJs)+'\n</script>')
- .replace(roleCssTag,()=>'<style id="cc227-role-style">\n'+roleCss+'\n</style>')
- .replace(roleJsTag,()=>'<script id="cc227-role-controller">\n'+escapeScript(roleJs)+'\n</script>')
- .replace(specialCssTag,()=>'<style id="cc228-special-visuals">\n'+specialCss+'\n</style>')
- .replace(specialJsTag,()=>'<script id="cc228-special-controller">\n'+escapeScript(specialJs)+'\n</script>')
- .replace(creatureCssTag,()=>'<style id="cc230-creature-style">\n'+creatureCss+'\n</style>')
- .replace(creatureJsTag,()=>'<script id="cc230-creature-controller">\n'+escapeScript(creatureJs)+'\n</script>')
- .replace(slateFocusCssTag,()=>'<style id="cc2-ui-slate-focus-43">\n'+slateFocusCss+'\n</style>')
- .replace(finaleCssTag,()=>'<style id="cc225-debrief-style">\n'+finaleCss+'\n</style>')
- .replace(finaleJsTag,()=>'<script id="cc225-debrief-controller">\n'+escapeScript(finaleJs)+'\n</script>')
- .replace(fxTag,()=>'<script id="cc209d-source-presentation">\n'+escapeScript(fx)+'</script>');
-// Source-preserving diagnostic: never weaken the packaging guards.
-const remainingMarkers=[cssTag,fxTag,glowTag,phaseCssTag,phaseJsTag,
-  learnCssTag,learnJsTag,integrityCssTag,integrityJsTag,eclipseCssTag,
-  eclipseJsTag,visCssTag,physicsJsTag,visJsTag,oxideCssTag,oxideJsTag,
-  secondaryCssTag,secondaryJsTag,roleCssTag,roleJsTag,specialCssTag,
-  specialJsTag,slateFocusCssTag,finaleCssTag,finaleJsTag]
-  .filter(marker=>html.includes(marker));
-const requiredTags=['cc209d-source-presentation','cc209e-target-style',
-  'cc212-source-presentation','cc215-source-app','cc216a-integrity-lab',
-  'cc218a-eclipse-controller','cc218a-eclipse-style',
-  'cc220-living-controller','cc220-plasma-dynamics','cc220-living-material',
-  'cc226-oxide-material','cc226-oxide-controller','cc223-secondary-style',
-  'cc223-secondary-presentation','cc227-role-style','cc227-role-controller',
-  'cc228-special-visuals','cc228-special-controller','cc2-ui-slate-focus-43',
-  'cc225-debrief-style','cc225-debrief-controller']
-  .filter(tag=>!html.includes(tag));
-if(remainingMarkers.length||requiredTags.length||
-  html.length<100000||html.length>4000000)
-  console.error('CC2_OFFLINE_ASSEMBLY_DIAGNOSTIC',
-    JSON.stringify({htmlBytes:Buffer.byteLength(html),
-      remainingMarkers,missingRequiredTags:requiredTags}));
-// The source HTML was verified to contain exactly one entry and replaced
-// above. The compiled JS may legitimately quote this string; rejecting a
-// textual occurrence inside bundled code is a false packaging failure.
-if(!html.includes('source-authoritative CC2 engine')||
-   html.includes(cssTag)||html.includes(fxTag)||html.includes(glowTag)||html.includes(phaseCssTag)||html.includes(phaseJsTag)||html.includes(learnCssTag)||html.includes(learnJsTag)||html.includes(integrityCssTag)||html.includes(integrityJsTag)||html.includes(eclipseCssTag)||html.includes(eclipseJsTag)||html.includes(visCssTag)||html.includes(physicsJsTag)||html.includes(visJsTag)||html.includes(oxideCssTag)||html.includes(oxideJsTag)||html.includes(secondaryCssTag)||html.includes(secondaryJsTag)||html.includes(roleCssTag)||html.includes(roleJsTag)||html.includes(specialCssTag)||html.includes(specialJsTag)||html.includes(slateFocusCssTag)||html.includes(finaleCssTag)||html.includes(finaleJsTag)||
- html.length<100000||html.length>4000000||!html.includes('cc209d-source-presentation')||!html.includes('cc209e-target-style')||!html.includes('cc212-source-presentation')||!html.includes('cc215-source-app')||!html.includes('cc216a-integrity-lab')||!html.includes('cc218a-eclipse-controller')||!html.includes('cc218a-eclipse-style')||!html.includes('cc220-living-controller')||!html.includes('cc220-plasma-dynamics')||!html.includes('cc220-living-material')||!html.includes('cc226-oxide-material')||!html.includes('cc226-oxide-controller')||!html.includes('cc223-secondary-style')||!html.includes('cc223-secondary-presentation')||!html.includes('cc227-role-style')||!html.includes('cc227-role-controller')||!html.includes('cc228-special-visuals')||!html.includes('cc228-special-controller')||!html.includes('cc2-ui-slate-focus-43')||!html.includes('cc225-debrief-style')||!html.includes('cc225-debrief-controller'))
- throw Error('CC2_15_OFFLINE_ASSEMBLY_INVALID');
-const file=resolve('cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html');
-await mkdir(dirname(file),{recursive:true});
-await writeFile(file,html,'utf8');
-console.log(JSON.stringify({file,bytes:Buffer.byteLength(html),
- sha256:createHash('sha256').update(html).digest('hex'),
- engine:'CC2-10–15 source-authoritative core + adaptive score/learning observer',
- offline:true}));
-, and $1 tokens in minified JS / CSS and can inject literal
-// <script> tags into the engine. Never use a replacement STRING for assets.
+// Literal callback replacement avoids interpreting replacement tokens in
+// bundled, minified source. Never interpolate assets as replacement strings.
 const html=source.replace(entry,()=>'<script>\n/* source-authoritative CC2 engine */\n'+escapeScript(bundled)+'</script>')
  .replace(cssTag,()=>'<style id="cc209d-source-style">\n'+css+'\n</style>')
  .replace(glowTag,()=>'<style id="cc209e-target-style">\n'+glow+'\n</style>')
