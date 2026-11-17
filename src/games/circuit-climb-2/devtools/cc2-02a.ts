@@ -740,6 +740,8 @@ function draw(): void {
   const g = state.world.geometry;
   const features = featuresEnabled ? engine.features() : null;
   fitCanvas();
+  // Rendering-only CC2-30F flow window; it never invents future math.
+  const sixRowFlow=cc223Params.get('cc2Flow')==='1';
   // CAMERA 06A: horizontal and vertical views are independent.
   // 2 levels above + 2 below, without squeezing the tower into 3 thin lanes.
   // This is render-only: core geometry, pursuer routes and math are unchanged.
@@ -751,8 +753,9 @@ function draw(): void {
     maxZoom:cameraView.zoom,follow:cameraView.follow,
     // Fit with the prior tier reference, so the larger real gap stays
     // visible instead of shrinking back to the former on-screen spacing.
-    fitRowGap:fidelity09B?307.5:undefined,
-    coverageExpansion:fidelity09B?1.15:undefined,
+    fitRowGap:sixRowFlow?g.rowGap:(fidelity09B?307.5:undefined),
+    coverageExpansion:sixRowFlow?1.06:(fidelity09B?1.15:undefined),
+    minimumRowsEachSide:sixRowFlow?3:2,
   });
   const zoom=productionFrame.yScale;
   horizontalCameraScale=productionFrame.xScale;
@@ -832,12 +835,13 @@ function draw(): void {
     context.restore();
   };
 
-  // The tower has only TWO visible tier positions above and below.
-  // Unpublished mathematical choices are never rendered as fake buttons.
-  // Instead, ungenerated tiers are a SINGLE structural stone/metal rail.
+  // Three structural tiers on each side in opt-in mode: all six remain
+  // present before interaction. Unpublished math is not fabricated.
   previewRowsRendered=0;
   const sparkIndex=state.spark.row;
-  for(let index=sparkIndex-2;index<=sparkIndex+2;index++){
+  const flowRowsEachSide=sixRowFlow?3:2;
+  for(let index=Math.max(0,sparkIndex-flowRowsEachSide);
+      index<=sparkIndex+flowRowsEachSide;index++){
     if(index===sparkIndex || state.world.rows.some(row=>row.index===index))continue;
     const y=worldY(-index*g.rowGap);
     if(y>h+g.platformHeight || y<-g.platformHeight)continue;
@@ -846,12 +850,15 @@ function draw(): void {
     const left=g.columns[0]-g.platformWidth*.74;
     const right=g.columns[2]+g.platformWidth*.74;
     const lineY=y+g.platformHeight*.54;
-    context.strokeStyle='rgba(129,190,198,.26)';
-    context.lineWidth=2.4;
+    context.strokeStyle=sixRowFlow?
+      'rgba(129,190,198,.38)':'rgba(129,190,198,.26)';
+    context.lineWidth=sixRowFlow?2.8:2.4;
     context.beginPath();context.moveTo(left,lineY);context.lineTo(right,lineY);
     context.stroke();
-    context.fillStyle='rgba(63,114,126,.19)';
-    context.strokeStyle='rgba(131,185,188,.21)';
+    context.fillStyle=sixRowFlow?
+      'rgba(78,134,145,.32)':'rgba(63,114,126,.19)';
+    context.strokeStyle=sixRowFlow?
+      'rgba(154,211,207,.39)':'rgba(131,185,188,.21)';
     for(const x of g.columns){
       roundedRect(x-g.platformWidth*.40,y+g.platformHeight*.36,
         g.platformWidth*.80,g.platformHeight*.32,7);
@@ -1556,6 +1563,7 @@ document.addEventListener('visibilitychange', () => {
   rendererStats: () => ({canvasResizes,zoom:cameraView.zoom,
     effectiveZoom:effectiveCameraZoom,follow:cameraView.follow,
     previewRowsRendered,cameraY,viewportCoverage,cameraRowGap,
+    flowRowsEachSide:cc223Params.get('cc2Flow')==='1'?3:2,
     horizontalCameraScale,
     visualSparkPosition:{...latestVisibleSpark},
     visualBotPosition:latestVisibleBot?{...latestVisibleBot}:null,

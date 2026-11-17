@@ -91,6 +91,20 @@
       rgba(42,105,82,.6));
   box-shadow:inset 0 9px 21px rgba(190,255,205,.25);
 }
+/* CC2-30F: player-only clarity. The decorative molasses overlay never
+ * changes player physics, blocks player taps, or visually coats the Spark.
+ * A soft local cutout leaves the Spark and its number fully readable.
+ * The villain remains visible through the viscous layer.
+ */
+.cc230-gel[data-coverage="blanket"]{
+  pointer-events:none!important;
+  mask-image:radial-gradient(circle 46px at var(--cc230-spark-x,-9999px)
+    var(--cc230-spark-y,-9999px),
+    transparent 0 62%,#000 100%);
+  -webkit-mask-image:radial-gradient(circle 46px at var(--cc230-spark-x,-9999px)
+    var(--cc230-spark-y,-9999px),
+    transparent 0 62%,#000 100%);
+}
 .cc230-gel[data-coverage="blanket"]::before{
   left:0;right:0;top:0;height:13px;bottom:auto;
   border-radius:0;
