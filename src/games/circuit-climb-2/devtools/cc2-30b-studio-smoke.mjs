@@ -37,12 +37,14 @@ try{
       check(before.loaded.fieldTicks===210&&before.source.fieldTicks===150,
         'settings draft distinct from live authoritative config '+width);
 
-      // The source sliders live in two user-controlled <details> panels.
-      // Open the real studio before asking Playwright to tap a hidden button.
-      await page.evaluate(()=>{
-        document.querySelector('.cc230-studio').open=true;
-        document.querySelector('.cc230-authority').open=true;
-      });
+      // Real mobile Settings > Developer tools > Creature Studio.
+      // A hidden shell details element must never count as accessible UI.
+      await page.locator('#cc209c-enter').click();
+      await page.locator('#cc209-settings-btn').click();
+      await page.locator('#cc209-settings .cc209-dialog > details').last()
+        .locator('summary').first().click();
+      await page.locator('.cc230-studio > summary').click();
+      await page.locator('.cc230-authority > summary').click();
       await page.locator('.cc230-apply-gameplay').click();
       await page.waitForFunction(()=>
         window.__CC2_02A__?.creature?.()?.config?.fieldTicks===210,
