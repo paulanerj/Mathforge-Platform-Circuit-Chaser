@@ -65,6 +65,58 @@
 .cc230-gel[data-contact="stuck"] .cc230-fluid-core{
  animation-duration:calc(1.3s / var(--cc230-flow,1));
 }
+/* CC2-30E — source-owned persistent descending blanket. The top border
+ * is the demarcation; actual bot speed depends on WORLD Y, not CSS pixels.
+ * Full-width visual covers the visible region beneath this fixed height.
+ * Low opacity retains readable mathematical choices and target text.
+ */
+.cc230-gel[data-coverage="blanket"]{
+  transform:none!important;
+  clip-path:none!important;
+  border-radius:0!important;
+  overflow:hidden;
+  isolation:isolate;
+  contain:layout paint style;
+  border-top:3px solid rgba(188,249,201,.95);
+  background:
+    radial-gradient(ellipse at 55% 3%,rgba(221,255,229,.45),transparent 35%),
+    repeating-linear-gradient(102deg,
+      rgba(142,224,166,.16) 0px,
+      rgba(86,160,123,.2) 26px,
+      rgba(168,230,187,.12) 48px,
+      rgba(53,118,93,.14) 78px),
+    linear-gradient(180deg,
+      rgba(154,232,175,.30),
+      rgba(69,144,105,.44) 35%,
+      rgba(42,105,82,.6));
+  box-shadow:inset 0 9px 21px rgba(190,255,205,.25);
+}
+.cc230-gel[data-coverage="blanket"]::before{
+  left:0;right:0;top:0;height:13px;bottom:auto;
+  border-radius:0;
+  border:0;border-top:2px solid rgba(231,255,238,.67);
+  background:linear-gradient(90deg,transparent,rgba(219,255,222,.63),transparent);
+}
+.cc230-gel[data-coverage="blanket"]::after{
+  left:0;top:2%;width:100%;height:94%;
+  border-radius:0;
+  background:repeating-linear-gradient(145deg,
+    transparent 0px,rgba(192,255,199,.13) 35px,
+    transparent 73px);
+  filter:blur(8px);
+}
+.cc230-gel[data-coverage="blanket"] .cc230-fluid-core{
+  inset:0;border-radius:0;
+  background:linear-gradient(180deg,
+    rgba(212,255,224,.10),rgba(112,198,146,.23),
+    rgba(36,92,74,.32));
+}
+.cc230-gel[data-coverage="blanket"] .cc230-fluid-thread{
+  left:-10%;width:120%;top:22%;height:18%;
+  background:linear-gradient(90deg,
+    transparent,rgba(217,255,230,.49),transparent);
+}
+
 .cc230-creature::before{
  content:"";position:absolute;z-index:-1;pointer-events:none;
  width:calc(var(--cc230-size) * 1.35);height:calc(var(--cc230-size) * .78);
