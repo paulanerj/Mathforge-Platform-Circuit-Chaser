@@ -1,0 +1,55 @@
+name: CC2-30C Viscoelastic Guardian Visual Qualification
+on:
+  push:
+    branches: [feature/cc2-30c-viscoelastic-guardian-material]
+  pull_request:
+    branches: [feature/cc2-30b-creature-sdk-capability-contracts]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck and new presentation syntax
+        run: |
+          npm run lint
+          node --check src/games/circuit-climb-2/devtools/cc2-30-creature.js
+      - name: Full source math, replay, Pursuer and creature SDK tests
+        run: npx vitest run src/games/circuit-climb-2/
+      - name: Real pointer on 320/390/768 and creature encounter
+        run: node src/games/circuit-climb-2/devtools/cc2-30a2-browser-smoke.mjs
+      - name: True viscoelastic field, source bounds and reduced-motion across devices
+        run: node src/games/circuit-climb-2/devtools/cc2-30c-fluid-smoke.mjs
+      - name: Real browser source developer preset changes and strict isolation
+        run: node src/games/circuit-climb-2/devtools/cc2-30b-studio-smoke.mjs
+      - name: Existing regression suites and old browser surfaces
+        run: |
+          node src/games/circuit-climb-2/devtools/cc2-28-owner-smoke.mjs
+          node src/games/circuit-climb-2/devtools/cc2-27-owner-smoke.mjs
+          node src/games/circuit-climb-2/devtools/cc2-16b-input-smoke.mjs
+      - name: Fully offline build, standalone and /cc2-30.html
+        run: |
+          npm run build
+          test -s dist/cc2-30.html
+          grep -q 'cc230-creature-controller' dist/cc2-30.html
+          grep -q 'cc230-creature-style' dist/cc2-30.html
+          sha256sum dist/cc2-30.html
+      - name: Preserve owner review artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CC2-30C-Viscoelastic-Guardian-Playable
+          path: |
+            dist/cc2-30.html
+            cc2-30-evidence/
+            cc2-28-evidence/
+            cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html
+          if-no-files-found: warn
