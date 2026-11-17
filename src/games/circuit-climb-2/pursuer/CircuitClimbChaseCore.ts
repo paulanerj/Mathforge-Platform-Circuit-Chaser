@@ -39,6 +39,11 @@ import {
   type SpecialConfig28,type SpecialSnapshot28,type SpecialEvent28,
 } from '../features/specialDirector28';
 
+import {
+  CreatureEcologyDirector,validateCreatureConfig,
+  type CreatureConfig,type CreatureSnapshot,
+} from '../features/creatureEcology30';
+
 export interface ChaseSnapshotV1 {
   learner:EngineStateV1;
   pursuer:PursuerSnapshot;
@@ -47,11 +52,14 @@ export interface ChaseSnapshotV1 {
   secondary?:SecondarySnapshotV1;
   /** Absent entirely unless the independently versioned CC2-28 experiment runs. */
   specials?:SpecialSnapshot28;
+  /** Entirely absent unless CC2-30 experimental ecology is enabled. */
+  creature?:CreatureSnapshot;
 }
 export type ChaseCommandV1={
   tick:number;
   ordinal:number;
-  type:'SELECT'|'PAUSE'|'RESUME'|'RESTART'|'QUIT'|'PULSE';
+  type:'SELECT'|'PAUSE'|'RESUME'|'RESTART'|'QUIT'|'PULSE'|'CREATURE_OFFER'|'CREATURE_ANSWER'|'CREATURE_DECLINE';
+  creatureChoice?:number;
   platformId?:string;
 };
 export interface ChaseReplayV1 {
@@ -68,6 +76,7 @@ export interface ChaseReplayV1 {
   secondaryConfig?:SecondaryConfigV1;
   /** Missing means exact historical chase replay and source digest. */
   specialConfig?:SpecialConfig28;
+  creatureConfig?:CreatureConfig;
   commands:ChaseCommandV1[];
   finalTick:number;
 }
@@ -84,6 +93,8 @@ export class CircuitClimbChaseCore {
   private secondary:SecondaryEnemyDirector|null=null;
   readonly specialConfig:SpecialConfig28|null;
   private specials:SpecialDirector28|null=null;
+  readonly creatureConfig:CreatureConfig|null;
+  private creature:CreatureEcologyDirector|null=null;
   private core:CircuitClimbCore;
   private pursuer:PursuerController;
   private features:FeatureProgression;
@@ -95,7 +106,8 @@ export class CircuitClimbChaseCore {
     learnerMotion:LearnerMotionPresetV1=defaultLearnerMotionPreset(),
     personality:PursuerPersonalityV1=defaultPursuerPersonality(),
     secondaryConfig?:SecondaryConfigV1,
-    specialConfig?:SpecialConfig28){
+    specialConfig?:SpecialConfig28,
+    creatureConfig?:CreatureConfig){
     this.seed=seed;
     this.config=Object.freeze(validateRunConfig(config));
     this.pursuerPreset=Object.freeze(validatePursuerPreset(preset));
@@ -108,11 +120,17 @@ export class CircuitClimbChaseCore {
     // The special strategy policy is not created or serialized on legacy runs.
     this.specialConfig=specialConfig?
       Object.freeze(validateSpecialConfig28(specialConfig)):null;
+    this.creatureConfig=creatureConfig?Object.freeze(validateCreatureConfig(creatureConfig)):null;
     this.core=new CircuitClimbCore(seed,this.config,this.learnerMotion);
     this.pursuer=new PursuerController(this.core.snapshot().world,
       this.pursuerPreset,this.personality,this.seed);
     this.features=new FeatureProgression(this.featureConfig);
     this.features.consume(this.core.eventLog());
+    if(this.creatureConfig){
+      this.creature=new CreatureEcologyDirector(seed,this.core.snapshot().runId,
+        this.creatureConfig);
+      this.creature.advance(this.core.snapshot());
+    }
     if(this.specialConfig){
       this.specials=new SpecialDirector28(
         this.core.snapshot().runId,this.specialConfig);
@@ -124,9 +142,10 @@ export class CircuitClimbChaseCore {
         this.core.snapshot().runId,this.secondaryConfig);
     }
   }
-  private record(type:ChaseCommandV1['type'],platformId?:string){
+  private record(type:ChaseCommandV1['type'],platformId?:string,creatureChoice?:number){
     this.commands.push({tick:this.core.snapshot().tick,
-      ordinal:this.commands.length+1,type,...(platformId?{platformId}:{})});
+      ordinal:this.commands.length+1,type,...(platformId?{platformId}:{}),
+      ...(creatureChoice!==undefined?{creatureChoice}:{})});
   }
   /** Physical overlap from PREVIOUS snapshot precedes a new user choice. */
   private adjudicate():boolean{
@@ -139,6 +158,7 @@ export class CircuitClimbChaseCore {
       this.features.consume(this.core.eventLog());
       this.secondary?.terminate(this.core.snapshot().runId);
       this.specials?.terminate(this.core.snapshot().runId);
+      this.creature?.terminate();
     }
     return captured;
   }
@@ -159,6 +179,22 @@ export class CircuitClimbChaseCore {
         danger?{suppressStyle:true}:undefined);
     }
     return this.core.selectPlatform(platformId);
+  }
+  /** Optional independent creature puzzle: separate from primary row math. */
+  offerCreature():{ok:boolean;reason?:string}{
+    this.record('CREATURE_OFFER');
+    if(this.adjudicate())return {ok:false,reason:'CAPTURED'};
+    return this.creature?.offer(this.core.snapshot())??{ok:false,reason:'CREATURE_OFF'};
+  }
+  answerCreature(choice:number):{ok:boolean;correct?:boolean;reason?:string}{
+    this.record('CREATURE_ANSWER',undefined,choice);
+    if(this.adjudicate())return {ok:false,reason:'CAPTURED'};
+    return this.creature?.answer(this.core.snapshot(),choice)??
+      {ok:false,reason:'CREATURE_OFF'};
+  }
+  declineCreature():void{
+    this.record('CREATURE_DECLINE');
+    this.creature?.decline(this.core.snapshot());
   }
   /** Earned Pulse is available only at a grounded READY state. */
   activatePulse():{ok:true;affected:boolean}|{ok:false;reason:string}{
@@ -184,6 +220,7 @@ export class CircuitClimbChaseCore {
     this.features.consume(this.core.eventLog());
     this.secondary?.terminate(this.core.snapshot().runId);
     this.specials?.terminate(this.core.snapshot().runId);
+    this.creature?.terminate();
   }
   restart():void{
     this.record('RESTART');
@@ -195,6 +232,7 @@ export class CircuitClimbChaseCore {
     this.features=new FeatureProgression(this.featureConfig,ledger.length-1);
     this.features.consume(ledger);
     if(this.secondary)this.secondary.reset(this.core.snapshot().runId);
+    this.creature?.reset(this.core.snapshot().runId);
     if(this.specials){
       this.specials.reset(this.core.snapshot().runId,ledger.length-1);
       this.specials.consume(ledger,this.features.eventLog(),this.config.mode);
@@ -223,6 +261,7 @@ export class CircuitClimbChaseCore {
       if(after.phase==='ended'){
         this.secondary?.terminate(after.runId);
         this.specials?.terminate(after.runId);
+        this.creature?.terminate();
         return;
       } // authored practice/challenge goal won
       // The secondary ecosystem only reads this tick's world and physically
@@ -238,14 +277,18 @@ export class CircuitClimbChaseCore {
         world:after.world,spark:after.spark,
       });
       this.specials?.advance(after.runId,after.tick,after.phase);
+      this.creature?.advance(after);
       // Scout/Sentry pressure and Surge pressure NEVER multiply each
       // other. The highest legitimate single pressure wins (<= 1.12).
       const secondaryPressure=this.secondary&&secondary?
         this.secondary.pressureFor(primaryLive):1;
       const specialPressure=this.specials?.pressureFor(primaryLive)??1;
       const pressure=Math.max(secondaryPressure,specialPressure);
+      // A true physical Pursuer body/gel overlap slows only the Pursuer.
+      // Bounded by the prototype's own source config, never a visual layer.
+      const viscosity=this.creature?.pressureFor(priorPrimary.body)??1;
       this.pursuer.step(after.world,after.spark,after.tick,
-        this.features.speedMultiplier(after.tick)*pressure);
+        this.features.speedMultiplier(after.tick)*pressure*viscosity);
       if(this.adjudicate())this.features.consume(this.core.eventLog());
       // Physical contact is authoritative; ability never edits the Spark.
     }
@@ -259,7 +302,8 @@ export class CircuitClimbChaseCore {
       features:this.features.snapshot(state.tick,this.config.mode,
         state.phase,state.paused,separation),
       ...(this.secondary?{secondary:this.secondary.snapshot()}:{}),
-      ...(this.specials?{specials:this.specials.snapshot()}:{})};
+      ...(this.specials?{specials:this.specials.snapshot()}:{}),
+      ...(this.creature?{creature:this.creature.snapshot()}:{})};
   }
   /** Compatibility for the CC2 learner board's existing source API. */
   learnerSnapshot():EngineStateV1{return this.core.snapshot();}
@@ -291,6 +335,7 @@ export class CircuitClimbChaseCore {
   specialEvents():SpecialEvent28[]{
     return this.specials?.snapshot().events.slice()??[];
   }
+  creatureSnapshot():CreatureSnapshot|null{return this.creature?.snapshot()??null;}
   diagnostics():PursuerDiagnostic[]{return this.pursuer.diagnostics();}
   devGraph(){return this.pursuer.devGraph();}
   stateDigest():string{return digestState(this.snapshot());}
@@ -303,6 +348,7 @@ export class CircuitClimbChaseCore {
       personality:clone(this.personality),
       ...(this.secondaryConfig?{secondaryConfig:clone(this.secondaryConfig)}:{}),
       ...(this.specialConfig?{specialConfig:clone(this.specialConfig)}:{}),
+      ...(this.creatureConfig?{creatureConfig:clone(this.creatureConfig)}:{}),
       commands:clone(this.commands),finalTick:this.core.snapshot().tick,
     };
   }
@@ -314,7 +360,7 @@ export function replayChase(trace:ChaseReplayV1):CircuitClimbChaseCore{
     trace.featureConfig??defaultFeatureConfig(),
     trace.learnerMotion??defaultLearnerMotionPreset(),
     trace.personality??defaultPursuerPersonality(),
-    trace.secondaryConfig,trace.specialConfig);
+    trace.secondaryConfig,trace.specialConfig,trace.creatureConfig);
   let lastOrdinal=0;
   for(const cmd of trace.commands){
     if(!Number.isInteger(cmd.tick)||!Number.isInteger(cmd.ordinal)||
@@ -327,6 +373,9 @@ export function replayChase(trace:ChaseReplayV1):CircuitClimbChaseCore{
     else if(cmd.type==='RESTART')game.restart();
     else if(cmd.type==='QUIT')game.quit();
     else if(cmd.type==='PULSE')game.activatePulse();
+    else if(cmd.type==='CREATURE_OFFER')game.offerCreature();
+    else if(cmd.type==='CREATURE_ANSWER')game.answerCreature(cmd.creatureChoice??NaN);
+    else if(cmd.type==='CREATURE_DECLINE')game.declineCreature();
   }
   if(!Number.isInteger(trace.finalTick)||trace.finalTick<game.learnerSnapshot().tick)
     throw Error('CHASE_REPLAY_FINAL_TICK');
