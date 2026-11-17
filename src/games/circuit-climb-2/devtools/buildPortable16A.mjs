@@ -128,10 +128,9 @@ if(remainingMarkers.length||requiredTags.length||
   console.error('CC2_OFFLINE_ASSEMBLY_DIAGNOSTIC',
     JSON.stringify({htmlBytes:Buffer.byteLength(html),
       remainingMarkers,missingRequiredTags:requiredTags}));
-// The source HTML was verified to contain exactly one entry and replaced
-// above. The compiled JS may legitimately quote this string; rejecting a
-// textual occurrence inside bundled code is a false packaging failure.
-if(!html.includes('source-authoritative CC2 engine')||
+// A source module tag surviving assembly is ALWAYS an invalid artifact.
+// It previously split the inlined engine and exposed JavaScript in the UI.
+if(html.includes(entry)||!html.includes('source-authoritative CC2 engine')||
    html.includes(cssTag)||html.includes(fxTag)||html.includes(glowTag)||html.includes(phaseCssTag)||html.includes(phaseJsTag)||html.includes(learnCssTag)||html.includes(learnJsTag)||html.includes(integrityCssTag)||html.includes(integrityJsTag)||html.includes(eclipseCssTag)||html.includes(eclipseJsTag)||html.includes(visCssTag)||html.includes(physicsJsTag)||html.includes(visJsTag)||html.includes(oxideCssTag)||html.includes(oxideJsTag)||html.includes(secondaryCssTag)||html.includes(secondaryJsTag)||html.includes(roleCssTag)||html.includes(roleJsTag)||html.includes(specialCssTag)||html.includes(specialJsTag)||html.includes(slateFocusCssTag)||html.includes(finaleCssTag)||html.includes(finaleJsTag)||
  html.length<100000||html.length>4000000||!html.includes('cc209d-source-presentation')||!html.includes('cc209e-target-style')||!html.includes('cc212-source-presentation')||!html.includes('cc215-source-app')||!html.includes('cc216a-integrity-lab')||!html.includes('cc218a-eclipse-controller')||!html.includes('cc218a-eclipse-style')||!html.includes('cc220-living-controller')||!html.includes('cc220-plasma-dynamics')||!html.includes('cc220-living-material')||!html.includes('cc226-oxide-material')||!html.includes('cc226-oxide-controller')||!html.includes('cc223-secondary-style')||!html.includes('cc223-secondary-presentation')||!html.includes('cc227-role-style')||!html.includes('cc227-role-controller')||!html.includes('cc228-special-visuals')||!html.includes('cc228-special-controller')||!html.includes('cc2-ui-slate-focus-43')||!html.includes('cc225-debrief-style')||!html.includes('cc225-debrief-controller'))
  throw Error('CC2_15_OFFLINE_ASSEMBLY_INVALID');
