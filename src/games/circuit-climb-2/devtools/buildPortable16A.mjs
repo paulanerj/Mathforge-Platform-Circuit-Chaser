@@ -64,7 +64,7 @@ const creatureJsTag='<script defer src="./cc2-30-creature.js"></script>';
 const slateFocusCssTag='<link rel="stylesheet" href="./cc2-ui-slate-focus-43.css">';
 const finaleCssTag='<link rel="stylesheet" href="./cc2-25-run-debrief.css">';
 const finaleJsTag='<script defer src="./cc2-25-run-debrief.js"></script>';
-for(const m of [entry,cssTag,fxTag,glowTag,phaseCssTag,phaseJsTag,learnCssTag,learnJsTag,integrityCssTag,integrityJsTag,eclipseCssTag,eclipseJsTag,visCssTag,physicsJsTag,visJsTag,oxideCssTag,oxideJsTag,secondaryCssTag,secondaryJsTag,roleCssTag,roleJsTag,specialCssTag,specialJsTag,slateFocusCssTag,finaleCssTag,finaleJsTag])
+for(const m of [entry,cssTag,fxTag,glowTag,phaseCssTag,phaseJsTag,learnCssTag,learnJsTag,integrityCssTag,integrityJsTag,eclipseCssTag,eclipseJsTag,visCssTag,physicsJsTag,visJsTag,oxideCssTag,oxideJsTag,secondaryCssTag,secondaryJsTag,roleCssTag,roleJsTag,specialCssTag,specialJsTag,creatureCssTag,creatureJsTag,slateFocusCssTag,finaleCssTag,finaleJsTag])
  if(source.split(m).length!==2)throw Error('CC2_16A_MARKER_MISSING_OR_DUPLICATED: '+m);
 const result=await build({entryPoints:[resolve(dir,'cc2-02a.ts')],bundle:true,
  write:false,format:'iife',target:['es2022'],platform:'browser',
