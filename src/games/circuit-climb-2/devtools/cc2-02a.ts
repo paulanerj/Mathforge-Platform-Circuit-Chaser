@@ -15,6 +15,9 @@ import {defaultSecondaryConfig,type SecondaryConfigV1,
 import type { PursuerSnapshot,PursuerDiagnostic } from '../pursuer/pursuerController';
 import type { FeatureSnapshotV1, FeatureEventV1 } from '../features/progression';
 import type { RunSummaryV1 } from '../progression/runSummary';
+import {defaultSpecialConfig28,type SpecialConfig28,
+  type SpecialSnapshot28,type SpecialEvent28,
+} from '../features/specialDirector28';
 import { RunConfigV1, defaultRunConfig } from '../config/runConfig';
 import {defaultPursuerPreset,type PursuerPresetV1} from '../pursuer/pursuerPreset';
 import {defaultFeatureConfig} from '../features/progression';
@@ -120,6 +123,8 @@ interface SurfaceEngine {
   bot():PursuerSnapshot|null;
   secondary():SecondarySnapshotV1|null;
   secondaryEvents():SecondaryEnemyEventV1[];
+  specials():SpecialSnapshot28|null;
+  specialEvents():SpecialEvent28[];
   /** Read-only source trace, limited to the Pursuer controller's bounded window. */
   botDiagnostics():PursuerDiagnostic[];
   devGraph():ReturnType<CircuitClimbChaseCore['devGraph']>|null;
@@ -141,6 +146,9 @@ const cc223Config:SecondaryConfigV1|undefined=cc223Choice==='off'
     demoEarlySpawn:cc223Params.get('cc223Demo')==='1',
     ...(cc223Params.get('cc227')==='1'?
       {encounterPolicy:'cc2-27-distinct/v1' as const}:{})};
+// CC2-28 policy is deliberately absent from every standard game URL.
+const cc228Config:SpecialConfig28|undefined=
+  cc223Params.get('cc228')==='1'?defaultSpecialConfig28():undefined;
 const featuresEnabled=document.body.dataset.features==='on';
 const summaryEnabled=document.body.dataset.summary==='on';
 const manualQA=featuresEnabled && new URLSearchParams(location.search).get('manual')==='1';
@@ -167,7 +175,7 @@ function makeSurfaceEngine(
 ):SurfaceEngine{
   if(botEnabled){
     const game=new CircuitClimbChaseCore(seed,config,pursuerPreset,
-      defaultFeatureConfig(),learnerMotion,personality,cc223Config);
+      defaultFeatureConfig(),learnerMotion,personality,cc223Config,cc228Config);
     return {
       snapshot:()=>game.learnerSnapshot(),
       eventLog:()=>game.eventLog(),
@@ -179,6 +187,8 @@ function makeSurfaceEngine(
       bot:()=>game.snapshot().pursuer,
       secondary:()=>game.secondarySnapshot(),
       secondaryEvents:()=>game.secondaryEvents(),
+      specials:()=>game.specialSnapshot(),
+      specialEvents:()=>game.specialEvents(),
       botDiagnostics:()=>game.diagnostics(),
       devGraph:()=>game.devGraph(),
       features:()=>game.featureSnapshot(),
@@ -200,6 +210,8 @@ function makeSurfaceEngine(
     bot:()=>null,
     secondary:()=>null,
     secondaryEvents:()=>[],
+    specials:()=>null,
+    specialEvents:()=>[],
     botDiagnostics:()=>[],
     devGraph:()=>null,
     features:()=>null,
@@ -1510,6 +1522,9 @@ document.addEventListener('visibilitychange', () => {
   pursuer: () => engine.bot(),
   secondary: () => engine.secondary(),
   secondaryEvents: () => engine.secondaryEvents(),
+  specials: () => engine.specials(),
+  specialEvents: () => engine.specialEvents(),
+  specialConfig:()=>cc228Config?{...cc228Config}:null,
   secondaryMode:()=>cc223Choice,
   secondaryConfig:()=>cc223Config?{...cc223Config}:null,
   /** CC2-16A read-only full-session diagnostic export; no bot steering. */
