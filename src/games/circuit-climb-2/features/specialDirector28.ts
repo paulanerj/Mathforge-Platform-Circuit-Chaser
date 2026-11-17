@@ -136,10 +136,12 @@ export class SpecialDirector28{
     // Bounded non-scoring telemetry; counters cover entire session.
     if(this.events.length>800)this.events.shift();
   }
-  reset(runId:string):void{
+  reset(runId:string,initialEventOffset=0):void{
     if(!runId||runId.length>256)throw Error('CC228_RUN_ID');
+    if(!Number.isInteger(initialEventOffset)||initialEventOffset<0)
+      throw Error('CC228_EVENT_OFFSET');
     this.runId=runId;this.tick=0;this.lastTick=-1;
-    this.coreCount=0;this.eventOrdinal=0;this.completedRows=0;
+    this.coreCount=initialEventOffset;this.eventOrdinal=0;this.completedRows=0;
     this.guardRowsRemaining=0;this.surge=clearSurge();this.events=[];
     this.counters={
       capacitors:0,relays:0,surges:0,
