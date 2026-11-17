@@ -89,7 +89,7 @@ describe('CC2-30A reusable creature source system',()=>{
     // The field is available through an integrated chase snapshot, and the
     // accepted effect does not touch the primary mathematical answer.
     expect(c.fieldMultiplier).toBeCloseTo(c.config.slowMultiplier);
-    expect(dir.pressureFor({x:fluid.x,y:fluid.y})).toBe(1);
+    expect(director.pressureFor({x:fluid.x,y:fluid.y})).toBe(1);
     // Reconstruct the same command sequence and prove the real effect remains
     // present in that world rather than merely in the visual studio.
     const replay=replayChase(g.replayExport());
