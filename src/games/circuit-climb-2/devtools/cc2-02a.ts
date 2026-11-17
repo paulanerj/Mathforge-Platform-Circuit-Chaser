@@ -165,7 +165,14 @@ const cc228Config:SpecialConfig28|undefined=
 function creatureConfigFromURL():CreatureConfig|undefined{
   if(cc223Params.get('cc230')!=='1')return undefined;
   const raw=cc223Params.get('cc230Cfg');
-  if(!raw)return defaultCreatureConfig();
+  if(!raw){
+    const standard=defaultCreatureConfig();
+    // CC2-30E is deliberately opt-in and does not rewrite legacy replays.
+    // A blanket's source speed multiplier is 0.50 and never expires by TTL.
+    return cc223Params.get('cc230Blanket')==='1'?
+      validateCreatureConfig({...standard,fieldMode:'BELOW_PLATFORM',
+        slowMultiplier:0.5}):standard;
+  }
   try{
     if(raw.length>2200)throw Error('CREATURE_CONFIG_URL_LENGTH');
     return validateCreatureConfig(JSON.parse(raw));
