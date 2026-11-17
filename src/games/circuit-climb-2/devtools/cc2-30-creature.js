@@ -26,6 +26,7 @@ const creature=root.querySelector('.cc230-creature'),gel=root.querySelector('.cc
   options=root.querySelector('.cc230-options'),decline=root.querySelector('.cc230-decline'),
   status=root.querySelector('.cc230-status');
 let lastQuestion='',lastStatus='',lastEvent='',lastPosition='',lastTick=-1;
+let lastDrawAt=0,draws=0,hopFrames=0;
 let config={material:'clear-molasses',glow:0.7,flowRate:1,viscosity:0.55,
   bodySize:36,sound:true};
 const defaults={...config};
@@ -71,23 +72,55 @@ function refresh(){
   if(state.runId!==refresh.runId){
     refresh.runId=state.runId;lastQuestion='';lastEvent='';lastPosition='';
   }
-  const btn=[...board.querySelectorAll('button.choice')]
-    .find(b=>b.dataset.platformId===c.platformId);
+  // Primary platform buttons remain authoritative world projection.
+  // The character has its own hitbox and never relocates primary answer controls.
+  const buttons=[...board.querySelectorAll('button.choice')];
+  const findButton=id=>buttons.find(b=>b.dataset.platformId===id);
+  const btn=findButton(c.platformId);
+  const boardRect=board.getBoundingClientRect();
+  const getPoint=b=>{
+    const r=b.getBoundingClientRect();
+    return {x:r.left+r.width/2-boardRect.left,
+      y:r.top-boardRect.top-31};
+  };
   const visible=btn&&c.gate!=='DORMANT'&&
     state.phase!=='ended'&&!state.paused;
   creature.hidden=!visible;
   if(visible){
-    const bb=board.getBoundingClientRect(),b=btn.getBoundingClientRect();
-    const x=(b.left+b.width/2-bb.left),y=b.top-bb.top-31;
+    const dest=getPoint(btn);
+    let {x,y}=dest;
+    // Source-owned hop endpoints and ticks: visual physics cannot invent a hop.
+    if(c.hop){
+      const prior=findButton(c.hop.fromPlatformId);
+      if(prior){
+        const from=getPoint(prior);
+        const fraction=clamp((state.tick-c.hop.startTick)/
+          (c.hop.endTick-c.hop.startTick),0,1);
+        const eased=fraction*fraction*(3-2*fraction);
+        x=from.x+(dest.x-from.x)*eased;
+        y=from.y+(dest.y-from.y)*eased-
+          Math.sin(Math.PI*fraction)*clamp(boardRect.width*.055,8,26);
+        hopFrames++;
+      }
+    }
     const pos=Math.round(x)+'|'+Math.round(y);
     if(pos!==lastPosition){
       creature.style.left=x+'px';creature.style.top=y+'px';lastPosition=pos;
     }
-    creature.disabled=c.gate!=='AVAILABLE';
-    creature.dataset.phase=c.gate;
+    creature.disabled=c.gate!=='AVAILABLE'||Boolean(c.hop);
+    creature.dataset.phase=c.hop?'HOPPING':c.gate;
   }
   const q=c.question,qKey=q?c.runId+':'+q.deadlineTick:'';
   gate.hidden=!q;
+  // Position question near its real creature, rather than an unrelated
+  // full-width banner. Keep safe fallback inside the visible board.
+  if(q&&visible){
+    const top=clamp(parseFloat(creature.style.top||'20')+36,
+      8,boardRect.height-190);
+    gate.style.top=top+'px';
+    gate.style.left=clamp(parseFloat(creature.style.left||'0'),
+      170,boardRect.width-170)+'px';
+  }
   if(q&&qKey!==lastQuestion){
     lastQuestion=qKey;
     question.textContent=q.sequence.join(' · ')+' · ?';
@@ -110,12 +143,17 @@ function refresh(){
   if(!q)lastQuestion='';
   const field=c.activeField;
   if(field){
-    const target=[...board.querySelectorAll('button.choice')]
-      .find(b=>b.dataset.platformId===c.platformId);
+    const target=findButton(c.platformId);
     if(target){
-      const bb=board.getBoundingClientRect(),b=target.getBoundingClientRect();
-      const x=b.left+b.width/2-bb.left,y=b.top-bb.top;
-      const width=clamp(bb.width*.40,60,220);
+      const b=target.getBoundingClientRect();
+      const x=b.left+b.width/2-boardRect.left,y=b.top-boardRect.top;
+      // Map the SOURCE field radius into the board's current column scale.
+      const colPx=buttons.length>=2?
+        Math.abs(getPoint(buttons[1]).x-getPoint(buttons[0]).x):
+        boardRect.width/3;
+      const colWorld=state.world.geometry.columnSpacing||1;
+      const worldPixels=colPx/colWorld;
+      const width=clamp(field.radius*worldPixels,40,boardRect.width*.48);
       gel.hidden=false;
       gel.style.left=(field.direction==='left'?x-width:x)+'px';
       gel.style.top=(y-20)+'px';gel.style.width=width+'px';
@@ -134,6 +172,7 @@ function refresh(){
     }
   }
   if(state.tick!==lastTick)lastTick=state.tick;
+  draws++;
 }
 creature.onclick=()=>{
   const r=api()?.offerCreature?.();
@@ -184,7 +223,14 @@ window.__CC2_30__={
   get source(){return api()?.creature?.()??null},
   apply,
   get events(){return api()?.creature?.()?.receipts??[]},
+  get presentation(){return {draws,hopFrames,creatureVisible:!creature.hidden,
+    questionVisible:!gate.hidden,gelVisible:!gel.hidden}},
 };
-function frame(){refresh();requestAnimationFrame(frame);}
+function frame(t){
+  // 30Hz max for DOM projection: avoid a large source snapshot/layout pass
+  // every 60Hz RAF on lower-powered tablets.
+  if(t-lastDrawAt>=1000/30){lastDrawAt=t;refresh();}
+  requestAnimationFrame(frame);
+}
 requestAnimationFrame(frame);
 })();
