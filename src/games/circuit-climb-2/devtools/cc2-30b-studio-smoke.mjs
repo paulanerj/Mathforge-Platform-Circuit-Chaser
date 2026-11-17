@@ -41,22 +41,14 @@ try{
       // A hidden shell details element must never count as accessible UI.
       await page.locator('#cc209c-enter').click();
       await page.locator('#cc209-settings-btn').click();
-      await page.locator('#cc209-settings .cc209-dialog > details').last()
-        .locator('summary').first().click();
-      const appearance=await page.evaluate(()=>{
-        const target=document.querySelector('.cc230-studio > summary');
-        let el=target;
-        const chain=[];
-        for(let i=0;i<9&&el;i++,el=el.parentElement){
-          const cs=getComputedStyle(el),r=el.getBoundingClientRect();
-          chain.push({tag:el.tagName,id:el.id,className:String(el.className),
-            display:cs.display,visibility:cs.visibility,
-            hidden:el.hidden,open:el.open,width:r.width,height:r.height});
-        }
-        return {chain,settingsHidden:document.querySelector('#cc209-settings').hidden};
-      });
-      console.log('CC2-30B studio visibility:',JSON.stringify(appearance));
-      await page.locator('.cc230-studio > summary').click({timeout:3500});
+      const developerDetails=page.locator('#cc209-settings .cc209-dialog > details').last();
+      // Some accepted UI controllers pre-open the Developer section.
+      // Clicking unconditionally in that case CLOSES it, hiding the Studio.
+      if(!(await developerDetails.evaluate(el=>el.open))){
+        await developerDetails.locator('summary').first().click();
+      }
+      await page.locator('.cc230-studio > summary').click();
+
       await page.locator('.cc230-authority > summary').click();
       await page.locator('.cc230-apply-gameplay').click();
       await page.waitForFunction(()=>
