@@ -25,6 +25,18 @@ jobs:
         run: npm run lint
       - name: Build packaged Circuit Climb game
         run: npm run build
+      - name: Verify opt-in visual JS source syntax
+        run: node --check src/games/circuit-climb-2/devtools/cc2-34-relay-preview.js
+      - name: Verify embedded standalone visual script syntax
+        run: |
+          node - <<'NODE'
+          const fs=require('fs'),vm=require('vm');
+          const s=fs.readFileSync('dist/cc2-30.html','utf8');
+          const m=s.match(/<script id="cc234-relay-preview-controller">([\\s\\S]*?)<\\/script>/);
+          if(!m)throw Error('CC234_CONTROLLER_MISSING');
+          new vm.Script(m[1],{filename:'cc234-embedded.js'});
+          console.log('PASS: packaged Relay preview script parses');
+          NODE
       - name: Relay in real Chromium game at phone/tablet widths
         run: node src/games/circuit-climb-2/devtools/cc2-34-relay-browser-smoke.mjs
       - name: Relay, Creature SDK, and core mathematical regression
