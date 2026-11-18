@@ -1,0 +1,25 @@
+name: CC2-32 Creature Expansion Integrity
+on:
+  push:
+    branches:
+      - feature/cc2-32-creature-expansion-qualification-20261117
+  pull_request:
+    paths:
+      - 'src/games/circuit-climb-2/features/creatureAbilitySDK30B.ts'
+      - 'src/games/circuit-climb-2/features/creatureEcology30.ts'
+      - 'src/games/circuit-climb-2/tests/creatureRosterIntegrity32.test.ts'
+permissions:
+  contents: read
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Species-to-ability registry and fallback qualification
+        run: npx vitest run src/games/circuit-climb-2/tests/creatureRosterIntegrity32.test.ts src/games/circuit-climb-2/features/creatureAbilitySDK30B.test.ts src/games/circuit-climb-2/features/molassesBlanket30E.test.ts src/games/circuit-climb-2/features/sparkUnaffectedByMolasses30F.test.ts
