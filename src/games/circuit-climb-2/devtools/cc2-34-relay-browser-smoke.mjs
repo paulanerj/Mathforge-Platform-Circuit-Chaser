@@ -35,8 +35,24 @@ try{
   page.on('pageerror',e=>errors.push(String(e)));
   try{
    await page.goto(base+'?cc234=1',{waitUntil:'domcontentloaded'});
-   await page.waitForFunction(()=>window.__CC2_02A__?.snapshot?.()&&
-     window.__CC2_34__?.status?.(),null,{timeout:12000});
+   // Diagnose actual packaged-browser state on failure, not a silent timeout.
+   try{
+    await page.waitForFunction(()=>window.__CC2_02A__?.snapshot?.()&&
+      window.__CC2_34__?.status?.(),null,{timeout:8000});
+   }catch(error){
+    const diagnostic=await page.evaluate(()=>({
+      api:typeof window.__CC2_02A__,
+      visual:typeof window.__CC2_34__,
+      board:!!document.querySelector('#board'),
+      tuning:!!document.querySelector('#tuningPanel'),
+      controls:!!document.querySelector('#cc234Activate'),
+      flag:new URLSearchParams(location.search).get('cc234'),
+      ready:document.readyState,
+      scripts:[...document.scripts].map(s=>s.id).filter(x=>x.includes('cc234')),
+    }));
+    throw Error('CC234_STARTUP_DIAGNOSTIC '+JSON.stringify({diagnostic,errors})+
+      ' '+String(error));
+   }
    check(await page.locator('#cc234Activate').count()===1,
     'dev studio preview exists at '+width);
    await page.locator('#cc209c-enter').click();
