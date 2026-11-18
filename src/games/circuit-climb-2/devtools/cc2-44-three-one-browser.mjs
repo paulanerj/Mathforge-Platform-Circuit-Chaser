@@ -88,8 +88,11 @@ try{
     const jsErrors=[];
     page.on('pageerror',err=>jsErrors.push(String(err)));
     try{
-      await page.goto(base,{waitUntil:'domcontentloaded'});
+      await page.goto(base+'?manual=1',{waitUntil:'domcontentloaded'});
       await page.locator('#cc209c-enter').click();
+      // Freeze the authentic source simulation only for a deterministic
+      // before/after slider comparison, exactly like the existing QA harness.
+      await page.evaluate(()=>{window.__cc2ManualScenarioActive=true;});
       await page.waitForFunction(()=>
         window.__CC2_02A__?.rendererStats?.()?.flowRowsBelow===1 &&
         window.__CC2_09B__?.summary?.()?.futureTiers?.centers?.some(
