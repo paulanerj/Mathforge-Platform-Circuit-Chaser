@@ -176,6 +176,25 @@ describe('CC2-34C earned Relay Weaver source contract',()=>{
     expect(relay.snapshot().receipts.filter(r=>r.type==='GATE_EXPIRED'))
       .toHaveLength(0);
   });
+  it('terminal answer command releases the encounter without awarding a gate',()=>{
+    const {core,relay,arbiter}=fixture();
+    climbOnce(core);relay.advance(core.snapshot());
+    expect(relay.offer(core.snapshot())).toEqual({ok:true});
+    expect(arbiter.snapshot().occupied).toBe('RELAY');
+    const correct=answer(relay,core);
+    const ended={...core.snapshot(),phase:'ended' as const};
+    expect(relay.answer(ended,correct)).toEqual({
+      ok:false,reason:'RELAY_GATE_CLOSED',
+    });
+    expect(arbiter.snapshot().occupied).toBeNull();
+    expect(relay.snapshot().phase).toBe('COOLDOWN');
+    expect(relay.snapshot().question).toBeNull();
+    expect(relay.snapshot().receipts.filter(r=>r.type==='GATE_SOLVED'))
+      .toHaveLength(0);
+    expect(relay.answer(ended,correct).ok).toBe(false);
+    expect(relay.snapshot().receipts.filter(r=>r.type==='GATE_EXPIRED'))
+      .toHaveLength(0);
+  });
   it('rejects stale decline after logical expiry without fabricating a decline',()=>{
     const {core,relay,arbiter}=fixture();
     climbOnce(core);relay.advance(core.snapshot());
