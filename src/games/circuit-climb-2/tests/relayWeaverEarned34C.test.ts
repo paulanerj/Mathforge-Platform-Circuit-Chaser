@@ -77,6 +77,30 @@ describe('CC2-34C earned Relay Weaver source contract',()=>{
     expect(relay.snapshot(core.snapshot()).receipts
       .filter(r=>r.type==='GUIDANCE_FINISHED')).toHaveLength(1);
   });
+  it('keeps snapshots observational until the source advance emits row receipts',()=>{
+    const {core,relay}=fixture();
+    climbOnce(core);relay.advance(core.snapshot());
+    expect(relay.offer(core.snapshot()).ok).toBe(true);
+    expect(relay.answer(core.snapshot(),answer(relay,core)).correct).toBe(true);
+    const before=relay.snapshot(core.snapshot());
+    expect(before.guidance?.solvedGuidedRows).toBe(0);
+    climbOnce(core);
+    // Rendering and diagnostics may read repeatedly before the next source tick.
+    for(let i=0;i<5;i++){
+      const view=relay.snapshot(core.snapshot());
+      expect(view.guidance?.solvedGuidedRows).toBe(0);
+      expect(view.receipts.filter(r=>r.type==='GUIDED_ROW_COMPLETED'))
+        .toHaveLength(0);
+    }
+    relay.advance(core.snapshot());
+    const after=relay.snapshot(core.snapshot());
+    expect(after.guidance?.solvedGuidedRows).toBe(1);
+    expect(after.receipts.filter(r=>r.type==='GUIDED_ROW_COMPLETED'))
+      .toHaveLength(1);
+    relay.advance(core.snapshot());
+    expect(relay.snapshot(core.snapshot()).receipts
+      .filter(r=>r.type==='GUIDED_ROW_COMPLETED')).toHaveLength(1);
+  });
   it('never grants guidance on a failed/declined optional challenge',()=>{
     const {core,relay}=fixture();
     climbOnce(core);relay.advance(core.snapshot());

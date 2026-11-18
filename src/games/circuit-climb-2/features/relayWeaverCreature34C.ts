@@ -83,6 +83,8 @@ export class RelayWeaverDirector {
   private question:RelayCreatureSnapshot['question']=null;
   private correct=0;
   private guide:RelayGuidanceDirector|null=null;
+  // Read-only snapshots must not advance guidance or consume source row changes.
+  private guidanceView:RelayGuidanceView|null=null;
   private ordinal=0;
   private receipts:RelayCreatureReceipt[]=[];
   private lastGuidedRows=0;
@@ -136,9 +138,11 @@ export class RelayWeaverDirector {
     if(this.phase==='ARMED'&&state.phase==='ready'){
       this.guide=new RelayGuidanceDirector(state,this.config.guideRows);
       this.phase='GUIDING';this.lastGuidedRows=0;
+      this.guidanceView=this.guide.advance(state);
     }
     if(this.phase==='GUIDING'&&this.guide){
       const view=this.guide.advance(state);
+      this.guidanceView=view;
       while(this.lastGuidedRows<view.solvedGuidedRows){
         this.lastGuidedRows++;
         this.emit('GUIDED_ROW_COMPLETED',state.tick,
@@ -189,6 +193,7 @@ export class RelayWeaverDirector {
       if(state.phase==='ready'){
         this.guide=new RelayGuidanceDirector(state,this.config.guideRows);
         this.phase='GUIDING';
+        this.guidanceView=this.guide.advance(state);
       }else this.phase='ARMED';
       this.lastGuidedRows=0;
     }else this.phase='COOLDOWN';
@@ -203,18 +208,21 @@ export class RelayWeaverDirector {
   }
   terminate():void{
     this.encounters.release('RELAY');
-    this.question=null;this.guide=null;this.phase='COOLDOWN';
+    this.question=null;this.guide=null;this.guidanceView=null;
+    this.phase='COOLDOWN';
   }
   reset(runId:string):void{
     if(!runId)throw Error('CC2_RELAY_ID_REQUIRED');
     this.encounters.reset(runId);
     this.runId=runId;this.phase='DORMANT';this.platformId=null;
     this.activeRow=null;this.question=null;this.guide=null;
+    this.guidanceView=null;
     this.ordinal=0;this.receipts=[];this.lastGuidedRows=0;
   }
   snapshot(state?:EngineStateV1):RelayCreatureSnapshot{
     if(state)this.requireRun(state);
-    const guidance=this.guide&&state?this.guide.advance(state):null;
+    // Querying presentation state cannot advance authoritative progress.
+    const guidance=this.guidanceView;
     return clone({schema:RELAY_CREATURE_SCHEMA,runId:this.runId,
       phase:this.phase,platformId:this.platformId,activeRow:this.activeRow,
       question:this.question,guidance,receipts:this.receipts});
