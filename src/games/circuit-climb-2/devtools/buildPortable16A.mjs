@@ -180,10 +180,10 @@ const cc234Script=await readFile(resolve(dir,'cc2-34-relay-preview.js'),'utf8');
 if(html.split('</head>').length!==2||html.split('</body>').length!==2)
  throw Error('CC234_STANDALONE_INJECTION_ANCHOR_INVALID');
 html=html.replace('</head>',()=>
- '<style id="cc234-relay-preview-style">\\n'+cc234Style+'\\n</style>\\n</head>');
+ '<style id="cc234-relay-preview-style">\n'+cc234Style+'\n</style>\n</head>');
 html=html.replace('</body>',()=>
- '<script id="cc234-relay-preview-controller">\\n'+escapeScript(cc234Script)+
- '\\n</script>\\n</body>');
+ '<script id="cc234-relay-preview-controller">\n'+escapeScript(cc234Script)+
+ '\n</script>\n</body>');
 if(!html.includes('cc234-relay-preview-style')||
   !html.includes('cc234-relay-preview-controller'))
  throw Error('CC234_PREVIEW_ASSET_MISSING');
