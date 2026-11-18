@@ -113,7 +113,13 @@ export class RelayWeaverDirector {
   /** Visually eligible, but never overlays or changes a mathematical button. */
   advance(state:EngineStateV1):void{
     this.requireRun(state);
-    if(state.paused||state.phase==='ended')return;
+    // Terminal transitions must release the exclusive encounter immediately.
+    // A final snapshot can arrive without a separate UI terminate() call.
+    if(state.phase==='ended'){
+      this.terminate();
+      return;
+    }
+    if(state.paused)return;
     if(this.phase==='DORMANT'&&
       state.completedRows>=this.config.firstEligibleRow&&
       state.phase==='ready'){
