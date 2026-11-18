@@ -159,6 +159,23 @@ describe('CC2-34C earned Relay Weaver source contract',()=>{
     relay.advance(core.snapshot());
     expect(relay.snapshot().phase).toBe('GUIDING');
   });
+  it('releases exclusive creature interaction on terminal source state',()=>{
+    const {core,relay,arbiter}=fixture();
+    climbOnce(core);relay.advance(core.snapshot());
+    expect(relay.offer(core.snapshot())).toEqual({ok:true});
+    expect(arbiter.snapshot().occupied).toBe('RELAY');
+    // Terminal state is source authoritative, even if the presentation
+    // controller never receives a separate terminate() call.
+    const ended={...core.snapshot(),phase:'ended' as const};
+    relay.advance(ended);
+    expect(arbiter.snapshot().occupied).toBeNull();
+    expect(relay.snapshot().question).toBeNull();
+    expect(relay.snapshot().phase).toBe('COOLDOWN');
+    relay.advance(ended);
+    expect(arbiter.snapshot().occupied).toBeNull();
+    expect(relay.snapshot().receipts.filter(r=>r.type==='GATE_EXPIRED'))
+      .toHaveLength(0);
+  });
   it('fails closed on invalid input and resets without leaking old run',()=>{
     const {core,relay,arbiter}=fixture();
     expect(()=>validateRelayConfig({...DEFAULT_RELAY_CREATURE_CONFIG,
