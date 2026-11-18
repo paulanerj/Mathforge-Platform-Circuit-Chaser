@@ -6,9 +6,10 @@
  */
 import {describe,it,expect} from 'vitest';
 import {CircuitClimbCore} from '../core/CircuitClimbCore';
+import {CircuitClimbChaseCore} from '../pursuer/CircuitClimbChaseCore';
 import {defaultRunConfig} from '../config/runConfig';
 import {
-  CreatureEncounterArbiter,RelayGuidanceDirector,DEFAULT_ECOLOGY_POLICY,projectRelayFutureRows,
+  CreatureEncounterArbiter,RelayGuidanceDirector,DEFAULT_ECOLOGY_POLICY,projectRelayFutureRows,projectChaseRelayRows,
 } from '../features/creatureEcologyRelay34';
 
 const core=()=>new CircuitClimbCore('relay34-seed',{
@@ -132,5 +133,22 @@ describe('CC2-34B cloned core four-platform exact projection',()=>{
     const digest=engine.stateDigest();
     expect(()=>projectRelayFutureRows(engine)).toThrow('RELAY_FORECAST_REQUIRES_READY');
     expect(engine.stateDigest()).toBe(digest);
+  });
+});
+
+describe('CC2-34B Pursuer-inclusive forecast isolation',()=>{
+  it('clones the exact chase and never changes the live bot, math or creature',()=>{
+    const chase=new CircuitClimbChaseCore('cc2-relay34-chase',
+      {...defaultRunConfig(),mode:'practice'});
+    const beforeDigest=chase.stateDigest();
+    const before=chase.snapshot();
+    const forecast=projectChaseRelayRows(chase,4);
+    expect(forecast.schema).toBe('cc2-relay-forecast/v1');
+    expect(forecast.runId).toBe(chase.learnerSnapshot().runId);
+    expect(forecast.projected.length).toBeGreaterThanOrEqual(1);
+    expect(forecast.projected[0].platformId)
+      .toBe(chase.learnerSnapshot().currentProblem.correctPlatformId);
+    expect(chase.stateDigest()).toBe(beforeDigest);
+    expect(chase.snapshot()).toEqual(before);
   });
 });
