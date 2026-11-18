@@ -176,6 +176,38 @@ describe('CC2-34C earned Relay Weaver source contract',()=>{
     expect(relay.snapshot().receipts.filter(r=>r.type==='GATE_EXPIRED'))
       .toHaveLength(0);
   });
+  it('rejects stale decline after logical expiry without fabricating a decline',()=>{
+    const {core,relay,arbiter}=fixture();
+    climbOnce(core);relay.advance(core.snapshot());
+    expect(relay.offer(core.snapshot())).toEqual({ok:true});
+    const deadline=relay.snapshot().question!.deadlineTick;
+    core.advanceTicks(deadline-core.snapshot().tick);
+    // UI can dispatch a stale click before the next presentation advance.
+    expect(relay.decline(core.snapshot())).toBe(false);
+    const view=relay.snapshot();
+    expect(view.phase).toBe('COOLDOWN');
+    expect(view.receipts.filter(r=>r.type==='GATE_EXPIRED')).toHaveLength(1);
+    expect(view.receipts.filter(r=>r.type==='GATE_DECLINED')).toHaveLength(0);
+    expect(arbiter.snapshot().occupied).toBeNull();
+    expect(relay.decline(core.snapshot())).toBe(false);
+    expect(relay.snapshot().receipts.filter(r=>r.type==='GATE_EXPIRED'))
+      .toHaveLength(1);
+  });
+  it('does not accept decline while paused or after a terminal transition',()=>{
+    const {core,relay,arbiter}=fixture();
+    climbOnce(core);relay.advance(core.snapshot());
+    expect(relay.offer(core.snapshot())).toEqual({ok:true});
+    core.pause();
+    expect(relay.decline(core.snapshot())).toBe(false);
+    expect(relay.snapshot().phase).toBe('QUESTION');
+    core.resume();
+    const terminal={...core.snapshot(),phase:'ended' as const};
+    expect(relay.decline(terminal)).toBe(false);
+    expect(relay.snapshot().phase).toBe('COOLDOWN');
+    expect(arbiter.snapshot().occupied).toBeNull();
+    expect(relay.snapshot().receipts.filter(r=>r.type==='GATE_DECLINED'))
+      .toHaveLength(0);
+  });
   it('fails closed on invalid input and resets without leaking old run',()=>{
     const {core,relay,arbiter}=fixture();
     expect(()=>validateRelayConfig({...DEFAULT_RELAY_CREATURE_CONFIG,
