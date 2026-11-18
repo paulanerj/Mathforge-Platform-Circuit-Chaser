@@ -207,7 +207,17 @@ export class RelayWeaverDirector {
   }
   decline(state:EngineStateV1):boolean{
     this.requireRun(state);
-    if(this.phase!=='QUESTION')return false;
+    // Declining is a gameplay command, not a way to bypass logical expiry.
+    // A stale UI click after the deadline must record expiry exactly once.
+    if(state.phase==='ended'){
+      this.advance(state);
+      return false;
+    }
+    if(state.paused||this.phase!=='QUESTION'||!this.question)return false;
+    if(state.tick>=this.question.deadlineTick){
+      this.advance(state);
+      return false;
+    }
     this.encounters.release('RELAY');this.question=null;
     this.phase='COOLDOWN';this.emit('GATE_DECLINED',state.tick);
     return true;
