@@ -721,17 +721,24 @@ if(new URLSearchParams(location.search).get('cc2Ui')==='slate-focus'){
   The page may scroll vertically on small devices; primary buttons remain
   tappable and world physics/camera math are unaffected by the CSS.
 */
+/*
+  CC2-44: the visible 3-up/1-down tower owns exactly four row intervals
+  plus 170px of HUD/actor/bot clearance. A larger slider pitch grows the
+  playfield instead of zooming platforms smaller. This is CSS-only.
+*/
 body.cc243-locked-spacing .board{
   --cc243-row-pitch:108px;
-  min-height:800px!important;
-  height:max(800px,calc(100dvh - 155px))!important;
+  --cc244-stage-height:calc(
+    var(--cc243-row-pitch) + var(--cc243-row-pitch) +
+    var(--cc243-row-pitch) + var(--cc243-row-pitch) + 170px
+  );
+  min-height:var(--cc244-stage-height)!important;
+  height:var(--cc244-stage-height)!important;
   max-height:none!important;
 }
 @media (max-width:600px){
   body.cc243-locked-spacing .board{
     --cc243-row-pitch:96px;
-    min-height:720px!important;
-    height:max(720px,calc(100svh - 145px))!important;
   }
 }
 </style>
@@ -818,7 +825,7 @@ body.cc243-locked-spacing .board{
     <details class="dev-tuning" id="tuningPanel">
       <summary>Developer Laboratory · Camera / Spark / Pursuer</summary>
       <p class="lab-hint">
-        The camera shows at least two row levels above and below Spark. Horizontal tower width stays legible while vertical framing adjusts independently. Future positions are non-clickable architecture, never invented mathematical questions. The zoom value is a maximum; it may auto-reduce to preserve visibility. Camera zoom is visual only and changes live. All other movement and
+        In flowing-tower mode the camera shows three rows ahead and one behind Spark, leaving room for the approaching Pursuer. The visual row-distance slider changes platform spacing immediately without changing mathematical world geometry. Dim future positions are non-clickable architecture, never invented mathematical questions. Maximum zoom applies only to the historical camera. Other movement and
         AI parameters take effect when you select <strong>Apply tuning &amp; new run</strong>.
         A new run is essential for repeatable, fair comparison.
         <span class="preview-key">Dim rows = structural previews, not generated math questions</span>
@@ -832,6 +839,12 @@ body.cc243-locked-spacing .board{
           <label>Follow smoothing (0.05–0.50)
             <input id="cameraFollow" type="number" min="0.05" max="0.50" step="0.01" value="0.13">
           </label>
+          <label>Visible row distance <output id="cc244RowPitchValue" for="cc244RowPitch">96 px</output>
+            <input id="cc244RowPitch" type="range" min="80" max="140" step="2" value="96"
+              aria-label="Live visual spacing between platform row centers"
+              aria-describedby="cc244PitchHint">
+          </label>
+          <p class="lab-hint" id="cc244PitchHint">Live preview only: this changes the distance you see between rows and the camera window, never the physical jumps, math choices or Pursuer timing.</p>
         </div>
       </fieldset>
       <fieldset class="lab-group">
@@ -1397,7 +1410,8 @@ window.addEventListener("DOMContentLoaded", () => {
     // Signed structural row indices are intentional: at game start there
     // are no source math rows below row zero. Draw only dormant geometry
     // beneath Spark, NEVER fabricate historical math or clickable options.
-    for(let row=sparkRow-3;row<=sparkRow+3;row++){
+    const behind=r.flowRowsBelow===1?1:3;
+    for(let row=sparkRow-behind;row<=sparkRow+3;row++){
       if(known.has(row))continue;
       const worldY=-row*g.rowGap;
       const y=pt(g.columns[1],worldY,r,w).y;
@@ -1526,7 +1540,15 @@ window.addEventListener("DOMContentLoaded", () => {
       // real platforms; this maintains depth and avoids fake answer choices.
       drawFutureStructuralTiers(state,renderer,w,h);
       const rows=state.world.rows||[];
-      for(const row of rows)for(const platformItem of row.platforms)platform(platformItem,renderer,w,now);
+      for(const row of rows){
+        // The source retains all historical/forecast rows for gameplay and
+        // truthful replay, but this presentation shows only 3 up / 1 down.
+        if(renderer.flowRowsBelow===1 &&
+          (row.index<state.spark.row-1||row.index>state.spark.row+3))
+          continue;
+        for(const platformItem of row.platforms)
+          platform(platformItem,renderer,w,now);
+      }
       // Source's display interpolation affects visuals only; it never edits
       // the real Spark/Bot world positions or game physics.
       // CC2-19 presentation ownership: during a VERIFIED visual assimilation
