@@ -1419,8 +1419,10 @@ window.addEventListener("DOMContentLoaded", () => {
         const left=x-platformWidth/2;
         ctx.save();
         ctx.shadowColor='#4f7d8c45';ctx.shadowBlur=6;
-        ctx.fillStyle='#e0edf0';
-        ctx.strokeStyle='#719eac';
+        // Prior tower infrastructure is pale ceramic, visibly present but
+        // more muted than the future route; neither state creates math.
+        ctx.fillStyle=row<0?'#d1e3ec':'#e0edf0';
+        ctx.strokeStyle=row<0?'#769dad':'#719eac';
         ctx.lineWidth=1.8;
         roundedRect(ctx,left,y,platformWidth,platformHeight,5);
         ctx.fill();ctx.stroke();
