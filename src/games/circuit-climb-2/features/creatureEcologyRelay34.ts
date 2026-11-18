@@ -13,6 +13,7 @@
  * core-owned deterministic projection API and replay verification.
  */
 import {replayCore,type EngineStateV1,type ReplayV1,type CircuitClimbCore} from '../core/CircuitClimbCore';
+import {replayChase,type ChaseReplayV1,type CircuitClimbChaseCore} from '../pursuer/CircuitClimbChaseCore';
 
 export const CREATURE_ECOLOGY_V1='cc2-creature-ecology-policy/v1' as const;
 export type EncounterSpecies='MOLASSES_GUARDIAN'|'RELAY'|'TETHER_SLUG'|
@@ -209,5 +210,66 @@ export function projectRelayFutureRows(
     runId:before.runId,
     originTick:before.tick,originDigest:digest,
     projected:platforms,terminatedEarly,
+  };
+}
+
+/**
+ * CC2-34B: production Pursuer-inclusive replay projection.
+ *
+ * The projected simulation may end early if the REAL Pursuer would capture
+ * the automated ideal path; the report is therefore conservative. Never
+ * display a phantom platform after capture or turn this preview into a
+ * physics/gameplay authority. The live ChaseCore is unchanged.
+ */
+export function projectChaseRelayRows(
+  live:Pick<CircuitClimbChaseCore,
+    'learnerSnapshot'|'stateDigest'|'replayExport'>,
+  maxRows=4,
+):RelayForecast{
+  if(!Number.isInteger(maxRows)||maxRows<1||maxRows>8)
+    throw Error('RELAY_ROWS_BOUNDS');
+  const original=live.learnerSnapshot();
+  if(original.paused||original.phase!=='ready')
+    throw Error('RELAY_FORECAST_REQUIRES_READY');
+  const sourceDigest=live.stateDigest();
+  const trace:ChaseReplayV1=live.replayExport();
+  const copy=replayChase(trace);
+  if(copy.stateDigest()!==sourceDigest)
+    throw Error('RELAY_FORECAST_REPLAY_MISMATCH');
+  const platforms:RelayProjectedPlatform[]=[];
+  let terminatedEarly=false;
+  for(let i=0;i<maxRows;i++){
+    const snap=copy.learnerSnapshot();
+    if(snap.phase==='ended'){terminatedEarly=true;break;}
+    if(snap.phase!=='ready')throw Error('RELAY_FORECAST_PHASE');
+    const id=snap.currentProblem.correctPlatformId;
+    const platform=snap.world.rows.flatMap(r=>r.platforms).find(p=>p.id===id);
+    if(!platform||platform.dead||platform.row!==snap.currentProblem.rowIndex)
+      throw Error('RELAY_FORECAST_PLATFORM_UNAVAILABLE');
+    const attempt=copy.selectPlatform(id);
+    // A sensed Pursuer is allowed to end the projected ideal run.
+    if(!attempt.ok){
+      terminatedEarly=true;break;
+    }
+    if(!attempt.correct)throw Error('RELAY_FORECAST_INVALID_MATH');
+    platforms.push({
+      row:platform.row,problemId:snap.currentProblem.problemId,
+      platformId:id,value:platform.value!,x:platform.x,y:platform.y,
+    });
+    let ticks=0;
+    while(copy.learnerSnapshot().phase==='outbound'&&ticks<3000){
+      copy.advanceTicks(60);ticks+=60;
+    }
+    const after=copy.learnerSnapshot();
+    if(after.phase==='ended'&&after.completedRows!==snap.completedRows+1){
+      terminatedEarly=true;break;
+    }
+    if(after.completedRows!==snap.completedRows+1)
+      throw Error('RELAY_FORECAST_LANDING_FAILED');
+  }
+  return {
+    schema:'cc2-relay-forecast/v1',
+    runId:original.runId,originTick:original.tick,
+    originDigest:sourceDigest,projected:platforms,terminatedEarly,
   };
 }
