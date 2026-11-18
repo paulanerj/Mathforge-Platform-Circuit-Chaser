@@ -156,7 +156,7 @@ export class RelayWeaverDirector {
     if(state.paused||state.phase!=='ready'||this.phase!=='AVAILABLE')
       return {ok:false,reason:'RELAY_NOT_AVAILABLE'};
     const offered=this.encounters.offer('RELAY',state);
-    if(!offered.accepted)return {ok:false,reason:offered.reason};
+    if(offered.accepted===false)return {ok:false,reason:offered.reason};
     const step=this.config.gateStep;
     const start=step*(1+(this.seed%4));
     const answer=start+step*3;
