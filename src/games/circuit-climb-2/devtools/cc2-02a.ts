@@ -53,6 +53,11 @@ import {projectRelayFutureRows,projectChaseRelayRows,type RelayForecast} from '.
 const fidelity09B=document.body.dataset.cc209b==='on';
 const canvas = document.querySelector<HTMLCanvasElement>('#worldCanvas')!;
 const board = document.querySelector<HTMLElement>('#board')!;
+// CC2-43: this class is installed BEFORE the first source draw/board resize.
+// The visual-only row-spacing token is defined once in the CSS contract;
+// changing source rowGapScale or camera zoom cannot silently compress it.
+const cc243LockedSpacing=new URLSearchParams(location.search).get('cc2Flow')==='1';
+if(cc243LockedSpacing)document.body.classList.add('cc243-locked-spacing');
 const choices = document.querySelector<HTMLElement>('#choices')!;
 const equation = document.querySelector<HTMLElement>('#equation')!;
 const height = document.querySelector<HTMLElement>('#height')!;
@@ -764,6 +769,11 @@ function draw(): void {
     fitRowGap:sixRowFlow?g.rowGap:(fidelity09B?307.5:undefined),
     coverageExpansion:sixRowFlow?1.06:(fidelity09B?1.15:undefined),
     minimumRowsEachSide:sixRowFlow?3:2,
+    ...(sixRowFlow?{
+      lockedRowPitchCssPx:Number.parseFloat(
+        getComputedStyle(board).getPropertyValue('--cc243-row-pitch')),
+      canvasCssWidth:canvas.clientWidth,
+    }:{}),
   });
   const zoom=productionFrame.yScale;
   horizontalCameraScale=productionFrame.xScale;
@@ -848,7 +858,10 @@ function draw(): void {
   previewRowsRendered=0;
   const sparkIndex=state.spark.row;
   const flowRowsEachSide=sixRowFlow?3:2;
-  for(let index=Math.max(0,sparkIndex-flowRowsEachSide);
+  // Render the lower dormant tower infrastructure too, including row -1/-2/-3
+  // at the genuine starting platform (row 0). These unnumbered structural
+  // supports are VISUAL ONLY: they never create a problem or click target.
+  for(let index=sparkIndex-flowRowsEachSide;
       index<=sparkIndex+flowRowsEachSide;index++){
     if(index===sparkIndex || state.world.rows.some(row=>row.index===index))continue;
     const y=worldY(-index*g.rowGap);
@@ -1186,7 +1199,9 @@ function draw(): void {
     ? `Count by 2: ${state.currentProblem.incomingValue} → ?`
     : `${state.currentProblem.incomingValue} + ? = ${state.currentProblem.targetValue}`;
   if(viewReadout){
-    viewReadout.textContent='SIGHTLINE · 2 ROWS ABOVE / 2 BELOW · '+
+    viewReadout.textContent='SIGHTLINE · '+(sixRowFlow?'3+3 SYMMETRIC TOWER · ':'2 ROWS ABOVE / 2 BELOW · ')+
+      (productionFrame?.lockedRowPitchCssPx
+        ?Math.round(productionFrame.lockedRowPitchCssPx)+'px FIXED TIER PITCH · ':'')+
       (state.world.geometry.rowGap/205).toFixed(2)+'× REAL GAP · vertical fit '+
       Math.round(effectiveCameraZoom*100)+'% · user maximum '+
       Math.round(cameraView.zoom*100)+'%';
@@ -1592,6 +1607,7 @@ document.addEventListener('visibilitychange', () => {
     previewRowsRendered,cameraY,viewportCoverage,cameraRowGap,
     flowRowsEachSide:cc223Params.get('cc2Flow')==='1'?3:2,
     horizontalCameraScale,
+    lockedRowPitchCssPx:productionFrame?.lockedRowPitchCssPx??null,
     visualSparkPosition:{...latestVisibleSpark},
     visualBotPosition:latestVisibleBot?{...latestVisibleBot}:null,
     sourceSparkPosition:{...engine.snapshot().spark},
