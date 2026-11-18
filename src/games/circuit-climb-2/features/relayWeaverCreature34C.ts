@@ -14,7 +14,7 @@ import {
 } from './creatureEcologyRelay34';
 
 export const RELAY_CREATURE_SCHEMA='cc2-relay-creature/v1' as const;
-export type RelayPhase='DORMANT'|'AVAILABLE'|'QUESTION'|'GUIDING'|'COOLDOWN';
+export type RelayPhase='DORMANT'|'AVAILABLE'|'QUESTION'|'ARMED'|'GUIDING'|'COOLDOWN';
 export interface RelayCreatureConfig {
   readonly schema:typeof RELAY_CREATURE_SCHEMA;
   readonly firstEligibleRow:number;
@@ -131,6 +131,12 @@ export class RelayWeaverDirector {
       this.encounters.release('RELAY');
       this.emit('GATE_EXPIRED',state.tick);
     }
+    // A correct passkey may finish while Spark is travelling. Arm until
+    // the next source READY state; never stop or rewrite the physical route.
+    if(this.phase==='ARMED'&&state.phase==='ready'){
+      this.guide=new RelayGuidanceDirector(state,this.config.guideRows);
+      this.phase='GUIDING';this.lastGuidedRows=0;
+    }
     if(this.phase==='GUIDING'&&this.guide){
       const view=this.guide.advance(state);
       while(this.lastGuidedRows<view.solvedGuidedRows){
@@ -180,8 +186,10 @@ export class RelayWeaverDirector {
     this.question=null;this.encounters.release('RELAY');
     this.emit(correct?'GATE_SOLVED':'GATE_FAILED',state.tick,{choice});
     if(correct){
-      this.guide=new RelayGuidanceDirector(state,this.config.guideRows);
-      this.phase='GUIDING';
+      if(state.phase==='ready'){
+        this.guide=new RelayGuidanceDirector(state,this.config.guideRows);
+        this.phase='GUIDING';
+      }else this.phase='ARMED';
       this.lastGuidedRows=0;
     }else this.phase='COOLDOWN';
     return {ok:true,correct};
@@ -199,7 +207,7 @@ export class RelayWeaverDirector {
   }
   reset(runId:string):void{
     if(!runId)throw Error('CC2_RELAY_ID_REQUIRED');
-    this.encounters.release('RELAY');
+    this.encounters.reset(runId);
     this.runId=runId;this.phase='DORMANT';this.platformId=null;
     this.activeRow=null;this.question=null;this.guide=null;
     this.ordinal=0;this.receipts=[];this.lastGuidedRows=0;
