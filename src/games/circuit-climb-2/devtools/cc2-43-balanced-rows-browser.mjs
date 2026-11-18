@@ -44,7 +44,8 @@ async function collect(page){
   const board=document.querySelector('#board');
   const boardRect=board.getBoundingClientRect();
   const g=s.world.geometry;
-  const width=boardRect.width;
+  // Painter and source camera use canvas.clientWidth, not the bordered board.
+  const width=document.getElementById('worldCanvas').clientWidth;
   const projectedY=row=>(-row*g.rowGap-stats.cameraY)*
     stats.effectiveZoom*width/600;
   const structural=heritage.futureTiers?.centers??[];
