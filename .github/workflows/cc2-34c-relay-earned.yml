@@ -1,0 +1,28 @@
+name: CC2-34C Earned Relay Source Authority
+on:
+  push:
+    branches:
+      - feature/cc2-34c-relay-earned-authority-20261117
+  pull_request:
+    paths:
+      - 'src/games/circuit-climb-2/features/relayWeaverCreature34C.ts'
+      - 'src/games/circuit-climb-2/tests/relayWeaverEarned34C.test.ts'
+permissions:
+  contents: read
+jobs:
+  qualified:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Type-check the real repo
+        run: npm run lint
+      - name: Source-owned Relay challenge and all prior creature contracts
+        run: npx vitest run src/games/circuit-climb-2/tests/relayWeaverEarned34C.test.ts src/games/circuit-climb-2/tests/creatureEcologyRelay34.test.ts src/games/circuit-climb-2/tests/creatureMaterials39A.test.ts src/games/circuit-climb-2/features/creatureAbilitySDK30B.test.ts src/games/circuit-climb-2/tests/coreTransactions.test.ts
+      - name: Package the existing game without enabling this new ability
+        run: npm run build
