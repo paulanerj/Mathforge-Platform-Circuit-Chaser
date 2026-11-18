@@ -184,7 +184,13 @@ export class RelayWeaverDirector {
   answer(state:EngineStateV1,choice:number):
     {ok:boolean;correct?:boolean;reason?:string}{
     this.requireRun(state);
-    if(state.paused||state.phase==='ended'||this.phase!=='QUESTION'||
+    // A terminal source state must release the exclusive encounter even when
+    // the final incoming UI action is an answer rather than an update tick.
+    if(state.phase==='ended'){
+      this.advance(state);
+      return {ok:false,reason:'RELAY_GATE_CLOSED'};
+    }
+    if(state.paused||this.phase!=='QUESTION'||
       !this.question||!Number.isInteger(choice)||
       !this.question.options.includes(choice))
       return {ok:false,reason:'RELAY_GATE_CLOSED'};
