@@ -173,6 +173,20 @@ if(html.includes(entry)||!html.includes('source-authoritative CC2 engine')||
    html.includes(cssTag)||html.includes(fxTag)||html.includes(glowTag)||html.includes(phaseCssTag)||html.includes(phaseJsTag)||html.includes(learnCssTag)||html.includes(learnJsTag)||html.includes(integrityCssTag)||html.includes(integrityJsTag)||html.includes(eclipseCssTag)||html.includes(eclipseJsTag)||html.includes(visCssTag)||html.includes(physicsJsTag)||html.includes(visJsTag)||html.includes(oxideCssTag)||html.includes(oxideJsTag)||html.includes(secondaryCssTag)||html.includes(secondaryJsTag)||html.includes(roleCssTag)||html.includes(roleJsTag)||html.includes(specialCssTag)||html.includes(specialJsTag)||html.includes(slateFocusCssTag)||html.includes(finaleCssTag)||html.includes(finaleJsTag)||
  html.length<100000||html.length>4000000||!html.includes('cc209d-source-presentation')||!html.includes('cc209e-target-style')||!html.includes('cc212-source-presentation')||!html.includes('cc215-source-app')||!html.includes('cc216a-integrity-lab')||!html.includes('cc218a-eclipse-controller')||!html.includes('cc218a-eclipse-style')||!html.includes('cc220-living-controller')||!html.includes('cc220-plasma-dynamics')||!html.includes('cc220-living-material')||!html.includes('cc226-oxide-material')||!html.includes('cc226-oxide-controller')||!html.includes('cc223-secondary-style')||!html.includes('cc223-secondary-presentation')||!html.includes('cc227-role-style')||!html.includes('cc227-role-controller')||!html.includes('cc228-special-visuals')||!html.includes('cc228-special-controller')||!html.includes('cc2-ui-slate-focus-43')||!html.includes('cc225-debrief-style')||!html.includes('cc225-debrief-controller'))
  throw Error('CC2_15_OFFLINE_ASSEMBLY_INVALID');
+// CC2-34/39A: opt-in, in-game Relay hologram/Studio surface. Never load
+// external files into the standalone page, and preserve legacy URLs exactly.
+const cc234Style=await readFile(resolve(dir,'cc2-34-relay-preview.css'),'utf8');
+const cc234Script=await readFile(resolve(dir,'cc2-34-relay-preview.js'),'utf8');
+if(html.split('</head>').length!==2||html.split('</body>').length!==2)
+ throw Error('CC234_STANDALONE_INJECTION_ANCHOR_INVALID');
+html=html.replace('</head>',()=>
+ '<style id="cc234-relay-preview-style">\n'+cc234Style+'\n</style>\n</head>');
+html=html.replace('</body>',()=>
+ '<script id="cc234-relay-preview-controller">\n'+escapeScript(cc234Script)+
+ '\n</script>\n</body>');
+if(!html.includes('cc234-relay-preview-style')||
+  !html.includes('cc234-relay-preview-controller'))
+ throw Error('CC234_PREVIEW_ASSET_MISSING');
 const file=resolve('cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html');
 await mkdir(dirname(file),{recursive:true});
 await writeFile(file,html,'utf8');
