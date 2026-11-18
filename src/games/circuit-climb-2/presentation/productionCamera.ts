@@ -34,6 +34,13 @@ export interface ProductionCameraInput {
   lockedRowPitchCssPx?:number;
   /** Required when lockedRowPitchCssPx is supplied. */
   canvasCssWidth?:number;
+  /**
+   * CC2-44: put the third upcoming row near the board's top edge.
+   * One dormant/solved row remains visible below Spark, with a separate
+   * pursuit-awareness margin. The old symmetric CC2-43 mode is unchanged
+   * unless the caller explicitly selects this framing.
+   */
+  flowFraming?:'3_UP_1_DOWN';
 }
 export interface ProductionCameraFrame {
   xScale:number;
@@ -64,7 +71,10 @@ export function computeProductionCamera(v:ProductionCameraInput):ProductionCamer
     (v.lockedRowPitchCssPx!==undefined &&
       (!Number.isFinite(v.lockedRowPitchCssPx)||
        v.lockedRowPitchCssPx<80||v.lockedRowPitchCssPx>150||
-       !Number.isFinite(v.canvasCssWidth)||v.canvasCssWidth!<=0))) {
+       !Number.isFinite(v.canvasCssWidth)||v.canvasCssWidth!<=0)) ||
+    (v.flowFraming!==undefined &&
+      (v.flowFraming!=='3_UP_1_DOWN'||
+       v.lockedRowPitchCssPx===undefined))) {
     throw Error('CC2_PRODUCTION_CAMERA_INVALID');
   }
   const laneGap=(v.columns[2]-v.columns[0])/2;
@@ -87,12 +97,20 @@ export function computeProductionCamera(v:ProductionCameraInput):ProductionCamer
     ?(v.lockedRowPitchCssPx!*v.logicalWidth/(v.canvasCssWidth!*v.rowGap))
     :Math.max(0.10,Math.min(v.maxZoom,
       v.logicalHeight/(desiredSpan+trackingHeadroom))/(v.coverageExpansion??1));
-  const idealCameraY=v.sparkY-v.logicalHeight/(2*yScale);
+  // For the CC2-44 3+1 composition, reserve a stable 50px above the
+  // highest of the next three rows. Do not re-center Spark or zoom down
+  // when the user changes row spacing. All positions remain a projection
+  // of the SAME real world and the same selected DOM platforms.
+  const asymmetric=v.flowFraming==='3_UP_1_DOWN';
+  const idealCameraY=asymmetric
+    ?v.sparkY-(3+50/v.lockedRowPitchCssPx!)*v.rowGap
+    :v.sparkY-v.logicalHeight/(2*yScale);
   const proposed=v.previousCameraY+
     (idealCameraY-v.previousCameraY)*v.follow;
   // Old free-fit camera retains its historical tracking behavior. The
   // locked mode constrains Spark's drift to at most eight CSS pixels from
-  // viewport center so that structural tiers stay visually symmetrical.
+  // its intended camera anchor (screen center historically, CC2-44's
+  // offset three-up/one-down anchor in the revised composition).
   const spare=locked
     ?8*v.logicalWidth/(v.canvasCssWidth!*yScale)
     :Math.max(0,(v.logicalHeight/yScale-desiredSpan)/2);

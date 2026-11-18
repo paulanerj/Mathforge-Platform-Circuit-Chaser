@@ -1,0 +1,44 @@
+name: CC2-44 Three Up One Down and Row Distance Slider
+on:
+  push:
+    branches:
+      - feature/cc2-44-three-up-one-down-row-slider-20261118
+  pull_request:
+    paths:
+      - 'src/games/circuit-climb-2/presentation/productionCamera.ts'
+      - 'src/games/circuit-climb-2/devtools/cc2-02a.ts'
+      - 'src/games/circuit-climb-2/devtools/cc2-16a.html'
+      - 'src/games/circuit-climb-2/tests/threeUpOneDownSpacing44.test.ts'
+      - 'src/games/circuit-climb-2/devtools/cc2-44-three-one-browser.mjs'
+permissions:
+  contents: read
+jobs:
+  qualified:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: TypeScript and mathematical geometry contracts
+        run: |
+          npm run lint
+          npx vitest run src/games/circuit-climb-2/tests/threeUpOneDownSpacing44.test.ts src/games/circuit-climb-2/tests/productionCamera06A.test.ts src/games/circuit-climb-2/tests/lockedBalancedRowGeometry43.test.ts src/games/circuit-climb-2/tests/coreTransactions.test.ts
+      - name: Package the exact standalone Circuit Climb game
+        run: npm run build
+      - name: 'Actual packaged browser: 3 up 1 down slider and real platform hitboxes'
+        run: node src/games/circuit-climb-2/devtools/cc2-44-three-one-browser.mjs
+      - name: Historical Heritage visible-pixel compatibility
+        run: node src/games/circuit-climb-2/devtools/cc2-30h-heritage-visible-smoke.mjs
+      - name: Save five viewport screenshot evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc2-44-three-one-live-row-spacing
+          path: |
+            cc2-44-evidence/
+            cc2-30-evidence/
+          if-no-files-found: ignore
