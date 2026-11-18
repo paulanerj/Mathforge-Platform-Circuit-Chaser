@@ -93,6 +93,10 @@ const achievementToast = document.querySelector<HTMLElement>('#achievementToast'
 const tuningPanel=document.querySelector<HTMLDetailsElement>('#tuningPanel');
 const cameraZoomInput=document.querySelector<HTMLInputElement>('#cameraZoom');
 const cameraFollowInput=document.querySelector<HTMLInputElement>('#cameraFollow');
+// CC2-44 is presentation only. These controls must not touch world.rowGap,
+// Spark movement, Pursuer sensors, mathematical answers, or replay history.
+const cc244PitchInput=document.querySelector<HTMLInputElement>('#cc244RowPitch');
+const cc244PitchValue=document.querySelector<HTMLOutputElement>('#cc244RowPitchValue');
 const zoomValue=document.querySelector<HTMLOutputElement>('#zoomValue');
 const labStatus=document.querySelector<HTMLElement>('#labStatus');
 const presetData=document.querySelector<HTMLTextAreaElement>('#presetData');
@@ -770,6 +774,7 @@ function draw(): void {
     coverageExpansion:sixRowFlow?1.06:(fidelity09B?1.15:undefined),
     minimumRowsEachSide:sixRowFlow?3:2,
     ...(sixRowFlow?{
+      flowFraming:'3_UP_1_DOWN' as const,
       lockedRowPitchCssPx:Number.parseFloat(
         getComputedStyle(board).getPropertyValue('--cc243-row-pitch')),
       canvasCssWidth:canvas.clientWidth,
@@ -857,12 +862,13 @@ function draw(): void {
   // present before interaction. Unpublished math is not fabricated.
   previewRowsRendered=0;
   const sparkIndex=state.spark.row;
-  const flowRowsEachSide=sixRowFlow?3:2;
-  // Render the lower dormant tower infrastructure too, including row -1/-2/-3
-  // at the genuine starting platform (row 0). These unnumbered structural
-  // supports are VISUAL ONLY: they never create a problem or click target.
-  for(let index=sparkIndex-flowRowsEachSide;
-      index<=sparkIndex+flowRowsEachSide;index++){
+  const flowRowsAbove=sixRowFlow?3:2;
+  const flowRowsBelow=sixRowFlow?1:2;
+  // CC2-44: three structural tiers ahead, exactly one structural tier below.
+  // Row -1 is decorative when Spark starts at row zero, never an invented
+  // mathematical problem, scoring target or collision platform.
+  for(let index=sparkIndex-flowRowsBelow;
+      index<=sparkIndex+flowRowsAbove;index++){
     if(index===sparkIndex || state.world.rows.some(row=>row.index===index))continue;
     const y=worldY(-index*g.rowGap);
     if(y>h+g.platformHeight || y<-g.platformHeight)continue;
@@ -903,6 +909,11 @@ function draw(): void {
   }
 
   for (const row of state.world.rows) {
+    // The visible stage is 3 ahead / 1 behind Spark. Other historical
+    // source-owned platforms remain in the simulation and replay ledger;
+    // hiding them from this painter does NOT change physics or score.
+    if(sixRowFlow&&(row.index<sparkIndex-1||row.index>sparkIndex+3))
+      continue;
     const y = worldY(row.y);
     if (y > h + 100 || y < -150) continue;
     for (const p of row.platforms) {
@@ -1199,7 +1210,7 @@ function draw(): void {
     ? `Count by 2: ${state.currentProblem.incomingValue} → ?`
     : `${state.currentProblem.incomingValue} + ? = ${state.currentProblem.targetValue}`;
   if(viewReadout){
-    viewReadout.textContent='SIGHTLINE · '+(sixRowFlow?'3+3 SYMMETRIC TOWER · ':'2 ROWS ABOVE / 2 BELOW · ')+
+    viewReadout.textContent='SIGHTLINE · '+(sixRowFlow?'3 ROWS ABOVE / 1 BELOW · ':'2 ROWS ABOVE / 2 BELOW · ')+
       (productionFrame?.lockedRowPitchCssPx
         ?Math.round(productionFrame.lockedRowPitchCssPx)+'px FIXED TIER PITCH · ':'')+
       (state.world.geometry.rowGap/205).toFixed(2)+'× REAL GAP · vertical fit '+
@@ -1406,6 +1417,39 @@ function liveCameraChange():void {
 }
 if(cameraZoomInput)cameraZoomInput.oninput=liveCameraChange;
 if(cameraFollowInput)cameraFollowInput.onchange=liveCameraChange;
+/**
+ * CC2-44: Live display-only platform row spacing. The CSS property is
+ * authoritative for both stage height and camera transform. Unlike changing
+ * run.rowGapScale, adjusting this range never reconstructs the game.
+ */
+function cc244ApplySpacing(value:number):void{
+  if(!cc243LockedSpacing||!Number.isFinite(value)||
+      value<80||value>140||!Number.isInteger(value))
+    throw Error('CC244_PITCH_OUT_OF_BOUNDS');
+  board.style.setProperty('--cc243-row-pitch',value+'px');
+  if(cc244PitchInput)cc244PitchInput.value=String(value);
+  if(cc244PitchValue){
+    cc244PitchValue.value=value+' px';
+    cc244PitchValue.textContent=value+' px';
+  }
+  draw();
+}
+if(cc244PitchInput){
+  if(cc243LockedSpacing){
+    const original=Number.parseFloat(
+      getComputedStyle(board).getPropertyValue('--cc243-row-pitch'));
+    if(Number.isFinite(original)&&original>=80&&original<=140){
+      cc244PitchInput.value=String(original);
+      if(cc244PitchValue){
+        cc244PitchValue.value=original+' px';
+        cc244PitchValue.textContent=original+' px';
+      }
+    }
+    cc244PitchInput.addEventListener('input',()=>
+      cc244ApplySpacing(Number(cc244PitchInput.value)));
+  }else cc244PitchInput.disabled=true;
+}
+
 // Profiles have a constant experiment seed. One-click selection always
 // creates a fresh source-owned run; timing changes do not happen mid-flight.
 if(applyPace)applyPace.onclick=()=>{
@@ -1605,7 +1649,11 @@ document.addEventListener('visibilitychange', () => {
   rendererStats: () => ({canvasResizes,zoom:cameraView.zoom,
     effectiveZoom:effectiveCameraZoom,follow:cameraView.follow,
     previewRowsRendered,cameraY,viewportCoverage,cameraRowGap,
+    // Keep the legacy property for prior integrations reading "3",
+    // while the explicit below count now truthfully reports one.
     flowRowsEachSide:cc223Params.get('cc2Flow')==='1'?3:2,
+    flowRowsAbove:cc223Params.get('cc2Flow')==='1'?3:2,
+    flowRowsBelow:cc223Params.get('cc2Flow')==='1'?1:2,
     horizontalCameraScale,
     lockedRowPitchCssPx:productionFrame?.lockedRowPitchCssPx??null,
     visualSparkPosition:{...latestVisibleSpark},
