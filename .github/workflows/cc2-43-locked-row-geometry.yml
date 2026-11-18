@@ -1,0 +1,44 @@
+name: CC2-43 Locked Balanced Tower Geometry
+on:
+  push:
+    branches:
+      - fix/cc2-43-locked-balanced-row-geometry-20261118
+  pull_request:
+    paths:
+      - 'src/games/circuit-climb-2/presentation/productionCamera.ts'
+      - 'src/games/circuit-climb-2/devtools/cc2-02a.ts'
+      - 'src/games/circuit-climb-2/devtools/cc2-16a.html'
+      - 'src/games/circuit-climb-2/tests/lockedBalancedRowGeometry43.test.ts'
+      - 'src/games/circuit-climb-2/devtools/cc2-43-balanced-rows-browser.mjs'
+permissions:
+  contents: read
+jobs:
+  geometry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: TypeScript and historical camera contracts
+        run: |
+          npm run lint
+          npx vitest run src/games/circuit-climb-2/tests/lockedBalancedRowGeometry43.test.ts src/games/circuit-climb-2/tests/productionCamera06A.test.ts src/games/circuit-climb-2/tests/coreTransactions.test.ts
+      - name: Build the actual standalone playable game
+        run: npm run build
+      - name: 'Exact packaged browser: row pitch, symmetry and real hit targets'
+        run: node src/games/circuit-climb-2/devtools/cc2-43-balanced-rows-browser.mjs
+      - name: Historical Heritage pixel and legacy-mode regression
+        run: node src/games/circuit-climb-2/devtools/cc2-30h-heritage-visible-smoke.mjs
+      - name: Preserve browser screenshot and geometry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc2-43-balanced-row-screenshots
+          path: |
+            cc2-43-evidence/
+            cc2-30-evidence/
+          if-no-files-found: ignore

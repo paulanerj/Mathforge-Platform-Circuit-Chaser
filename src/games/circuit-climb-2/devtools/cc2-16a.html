@@ -712,6 +712,29 @@ if(new URLSearchParams(location.search).get('cc2Ui')==='slate-focus'){
 </script>
 <link rel="stylesheet" href="./cc2-ui-slate-focus-43.css">
 <link rel="stylesheet" href="./cc2-25-run-debrief.css">
+<style id="cc243-locked-geometry-contract">
+/*
+  CC2-43: one production geometry contract for the opt-in flowing tower.
+  We cannot fit seven vertical tier centers at a readable 108px pitch
+  inside the old 690px board with top equation and lower safe clearance.
+  Enlarge only this experimental board rather than compress row spacing.
+  The page may scroll vertically on small devices; primary buttons remain
+  tappable and world physics/camera math are unaffected by the CSS.
+*/
+body.cc243-locked-spacing .board{
+  --cc243-row-pitch:108px;
+  min-height:800px!important;
+  height:max(800px,calc(100dvh - 155px))!important;
+  max-height:none!important;
+}
+@media (max-width:600px){
+  body.cc243-locked-spacing .board{
+    --cc243-row-pitch:96px;
+    min-height:720px!important;
+    height:max(720px,calc(100svh - 145px))!important;
+  }
+}
+</style>
 </head>
 <body data-pursuer="on" data-features="on" data-summary="on" data-cc209b="on" data-cc209c="on" data-cc209d="on" data-cc209e="on" data-cc212="on" data-cc215="on" data-cc216a="on" data-cc209c-intro-open="on">
   <main class="shell">
@@ -1371,7 +1394,10 @@ window.addEventListener("DOMContentLoaded", () => {
     const horizontal=r.horizontalCameraScale*w/600;
     const vertical=r.effectiveZoom*w/600;
     // Exact same world row coordinates and projection as real platforms.
-    for(let row=Math.max(0,sparkRow-3);row<=sparkRow+3;row++){
+    // Signed structural row indices are intentional: at game start there
+    // are no source math rows below row zero. Draw only dormant geometry
+    // beneath Spark, NEVER fabricate historical math or clickable options.
+    for(let row=sparkRow-3;row<=sparkRow+3;row++){
       if(known.has(row))continue;
       const worldY=-row*g.rowGap;
       const y=pt(g.columns[1],worldY,r,w).y;
@@ -1393,8 +1419,10 @@ window.addEventListener("DOMContentLoaded", () => {
         const left=x-platformWidth/2;
         ctx.save();
         ctx.shadowColor='#4f7d8c45';ctx.shadowBlur=6;
-        ctx.fillStyle='#e0edf0';
-        ctx.strokeStyle='#719eac';
+        // Prior tower infrastructure is pale ceramic, visibly present but
+        // more muted than the future route; neither state creates math.
+        ctx.fillStyle=row<0?'#d1e3ec':'#e0edf0';
+        ctx.strokeStyle=row<0?'#769dad':'#719eac';
         ctx.lineWidth=1.8;
         roundedRect(ctx,left,y,platformWidth,platformHeight,5);
         ctx.fill();ctx.stroke();
