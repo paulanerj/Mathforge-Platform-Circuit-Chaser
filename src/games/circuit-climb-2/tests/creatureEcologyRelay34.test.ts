@@ -8,7 +8,7 @@ import {describe,it,expect} from 'vitest';
 import {CircuitClimbCore} from '../core/CircuitClimbCore';
 import {defaultRunConfig} from '../config/runConfig';
 import {
-  CreatureEncounterArbiter,RelayGuidanceDirector,DEFAULT_ECOLOGY_POLICY,
+  CreatureEncounterArbiter,RelayGuidanceDirector,DEFAULT_ECOLOGY_POLICY,projectRelayFutureRows,
 } from '../features/creatureEcologyRelay34';
 
 const core=()=>new CircuitClimbCore('relay34-seed',{
@@ -89,5 +89,48 @@ describe('CC2-34 relay genuinely source-owned four-row guidance',()=>{
     expect(engine.stateDigest()).toBe(initialDigest);
     expect(engine.snapshot().score).toBe(0);
     expect(engine.snapshot().attempts).toBe(0);
+  });
+});
+
+describe('CC2-34B cloned core four-platform exact projection',()=>{
+  it('produces four genuine upcoming platform identities with no live core mutations',()=>{
+    const engine=core(),digest=engine.stateDigest();
+    const report=projectRelayFutureRows(engine,4);
+    expect(report.schema).toBe('cc2-relay-forecast/v1');
+    expect(report.projected).toHaveLength(4);
+    expect(report.projected[0].platformId)
+      .toBe(engine.snapshot().currentProblem.correctPlatformId);
+    expect(new Set(report.projected.map(p=>p.problemId)).size).toBe(4);
+    expect(report.projected.map(p=>p.row)).toEqual([1,2,3,4]);
+    expect(engine.stateDigest()).toBe(digest);
+    expect(engine.snapshot().attempts).toBe(0);
+    expect(engine.snapshot().solved).toHaveLength(0);
+  });
+  it('the live engine produces each forecast answer and row exactly in sequence',()=>{
+    const engine=core(),report=projectRelayFutureRows(engine,4);
+    for(const item of report.projected){
+      const before=engine.snapshot();
+      expect(before.currentProblem.problemId).toBe(item.problemId);
+      expect(before.currentProblem.correctPlatformId).toBe(item.platformId);
+      const actualPlatform=before.world.rows.flatMap(r=>r.platforms)
+        .find(p=>p.id===item.platformId);
+      expect(actualPlatform?.x).toBe(item.x);
+      expect(actualPlatform?.y).toBe(item.y);
+      expect(actualPlatform?.value).toBe(item.value);
+      expect(engine.selectPlatform(item.platformId)).toMatchObject({
+        ok:true,correct:true});
+      engine.advanceTicks(3000);
+      expect(engine.snapshot().completedRows).toBe(item.row);
+    }
+    expect(engine.snapshot().solved).toHaveLength(4);
+    expect(engine.snapshot().endReason).toBe('PRACTICE_GOAL');
+  });
+  it('rejects active travel and out-of-bounds requests without disturbing gameplay',()=>{
+    const engine=core(),start=engine.snapshot();
+    expect(()=>projectRelayFutureRows(engine,9)).toThrow('RELAY_ROWS_BOUNDS');
+    engine.selectPlatform(start.currentProblem.correctPlatformId);
+    const digest=engine.stateDigest();
+    expect(()=>projectRelayFutureRows(engine)).toThrow('RELAY_FORECAST_REQUIRES_READY');
+    expect(engine.stateDigest()).toBe(digest);
   });
 });
