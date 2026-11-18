@@ -47,6 +47,7 @@ import {CircuitClimbFeedbackAudio} from './feedbackAudio';
 import {paceProfile,PACE_LABELS,type PaceProfileId} from '../config/paceProfiles';
 import {SessionTelemetry07C} from './sessionTelemetry07C';
 import {classifyThreat} from '../presentation/threatRadar07D';
+import {projectRelayFutureRows,projectChaseRelayRows,type RelayForecast} from '../features/creatureEcologyRelay34';
 
 /** Original-surface fidelity is opt-in; historical CC2-07E remains exact. */
 const fidelity09B=document.body.dataset.cc209b==='on';
@@ -124,6 +125,8 @@ interface SurfaceEngine {
   advanceTicks(n:number):void;
   pause():void;resume():void;
   stateDigest():string;replayExport():unknown;
+  /** CC2-34 opt-in dev-only source-backed preview; cannot award gameplay. */
+  relayForecast():RelayForecast;
   bot():PursuerSnapshot|null;
   secondary():SecondarySnapshotV1|null;
   secondaryEvents():SecondaryEnemyEventV1[];
@@ -221,6 +224,7 @@ function makeSurfaceEngine(
       pause:()=>game.pause(),resume:()=>game.resume(),
       stateDigest:()=>game.stateDigest(),
       replayExport:()=>game.replayExport(),
+      relayForecast:()=>projectChaseRelayRows(game,4),
       bot:()=>game.snapshot().pursuer,
       secondary:()=>game.secondarySnapshot(),
       secondaryEvents:()=>game.secondaryEvents(),
@@ -248,6 +252,7 @@ function makeSurfaceEngine(
     pause:()=>game.pause(),resume:()=>game.resume(),
     stateDigest:()=>game.stateDigest(),
     replayExport:()=>game.replayExport(),
+    relayForecast:()=>projectRelayFutureRows(game,4),
     bot:()=>null,
     secondary:()=>null,
     secondaryEvents:()=>[],
@@ -1577,6 +1582,11 @@ document.addEventListener('visibilitychange', () => {
   snapshot: () => engine.snapshot(),
   events: () => engine.eventLog(),
   replay: () => engine.replayExport(),
+  /** Developer-only: clone source replay, project 4 real rows, never change live game. */
+  relayForecast: () => {
+    if(cc223Params.get('cc234')!=='1')throw Error('RELAY_FORECAST_DEVELOPER_DISABLED');
+    return engine.relayForecast();
+  },
   rendererStats: () => ({canvasResizes,zoom:cameraView.zoom,
     effectiveZoom:effectiveCameraZoom,follow:cameraView.follow,
     previewRowsRendered,cameraY,viewportCoverage,cameraRowGap,
