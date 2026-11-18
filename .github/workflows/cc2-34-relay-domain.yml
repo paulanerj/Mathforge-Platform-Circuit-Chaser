@@ -1,0 +1,27 @@
+name: CC2-34 Creature Ecology and Relay Domain
+on:
+  push:
+    branches:
+      - feature/cc2-33-34-relay-ecology-foundation-20261117
+  pull_request:
+    paths:
+      - 'src/games/circuit-climb-2/features/creatureEcologyRelay34.ts'
+      - 'src/games/circuit-climb-2/tests/creatureEcologyRelay34.test.ts'
+      - '.github/workflows/cc2-34-relay-domain.yml'
+permissions:
+  contents: read
+jobs:
+  domain-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: TypeScript validation
+        run: npm run lint
+      - name: Relay, Creature SDK, and core mathematical regression
+        run: npx vitest run src/games/circuit-climb-2/tests/creatureEcologyRelay34.test.ts src/games/circuit-climb-2/tests/creatureRosterIntegrity32.test.ts src/games/circuit-climb-2/features/creatureAbilitySDK30B.test.ts src/games/circuit-climb-2/tests/coreTransactions.test.ts
