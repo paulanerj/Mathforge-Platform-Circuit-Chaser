@@ -131,12 +131,15 @@ try{
         const button=document.querySelector('button.choice');
         const st=getComputedStyle(button);
         const color=st.color,bg=st.backgroundColor;
+        const image=st.backgroundImage,border=st.borderColor;
         board.removeAttribute('data-cc223-renderer-fallback');
-        return {color,bg};
+        return {color,bg,image,border};
       });
       assert(fallback.color!=='rgba(0, 0, 0, 0)'&&
         fallback.color!=='transparent' &&
-        fallback.bg!=='rgba(0, 0, 0, 0)',
+        (fallback.bg!=='rgba(0, 0, 0, 0)'||
+         fallback.image.startsWith('linear-gradient(')) &&
+        fallback.border!=='rgba(0, 0, 0, 0)',
         'canvas-loss fallback restores visible mathematical button '+width,
         fallback);
       await page.screenshot({path:'cc2-45-evidence/platform-unity-'+width+'.png',
