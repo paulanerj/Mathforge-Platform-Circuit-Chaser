@@ -887,6 +887,26 @@ body.cc245-unified-platforms #board[data-cc223-renderer-fallback]
           <p class="lab-hint" id="cc244PitchHint">Live preview only: this changes the distance you see between rows and the camera window, never the physical jumps, math choices or Pursuer timing.</p>
         </div>
       </fieldset>
+      <!--
+        CC2-46: developer-only presentation controls, not part of the
+        mathematical world or any replay. Hidden in all CC2-45 URLs.
+      -->
+      <fieldset class="lab-group" id="cc246-plasma-laboratory" hidden>
+        <legend>Connected liquid-crystal plasma · visual-only</legend>
+        <p class="lab-hint">Plasma appears only on truly claimed platforms and verified correct Spark routes. Adjust the internal illumination without altering platform size, math, movement or sound.</p>
+        <div class="lab-grid">
+          <label>Inner plasma energy <output id="cc246-energy-value" for="cc246-energy">78%</output>
+            <input id="cc246-energy" type="range" min="0" max="100" step="1" value="78" aria-label="Inner plasma energy">
+          </label>
+          <label>Crystal flow motion <output id="cc246-flow-value" for="cc246-flow">44%</output>
+            <input id="cc246-flow" type="range" min="0" max="100" step="1" value="44" aria-label="Crystal flow speed">
+          </label>
+          <label>Connected path brightness <output id="cc246-trail-value" for="cc246-trail">72%</output>
+            <input id="cc246-trail" type="range" min="0" max="100" step="1" value="72" aria-label="Plasma trail brightness">
+          </label>
+        </div>
+        <button type="button" id="cc246-reset">Reset plasma controls</button>
+      </fieldset>
       <fieldset class="lab-group">
         <legend>Spark · movement and travel</legend>
         <div class="lab-grid">
@@ -1209,6 +1229,9 @@ window.addEventListener("DOMContentLoaded", () => {
   'use strict';
   const get=id=>document.getElementById(id);
   const api=()=>window.__CC2_02A__;
+  const plasma=window.__CC2_46__;
+  const plasmaEnabled=Boolean(plasma?.enabled &&
+    document.body.classList.contains('cc245-unified-platforms'));
   const board=get('board');
   const source=get('worldCanvas');
   const canvas=document.createElement('canvas');
@@ -1242,6 +1265,7 @@ window.addEventListener("DOMContentLoaded", () => {
     recordedCornerEvents:0,originalCueEvents:0,screenSizes:[],pathHistory:[],
     maxObservedSpeed:0,sourceDigestOnLoad:null};
   let lastTime=0,lastTick=-1,priorTravel=null,lastSeenEvent=0,lastSeenFeatureEvent=0;
+  let plasmaVisiblePaths=0,plasmaVisibleCores=0;
   let lastPos=null,lastLandingRow=0,justLandedAt=0,lastRunId=null;
   let enabled=true,audioCtx=null,lastSoundAt=0,lastCornerIndex=0;
   let previousSourceSoundEnabled=null;
@@ -1425,22 +1449,27 @@ window.addEventListener("DOMContentLoaded", () => {
     const height=unified?46:Math.max(13,p.height*vertical);
     const x=centre.x-width/2,y=unified?centre.y-height/2:centre.y;
     const powered=p.powered&&!p.dead;
+    const liquid=plasmaEnabled&&unified&&powered;
     const active=p.row===0||p.selected;
     if(y+height<-30||y>source.clientHeight+30)return;
-    ctx.save();ctx.shadowColor=powered?'#38cf8e82':'#5b7b9620';ctx.shadowBlur=powered?15:7;ctx.shadowOffsetY=powered?0:2;
+    ctx.save();
+    ctx.shadowColor=liquid?'rgba(44,158,208,.56)':powered?'#38cf8e82':'#5b7b9620';
+    ctx.shadowBlur=liquid?(12+plasma.settings().energy*.15):powered?15:7;
+    ctx.shadowOffsetY=liquid?0:powered?0:2;
     roundedRect(ctx,x,y,width,height,Math.min(9,height/3));
     if(unified){
       const mineral=ctx.createLinearGradient(x,y,x,y+height);
-      mineral.addColorStop(0,p.dead?'#d6e0e9':powered?'#e8fff5':'#fdfefe');
-      mineral.addColorStop(.66,p.dead?'#d2dce5':powered?'#cff8e4':'#eef5fb');
-      mineral.addColorStop(1,p.dead?'#c5d2df':powered?'#90dcc0':'#adc7d9');
+      mineral.addColorStop(0,p.dead?'#d6e0e9':liquid?'#f2ffff':powered?'#e8fff5':'#fdfefe');
+      mineral.addColorStop(.66,p.dead?'#d2dce5':liquid?'#afeef7':powered?'#cff8e4':'#eef5fb');
+      mineral.addColorStop(1,p.dead?'#c5d2df':liquid?'#6eb8d2':powered?'#90dcc0':'#adc7d9');
       ctx.fillStyle=mineral;
     }else ctx.fillStyle=p.dead?'#e4eaf0':powered?'#e0fff0':active?'#f9fdff':'#ffffff';
     ctx.fill();
+    if(liquid)plasma.paintClaimedCore(ctx,x,y,width,height,p,simtime);
     ctx.shadowBlur=0;ctx.shadowOffsetY=0;
-    ctx.strokeStyle=p.dead?'#cbd5e1':powered?'#1db66a':'#c9d8e6';
+    ctx.strokeStyle=p.dead?'#cbd5e1':liquid?'#2d9abb':powered?'#1db66a':'#c9d8e6';
     ctx.lineWidth=powered?2:1.2;ctx.stroke();
-    ctx.fillStyle=powered?'#2bca7c':'#d3e1ea';
+    ctx.fillStyle=liquid?'#3bb6d1':powered?'#2bca7c':'#d3e1ea';
     ctx.fillRect(x+4,y+height-(unified?7:4),width-8,unified?5:2.5);
     if(unified && p.value!==null && Number.isFinite(p.value) && !powered){
       // This is a source-owned number. A claimed/landed platform deliberately
@@ -1453,7 +1482,10 @@ window.addEventListener("DOMContentLoaded", () => {
       ctx.fillText(String(p.value),x+width/2,y+height/2-2);
       ctx.restore();
     }
-    if(powered){
+    // Old miniature green marker remains intact on accepted CC2-45 pages.
+    // New CC2-46 uses an internally energized crystal instead of a competing
+    // high-contrast dot that could distract from Spark's current value.
+    if(powered&&!liquid){
       const pulse=reduceMotion?0:Math.sin(simtime*.009+p.row*2.1)*2.1;
       const centerX=x+width/2,centerY=y+height/2;
       ctx.save();ctx.strokeStyle='#5defae';ctx.globalAlpha=.7;ctx.lineWidth=1;ctx.beginPath();
@@ -1587,9 +1619,33 @@ window.addEventListener("DOMContentLoaded", () => {
       if(e.type==='ATTEMPT_EVALUATED'&&e.detail?.correct===false)play('WRONG_SELECTION');
       else play(e.type);
       if(e.type==='ROW_COMPLETED'){justLandedAt=performance.now();lastLandingRow=state.completedRows;}
-      if(e.type==='LANDING_CONFIRMED'&&priorTravel?.kind==='outbound'&&priorTravel?.correct){
-        log.pathHistory.push({points:priorTravel.points,born:performance.now()});
-        if(log.pathHistory.length>5)log.pathHistory.shift();
+      if(e.type==='LANDING_CONFIRMED'&&
+        e.detail?.correct===true&&
+        state.solved?.some(q=>q.attemptId===e.detail?.attemptId)){
+        // The actual source selection captured the accepted travel points.
+        // Never rely on the animation loop seeing an outbound snapshot:
+        // Spark can complete the whole trip between slow device frames.
+        const sourceReceipt=plasmaEnabled
+          ?api()?.correctTravelReceipts?.().find(route=>
+            route.runId===state.runId&&
+            route.attemptId===e.detail.attemptId&&
+            route.platformId===e.detail.platformId)
+          :null;
+        const legacyPoints=priorTravel?.kind==='outbound'&&
+          priorTravel.correct?priorTravel.points:null;
+        const points=sourceReceipt?.points||legacyPoints;
+        const solved=state.solved.find(q=>q.attemptId===e.detail.attemptId);
+        if(points?.length>=2&&solved){
+          // A source-recorded selection is necessary but NOT sufficient to
+          // illuminate: authoritative successful landing AND solved ledger
+          // must agree with the original accepted route's attempt ID.
+          log.pathHistory.push({
+            points, born:performance.now(),
+            attemptId:solved.attemptId,row:solved.rowIndex,verified:true,
+          });
+          if(log.pathHistory.length>(plasmaEnabled?16:5))
+            log.pathHistory.shift();
+        }
       }
     }lastSeenEvent=events.length;
     let features=api()?.featureEvents?.()||[];
@@ -1625,8 +1681,25 @@ window.addEventListener("DOMContentLoaded", () => {
       const [w,h]=resize();if(!w||!h)return;
       ctx.save();parallax(ctx,w,h,now);
       // CC2-09E: no redundant center-screen ghost target. The equation remains in-board.
-      for(const old of log.pathHistory){const age=now-old.born;if(age<25000)curve(old.points,renderer,w,'#00a6e9',clamp(1-age/25000,.16,.9));}
-      log.pathHistory=log.pathHistory.filter(p=>now-p.born<25000);
+      plasmaVisiblePaths=0;
+      if(plasmaEnabled){
+        for(const old of log.pathHistory){
+          if(!old.verified||!state.solved.some(q=>q.attemptId===old.attemptId))
+            continue;
+          // Keep the blue physical route that Spark ACTUALLY traversed; the
+          // new conductor is bonded to it and powered only after a landing.
+          const project=(x,y)=>pt(x,y,renderer,w);
+          if(plasma.paintConductor(ctx,old.points,project,
+            state.tick,w,h))plasmaVisiblePaths++;
+        }
+      }else{
+        for(const old of log.pathHistory){
+          const age=now-old.born;
+          if(age<25000)curve(old.points,renderer,w,
+            '#00a6e9',clamp(1-age/25000,.16,.9));
+        }
+        log.pathHistory=log.pathHistory.filter(p=>now-p.born<25000);
+      }
       if(state.travel?.movement==='circuit')curve(travelPartial(state.travel),renderer,w);
       // Draw all pre-existing unlabeled future tier architecture BEFORE
       // real platforms; this maintains depth and avoids fake answer choices.
@@ -1639,8 +1712,12 @@ window.addEventListener("DOMContentLoaded", () => {
           (row.index<state.spark.row-1||row.index>state.spark.row+3))
           continue;
         for(const platformItem of row.platforms)
-          platform(platformItem,renderer,w,now);
+          platform(platformItem,renderer,w,plasmaEnabled?state.tick:now);
       }
+      plasmaVisibleCores=plasmaEnabled?rows.reduce((total,row)=>
+        total+(renderer.flowRowsBelow===1&&
+          (row.index<state.spark.row-1||row.index>state.spark.row+3)
+          ?0:row.platforms.filter(p=>p.powered&&!p.dead).length),0):0;
       // Source's display interpolation affects visuals only; it never edits
       // the real Spark/Bot world positions or game physics.
       // CC2-19 presentation ownership: during a VERIFIED visual assimilation
@@ -1681,6 +1758,13 @@ window.addEventListener("DOMContentLoaded", () => {
       sourceDigest:api()?.sessionReport?.()?.stateDigest,screenSizes:[...log.screenSizes],
       futureTiers:{rows:futureTierReport.rows,cells:futureTierReport.cells,
         centers:futureTierReport.centers.map(v=>({...v}))},
+      plasma:{
+        enabled:plasmaEnabled,
+        settings:plasmaEnabled?plasma.settings():null,
+        verifiedHistory:log.pathHistory.filter(p=>p.verified).length,
+        visibleConductors:plasmaVisiblePaths,
+        visibleClaimed:plasmaVisibleCores,
+      },
       audioHistory:[...audioHistory]}),
   };
   requestAnimationFrame(frame);

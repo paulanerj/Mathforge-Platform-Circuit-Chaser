@@ -128,6 +128,7 @@ const standalonePreviewBootstrap=String.raw`
   const explicitCreature=p.has('cc230');
   const defaults={
     cc2Ui:'slate-focus',cc230:'1',cc230Blanket:'1',cc2Flow:'1',cc245:'1',
+    cc246:'1',
   };
   for(const [key,value] of Object.entries(defaults)){
     if(!p.has(key))p.set(key,value);
@@ -173,6 +174,22 @@ if(html.includes(entry)||!html.includes('source-authoritative CC2 engine')||
    html.includes(cssTag)||html.includes(fxTag)||html.includes(glowTag)||html.includes(phaseCssTag)||html.includes(phaseJsTag)||html.includes(learnCssTag)||html.includes(learnJsTag)||html.includes(integrityCssTag)||html.includes(integrityJsTag)||html.includes(eclipseCssTag)||html.includes(eclipseJsTag)||html.includes(visCssTag)||html.includes(physicsJsTag)||html.includes(visJsTag)||html.includes(oxideCssTag)||html.includes(oxideJsTag)||html.includes(secondaryCssTag)||html.includes(secondaryJsTag)||html.includes(roleCssTag)||html.includes(roleJsTag)||html.includes(specialCssTag)||html.includes(specialJsTag)||html.includes(slateFocusCssTag)||html.includes(finaleCssTag)||html.includes(finaleJsTag)||
  html.length<100000||html.length>4000000||!html.includes('cc209d-source-presentation')||!html.includes('cc209e-target-style')||!html.includes('cc212-source-presentation')||!html.includes('cc215-source-app')||!html.includes('cc216a-integrity-lab')||!html.includes('cc218a-eclipse-controller')||!html.includes('cc218a-eclipse-style')||!html.includes('cc220-living-controller')||!html.includes('cc220-plasma-dynamics')||!html.includes('cc220-living-material')||!html.includes('cc226-oxide-material')||!html.includes('cc226-oxide-controller')||!html.includes('cc223-secondary-style')||!html.includes('cc223-secondary-presentation')||!html.includes('cc227-role-style')||!html.includes('cc227-role-controller')||!html.includes('cc228-special-visuals')||!html.includes('cc228-special-controller')||!html.includes('cc2-ui-slate-focus-43')||!html.includes('cc225-debrief-style')||!html.includes('cc225-debrief-controller'))
  throw Error('CC2_15_OFFLINE_ASSEMBLY_INVALID');
+// CC2-46: the new authored crystal-core renderer runs in the same
+// standalone HTML, BEFORE the Heritage painter captures its state. This
+// is not a CDN, dynamic import, new math surface, or extra sound player.
+// All default pages except the isolated /cc2-30.html preview preserve the
+// old look; explicit ?cc246=0 disables it even on this candidate.
+const cc246Conductor=await readFile(resolve(dir,
+  'cc2-46-plasma-conductor.js'),'utf8');
+const cc246Anchor='<script id="cc209b-heritage-adapter">';
+if(html.split(cc246Anchor).length!==2)
+  throw Error('CC246_VISIBLE_PAINTER_ANCHOR_MISSING');
+html=html.replace(cc246Anchor,()=>'<script id="cc246-plasma-conductor">\n'+
+  escapeScript(cc246Conductor)+'\n</script>\n'+cc246Anchor);
+if(!html.includes('cc246-plasma-conductor')||
+  !html.includes('cc246-plasma-laboratory'))
+  throw Error('CC246_OFFLINE_BUNDLE_MISSING');
+
 // CC2-34/39A: opt-in, in-game Relay hologram/Studio surface. Never load
 // external files into the standalone page, and preserve legacy URLs exactly.
 const cc234Style=await readFile(resolve(dir,'cc2-34-relay-preview.css'),'utf8');

@@ -290,6 +290,35 @@ function makeSurfaceEngine(
   };
 }
 let engine:SurfaceEngine=makeSurfaceEngine(seedInput.value);
+/**
+ * CC2-46: genuine outbound source-travel snapshots are retained at the
+ * ACCEPTED selection boundary, not sampled on an arbitrary render frame.
+ * The visible painter consumes a receipt only after it finds the matching
+ * source-authenticated solved attempt. This avoids missing a rapid journey
+ * during low-FPS rendering, source-driven batch ticks or accessibility use.
+ */
+const cc246TraceEnabled=new URLSearchParams(location.search).get('cc246')==='1';
+type CC246RouteReceipt={
+  runId:string;attemptId:string;platformId:string;
+  points:Array<{x:number;y:number}>;
+};
+let cc246TravelReceipts:CC246RouteReceipt[]=[];
+function selectAndTrace(id:string):SelectionResultV1{
+  const result=engine.selectPlatform(id);
+  if(cc246TraceEnabled&&result.ok&&result.correct){
+    const state=engine.snapshot(),travel=state.travel;
+    if(travel?.kind==='outbound'&&travel.correct&&
+      travel.attemptId===result.attemptId&&
+      travel.platformId===id&&travel.points.length>=2){
+      cc246TravelReceipts.push({
+        runId:state.runId,attemptId:result.attemptId,platformId:id,
+        points:travel.points.map(p=>({x:p.x,y:p.y})),
+      });
+      if(cc246TravelReceipts.length>18)cc246TravelReceipts.shift();
+    }
+  }
+  return result;
+}
 // Forecast is deliberately expensive (it replays a detached real source core).
 // Invalidate only when a new source math problem/seed arrives, never per frame.
 let cc245CacheKey='';
@@ -719,7 +748,7 @@ function updateChoices(): void {
       button.setAttribute('aria-label', problem.operation === 'skip-count-by-2'
         ? `Choose ${option.value} as the next value after ${problem.incomingValue} when counting by two`
         : `Choose ${option.value} to complete ${problem.incomingValue} plus blank equals ${problem.targetValue}`);
-      button.onclick = () => { engine.selectPlatform(option.platformId); updateMessage(); };
+      button.onclick = () => { selectAndTrace(option.platformId); updateMessage(); };
       choices.appendChild(button);
       buttons.push(button);
     }
@@ -1390,6 +1419,9 @@ function beginNewRun(): void {
     next.run,next.learner,next.pursuer,next.personality,
   );
   engine=nextEngine;
+  // Presentation receipts never survive a new run, even if its seed and
+  // deterministic run-id are identical to a previously played session.
+  cc246TravelReceipts=[];
   if(fidelity09B){
     (window as Window & {__cc2ChaseStarted?:boolean}).__cc2ChaseStarted=false;
     const hint=document.querySelector<HTMLElement>('#cc209-start');
@@ -1655,7 +1687,7 @@ window.addEventListener('keydown', event => {
   if (!['1','2','3'].includes(event.key)) return;
   const option = engine.snapshot().currentProblem.options[Number(event.key) - 1];
   if (option) {
-    const selected=engine.selectPlatform(option.platformId);
+    const selected=selectAndTrace(option.platformId);
     if(fidelity09B&&selected.ok){
       (window as Window & {__cc2ChaseStarted?:boolean}).__cc2ChaseStarted=true;
       const hint=document.querySelector<HTMLElement>('#cc209-start');
@@ -1674,6 +1706,11 @@ document.addEventListener('visibilitychange', () => {
 (window as Window & { __CC2_02A__?: object }).__CC2_02A__ = {
   snapshot: () => engine.snapshot(),
   events: () => engine.eventLog(),
+  /** Read-only real source travel, never score or gameplay authority. */
+  correctTravelReceipts:()=>cc246TravelReceipts.map(r=>({
+    runId:r.runId,attemptId:r.attemptId,platformId:r.platformId,
+    points:r.points.map(p=>({...p})),
+  })),
   replay: () => engine.replayExport(),
   /** Developer-only: clone source replay, project 4 real rows, never change live game. */
   relayForecast: () => {
