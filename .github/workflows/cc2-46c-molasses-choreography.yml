@@ -43,8 +43,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cc2-46c-syrup-choreography-owner-review
+          name: cc2-46c-playable-html-and-syrup-evidence
           path: |
+            dist/cc2-30.html
+            cc2-standalone/CC2-16A-Pursuer-Integrity-Playable.html
             cc2-46c-evidence/
             cc2-46b-evidence/
             cc2-46-evidence/
