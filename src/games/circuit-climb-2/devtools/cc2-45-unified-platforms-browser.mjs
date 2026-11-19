@@ -123,6 +123,22 @@ try{
           nowNext:landed.projected.rows[0].platforms.map(x=>x.value)});
       assert(errors.length===0&&landed.paints===0,
         'real landing and future refresh produce no painter error '+width,{errors});
+      // Explicit device canvas-loss simulation: user must still be able to
+      // read and click all source-owned current answers if 2D backing dies.
+      const fallback=await page.evaluate(()=>{
+        const board=document.getElementById('board');
+        board.setAttribute('data-cc223-renderer-fallback','context-lost');
+        const button=document.querySelector('button.choice');
+        const st=getComputedStyle(button);
+        const color=st.color,bg=st.backgroundColor;
+        board.removeAttribute('data-cc223-renderer-fallback');
+        return {color,bg};
+      });
+      assert(fallback.color!=='rgba(0, 0, 0, 0)'&&
+        fallback.color!=='transparent' &&
+        fallback.bg!=='rgba(0, 0, 0, 0)',
+        'canvas-loss fallback restores visible mathematical button '+width,
+        fallback);
       await page.screenshot({path:'cc2-45-evidence/platform-unity-'+width+'.png',
         animations:'disabled',fullPage:true});
     }finally{await page.close();}
