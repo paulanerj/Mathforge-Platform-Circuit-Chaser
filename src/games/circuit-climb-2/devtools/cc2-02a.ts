@@ -48,6 +48,8 @@ import {paceProfile,PACE_LABELS,type PaceProfileId} from '../config/paceProfiles
 import {SessionTelemetry07C} from './sessionTelemetry07C';
 import {classifyThreat} from '../presentation/threatRadar07D';
 import {projectRelayFutureRows,projectChaseRelayRows,type RelayForecast} from '../features/creatureEcologyRelay34';
+import {projectFutureNumberedRows45,type FutureChoiceProjection45}
+  from '../features/futureNumberedRows45';
 
 /** Original-surface fidelity is opt-in; historical CC2-07E remains exact. */
 const fidelity09B=document.body.dataset.cc209b==='on';
@@ -58,6 +60,9 @@ const board = document.querySelector<HTMLElement>('#board')!;
 // changing source rowGapScale or camera zoom cannot silently compress it.
 const cc243LockedSpacing=new URLSearchParams(location.search).get('cc2Flow')==='1';
 if(cc243LockedSpacing)document.body.classList.add('cc243-locked-spacing');
+// CC2-45 is independently gated and never contaminates historical URLs.
+const cc245Unified=new URLSearchParams(location.search).get('cc245')==='1';
+if(cc245Unified)document.body.classList.add('cc245-unified-platforms');
 const choices = document.querySelector<HTMLElement>('#choices')!;
 const equation = document.querySelector<HTMLElement>('#equation')!;
 const height = document.querySelector<HTMLElement>('#height')!;
@@ -136,6 +141,8 @@ interface SurfaceEngine {
   stateDigest():string;replayExport():unknown;
   /** CC2-34 opt-in dev-only source-backed preview; cannot award gameplay. */
   relayForecast():RelayForecast;
+  /** Read-only source-replayed values; only the current row is interactive. */
+  futureNumberedRows():FutureChoiceProjection45;
   bot():PursuerSnapshot|null;
   secondary():SecondarySnapshotV1|null;
   secondaryEvents():SecondaryEnemyEventV1[];
@@ -234,6 +241,7 @@ function makeSurfaceEngine(
       stateDigest:()=>game.stateDigest(),
       replayExport:()=>game.replayExport(),
       relayForecast:()=>projectChaseRelayRows(game,4),
+      futureNumberedRows:()=>game.futureNumberedRows(3),
       bot:()=>game.snapshot().pursuer,
       secondary:()=>game.secondarySnapshot(),
       secondaryEvents:()=>game.secondaryEvents(),
@@ -262,6 +270,7 @@ function makeSurfaceEngine(
     stateDigest:()=>game.stateDigest(),
     replayExport:()=>game.replayExport(),
     relayForecast:()=>projectRelayFutureRows(game,4),
+    futureNumberedRows:()=>projectFutureNumberedRows45(game,3),
     bot:()=>null,
     secondary:()=>null,
     secondaryEvents:()=>[],
@@ -281,6 +290,28 @@ function makeSurfaceEngine(
   };
 }
 let engine:SurfaceEngine=makeSurfaceEngine(seedInput.value);
+// Forecast is deliberately expensive (it replays a detached real source core).
+// Invalidate only when a new source math problem/seed arrives, never per frame.
+let cc245CacheKey='';
+let cc245Cache:FutureChoiceProjection45|null=null;
+function cc245Future():FutureChoiceProjection45|null{
+  if(!cc245Unified)return null;
+  const s=engine.snapshot();
+  const key=s.runId+'|'+s.currentProblem.problemId;
+  if(cc245CacheKey!==key){
+    cc245CacheKey=key;
+    try{cc245Cache=engine.futureNumberedRows();}
+    catch(error){
+      cc245Cache=null;
+      console.warn('CC245 source forecast withheld; no fabricated numbers',error);
+    }
+  }
+  return cc245Cache;
+}
+/** Identical CSS-pixel footprint for Heritage platforms and DOM hitboxes. */
+function cc245Footprint(canvasWidth:number):{width:number;height:number}{
+  return {width:Math.min(110,Math.max(70,canvasWidth*.237)),height:46};
+}
 let cameraView:CameraViewPresetV1={...energeticClimbDevLabPreset().camera};
 let appliedLabPreset:DevLabPresetV1=energeticClimbDevLabPreset();
 let currentFeedback:FeedbackPresetV1=defaultFeedbackPreset();
@@ -702,8 +733,11 @@ function updateChoices(): void {
     const cssScale=canvas.clientWidth/state.world.geometry.logicalWidth;
     const xScale=productionFrame.xScale*cssScale;
     const yScale=productionFrame.yScale*cssScale;
-    const width=Math.max(64,Math.min(132,platform.width*xScale*0.91));
-    const height=Math.max(49,Math.min(78,platform.height*yScale*1.8));
+    const footprint=cc245Footprint(canvas.clientWidth);
+    const width=cc245Unified?footprint.width:
+      Math.max(64,Math.min(132,platform.width*xScale*0.91));
+    const height=cc245Unified?footprint.height:
+      Math.max(49,Math.min(78,platform.height*yScale*1.8));
     const centre=projectProductionPoint(platform.x,
       platform.y+platform.height/2,productionFrame,
       state.world.geometry.logicalWidth,canvas.clientWidth);
@@ -1646,6 +1680,7 @@ document.addEventListener('visibilitychange', () => {
     if(cc223Params.get('cc234')!=='1')throw Error('RELAY_FORECAST_DEVELOPER_DISABLED');
     return engine.relayForecast();
   },
+  futureNumberedRows:()=>cc245Future(),
   rendererStats: () => ({canvasResizes,zoom:cameraView.zoom,
     effectiveZoom:effectiveCameraZoom,follow:cameraView.follow,
     previewRowsRendered,cameraY,viewportCoverage,cameraRowGap,
@@ -1654,6 +1689,8 @@ document.addEventListener('visibilitychange', () => {
     flowRowsEachSide:cc223Params.get('cc2Flow')==='1'?3:2,
     flowRowsAbove:cc223Params.get('cc2Flow')==='1'?3:2,
     flowRowsBelow:cc223Params.get('cc2Flow')==='1'?1:2,
+    unifiedPlatforms:cc245Unified,
+    futureNumberedRows:cc245Future()?.rows.length??0,
     horizontalCameraScale,
     lockedRowPitchCssPx:productionFrame?.lockedRowPitchCssPx??null,
     visualSparkPosition:{...latestVisibleSpark},

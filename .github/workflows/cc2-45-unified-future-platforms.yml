@@ -1,0 +1,46 @@
+name: CC2-45 Unified Prefilled Platform Bodies
+on:
+  push:
+    branches:
+      - feature/cc2-45-unified-prefilled-platforms-20261119
+  pull_request:
+    paths:
+      - 'src/games/circuit-climb-2/features/futureNumberedRows45.ts'
+      - 'src/games/circuit-climb-2/pursuer/CircuitClimbChaseCore.ts'
+      - 'src/games/circuit-climb-2/devtools/cc2-02a.ts'
+      - 'src/games/circuit-climb-2/devtools/cc2-16a.html'
+      - 'src/games/circuit-climb-2/devtools/buildPortable16A.mjs'
+      - 'src/games/circuit-climb-2/tests/futureNumberedRows45.test.ts'
+      - 'src/games/circuit-climb-2/devtools/cc2-45-unified-platforms-browser.mjs'
+permissions:
+  contents: read
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: TypeScript and future-math projection contracts
+        run: |
+          npm run lint
+          npx vitest run src/games/circuit-climb-2/tests/futureNumberedRows45.test.ts src/games/circuit-climb-2/tests/threeUpOneDownSpacing44.test.ts src/games/circuit-climb-2/tests/coreTransactions.test.ts
+      - name: Build exact standalone game
+        run: npm run build
+      - name: 'Actual browser: real future numbers, equal geometry, correct landing'
+        run: node src/games/circuit-climb-2/devtools/cc2-45-unified-platforms-browser.mjs
+      - name: Historical three up one down camera and slider regression
+        run: node src/games/circuit-climb-2/devtools/cc2-44-three-one-browser.mjs
+      - name: Preserve actual browser screenshots and event evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc2-45-source-backed-uniform-platforms
+          path: |
+            cc2-45-evidence/
+            cc2-44-evidence/
+          if-no-files-found: ignore
