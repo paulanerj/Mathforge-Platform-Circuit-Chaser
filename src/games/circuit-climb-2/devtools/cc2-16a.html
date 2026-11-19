@@ -769,6 +769,18 @@ body.cc245-unified-platforms #choices button.choice:focus-visible{
 body.cc245-unified-platforms #choices button.choice:disabled{
   opacity:1!important;
 }
+/*
+ * When the visible Heritage canvas is lost, the exact SAME source-backed
+ * clickable buttons must become independently legible. The user's answer
+ * input cannot disappear behind the all-transparent normal-mode overlay.
+ */
+body.cc245-unified-platforms #board[data-cc223-renderer-fallback]
+  #choices button.choice{
+  color:#194265!important;
+  background:linear-gradient(180deg,#fff,#daeaf3)!important;
+  border:1.5px solid #8aafc6!important;
+  box-shadow:0 4px 12px #20415e24!important;
+}
 </style>
 </head>
 <body data-pursuer="on" data-features="on" data-summary="on" data-cc209b="on" data-cc209c="on" data-cc209d="on" data-cc209e="on" data-cc212="on" data-cc215="on" data-cc216a="on" data-cc209c-intro-open="on">
