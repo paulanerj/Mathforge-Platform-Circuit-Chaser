@@ -132,8 +132,10 @@ try{
         eject.source.field &&
         eject.material.phase==='EJECT' &&
         eject.material.bolusVisible &&
-        eject.material.syrupDrawn,
-        'solved skip-count gate triggers source-anchored green bolus '+width,
+        eject.material.syrupDrawn &&
+        eject.material.launchSpanPx>30&&
+        eject.material.launchSpanPx<90,
+        'solved gate ejects LOCAL thick slime, not a diagonal arc through choices '+width,
         {phase:eject.material,earned});
       await page.screenshot({path:'cc2-46c-evidence/02-guardian-eject-'+width+'.png',
         fullPage:true,animations:'disabled'});
@@ -161,6 +163,26 @@ try{
           struggle.diagnostics.cues.length,
         'cast/trap suction sound cues each linked exactly once to source receipts '+width,
         struggle.diagnostics.cues);
+      // If the Pursuer is honestly offscreen, inspect its existing
+      // "PURSUER BELOW" radar for the LIVE stuck-reaction miniature.
+      const remote=await page.evaluate(()=>{
+        const el=document.getElementById('threatIndicator');
+        return {
+          offscreen:!el.hidden&&el.dataset.direction==='below',
+          stuck:el.classList.contains('cc246c-stuck-below'),
+          lens:Boolean(el.querySelector('.cc246c-live-lens:not([hidden])')),
+          state:el.querySelector('.cc246c-remote-state')?.textContent,
+          original:document.getElementById('threatText')?.textContent,
+          compact:document.documentElement.classList
+            .contains('cc246c-contact-offscreen'),
+        };
+      });
+      if(remote.offscreen)
+        check(remote.stuck&&remote.lens&&remote.compact&&
+          remote.state==='STUCK 20%' &&
+          remote.original?.includes('PURSUER BELOW'),
+          'offscreen bot retains TRUE tier distance and shows sticky reaction '+width,
+          remote);
       check(struggle.options===3&&struggle.solved===1&&
         struggle.rows===1&&struggle.errors===0&&
         struggle.paintFailures===0&&errors.length===0,
