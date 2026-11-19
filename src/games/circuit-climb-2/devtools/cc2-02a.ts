@@ -189,11 +189,13 @@ function creatureConfigFromURL():CreatureConfig|undefined{
     // Owner-review zero-query preview: see the Guardian after the FIRST
     // genuine completed row. No synthetic math, no auto-granted power.
     if(cc223Params.get('cc230Early')==='1')standard.firstEligibleRow=1;
-    // CC2-30E is deliberately opt-in and does not rewrite legacy replays.
-    // A blanket's source speed multiplier is 0.50 and never expires by TTL.
+    // The new 46B preview is a deliberately OPTED-IN source gameplay change:
+    // 20% Pursuer speed (80% reduction) only in a genuinely overlapping
+    // Molasses blanket. Legacy URLs and old replays keep their 50% default.
+    const newSyrup=cc223Params.get('cc246b')==='1';
     return cc223Params.get('cc230Blanket')==='1'?
       validateCreatureConfig({...standard,fieldMode:'BELOW_PLATFORM',
-        slowMultiplier:0.5}):standard;
+        slowMultiplier:newSyrup?0.20:0.5}):standard;
   }
   try{
     if(raw.length>2200)throw Error('CREATURE_CONFIG_URL_LENGTH');
