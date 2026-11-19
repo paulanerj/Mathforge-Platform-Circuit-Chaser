@@ -43,6 +43,9 @@ import {
   CreatureEcologyDirector,validateCreatureConfig,
   type CreatureConfig,type CreatureSnapshot,
 } from '../features/creatureEcology30';
+import {
+  projectFutureNumberedRows45,type FutureChoiceProjection45,
+} from '../features/futureNumberedRows45';
 
 export interface ChaseSnapshotV1 {
   learner:EngineStateV1;
@@ -304,6 +307,13 @@ export class CircuitClimbChaseCore {
       ...(this.secondary?{secondary:this.secondary.snapshot()}:{}),
       ...(this.specials?{specials:this.specials.snapshot()}:{}),
       ...(this.creature?{creature:this.creature.snapshot()}:{})};
+  }
+  /** CC2-45: readonly forecast from the real isolated learner source replay.
+   * This excludes Pursuer adjudication: no hypothetical future choice is
+   * awarded on the live game. Future row IDs are never legal tap targets.
+   */
+  futureNumberedRows(maximumRows=3):FutureChoiceProjection45{
+    return projectFutureNumberedRows45(this.core,maximumRows);
   }
   /** Compatibility for the CC2 learner board's existing source API. */
   learnerSnapshot():EngineStateV1{return this.core.snapshot();}
