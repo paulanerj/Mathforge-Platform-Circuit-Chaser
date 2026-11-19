@@ -30,6 +30,7 @@
   });
   let config={...DEFAULT},seen=new Set(),runId=null,lastReceipt=null;
   let audio=null,played=0,cues=[],lastSquelchTick=-1;
+  let lastSquelchBot=null,squelches=0;
   let rendered=0,contactFrames=0,activePhase='IDLE',lastStage=null;
   const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
   const color=(r,g,b,a)=>'rgba('+r+','+g+','+b+','+clamp(a,0,1)+')';
@@ -108,7 +109,8 @@
     if(!creature||!state)return;
     if(runId!==state.runId){
       runId=state.runId;seen=new Set();cues=[];played=0;
-      lastReceipt=null;lastSquelchTick=-1;activePhase='IDLE';
+      lastReceipt=null;lastSquelchTick=-1;
+      lastSquelchBot=null;squelches=0;activePhase='IDLE';
     }
     for(const receipt of creature.receipts||[]){
       if(receipt.runId!==state.runId||seen.has(receipt.id))continue;
@@ -137,6 +139,34 @@
     age<75?'SETTLE':'FIELD_LIVE';
 
   /**
+   * Contact by itself is NOT a motion sound. A soft suction is fired by
+   * FIELD_CONTACT_ENTER, while repeated squelches require genuine source
+   * Pursuer displacement over time, even when the bot is offscreen.
+   * Only real source ticks and actor world positions can unlock this cue.
+   */
+  function maybeMovingSquelch(contact,state,presentedBot){
+    if(!contact){
+      lastSquelchTick=-1;lastSquelchBot=null;
+      return;
+    }
+    const real=api()?.pursuer?.()?.body||presentedBot;
+    if(!real||!Number.isFinite(real.x)||!Number.isFinite(real.y))return;
+    if(!lastSquelchBot||lastSquelchTick<0){
+      lastSquelchBot={x:real.x,y:real.y};
+      lastSquelchTick=state.tick;
+      return;
+    }
+    if(state.tick-lastSquelchTick<22)return;
+    const motion=Math.hypot(real.x-lastSquelchBot.x,
+      real.y-lastSquelchBot.y);
+    if(motion<5)return; // No fictitious sticky footsteps while stationary.
+    squelches++;
+    playCue('SQUELCH',state.tick);
+    lastSquelchTick=state.tick;
+    lastSquelchBot={x:real.x,y:real.y};
+  }
+
+  /**
    * Called once per Heritage frame, AFTER 46B surface but BEFORE the actor.
    * All locations are transformed from real WORLD coordinates using the
    * authoritative camera projector. No absolute screen-space assumptions.
@@ -162,6 +192,9 @@
     activePhase=phase;
     rendered++;
     if(contact)contactFrames++;
+    // Sound follows the SOURCE body even when the physical Pursuer is
+    // three tiers below the 3+1 visible camera window.
+    maybeMovingSquelch(contact,state,bot);
     const pos=project(bot.x,bot.y);
     const thick=clamp(config.thickness/100,0,1);
     const gleam=config.sheen/100,splash=config.splash/100;
@@ -298,16 +331,7 @@
             color(236,250,151,.42*gleam));
         }
         syrupDrawn=true;
-        if(!reduced&&state.tick>lastSquelchTick+22&&
-          state.tick>0&&lastSquelchTick!==-1){
-          // Movement-synchronised sound; source contact verified. This
-          // is bounded to ONE small squelch in at least 22 source ticks.
-          playCue('SQUELCH',state.tick);
-          lastSquelchTick=state.tick;
-        }else if(lastSquelchTick<0){
-          lastSquelchTick=state.tick;
-        }
-      }else if(!contact)lastSquelchTick=-1;
+      }
     }finally{ctx.restore();}
     lastStage={enabled,phase,contact,
       eventId:cast?.id??null,syrupDrawn,bolusVisible,launchSpanPx,
@@ -440,7 +464,7 @@
     enabled,settings,setControl,paintStage,transformBot,
     get diagnostics(){return {
       enabled,phase:activePhase,rendered,contactFrames,played,
-      cues:cues.map(x=>({...x})),seen:seen.size,
+      squelches,cues:cues.map(x=>({...x})),seen:seen.size,
       layer:'under-pursuer',lastStage:lastStage?{...lastStage}:null,
     };},
   });
