@@ -128,7 +128,7 @@ const standalonePreviewBootstrap=String.raw`
   const explicitCreature=p.has('cc230');
   const defaults={
     cc2Ui:'slate-focus',cc230:'1',cc230Blanket:'1',cc2Flow:'1',cc245:'1',
-    cc246:'1',cc246b:'1',
+    cc246:'1',cc246b:'1',cc246c:'1',
   };
   for(const [key,value] of Object.entries(defaults)){
     if(!p.has(key))p.set(key,value);
@@ -206,6 +206,25 @@ html=html.replace(cc246Anchor,()=>'<script id="cc246b-syrup-controller">\n'+
 if(!html.includes('cc246b-syrup-style')||
   !html.includes('cc246b-syrup-controller'))
   throw Error('CC246B_SOURCED_SURFACE_MISSING');
+
+// CC2-46C: stand-alone green-honey choreography and contact-linked Foley.
+// The new visual module and CSS are injected after the stable CC2-46B
+// visual module but before the Heritage canvas adapter consumes its API.
+// Explicit ?cc246c=0 restores EXACT earlier CC2-46B visual behavior.
+const cc246cCss=await readFile(resolve(dir,
+  'cc2-46c-molasses-choreography.css'),'utf8');
+const cc246cJs=await readFile(resolve(dir,
+  'cc2-46c-molasses-choreography.js'),'utf8');
+if(html.split('</head>').length!==2||
+  html.split(cc246Anchor).length!==2)
+  throw Error('CC246C_INJECTION_ANCHORS_MISSING');
+html=html.replace('</head>',()=>'<style id="cc246c-syrup-style">\n'+
+  cc246cCss+'\n</style>\n</head>');
+html=html.replace(cc246Anchor,()=>'<script id="cc246c-syrup-controller">\n'+
+  escapeScript(cc246cJs)+'\n</script>\n'+cc246Anchor);
+if(!html.includes('cc246c-syrup-style')||
+  !html.includes('cc246c-syrup-controller'))
+  throw Error('CC246C_OFFLINE_BUNDLE_MISSING');
 
 // CC2-34/39A: opt-in, in-game Relay hologram/Studio surface. Never load
 // external files into the standalone page, and preserve legacy URLs exactly.
