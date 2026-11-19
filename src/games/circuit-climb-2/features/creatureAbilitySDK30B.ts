@@ -156,7 +156,9 @@ export class MolassesAbility implements CreatureAbilityHandler {
     check(request.radiusInRowGaps,.2,1.5);
     if(request.coverage!==undefined&&request.coverage!=='BELOW_PLATFORM')
       throw Error('CREATURE_EFFECT_COVERAGE');
-    check(request.slowMultiplier,request.coverage==='BELOW_PLATFORM'?.45:.55,1);
+    // The viscous blanket may reduce the Pursuer to 20% speed in CC2-46B.
+    // Never let renderer-facing settings directly alter a live runtime.
+    check(request.slowMultiplier,request.coverage==='BELOW_PLATFORM'?.10:.55,1);
     if(request.direction!=='left'&&request.direction!=='right')
       throw Error('CREATURE_EFFECT_DIRECTION');
     const platform=state.world.rows.flatMap(r=>r.platforms)

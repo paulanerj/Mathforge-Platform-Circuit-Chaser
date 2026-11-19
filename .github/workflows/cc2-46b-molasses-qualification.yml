@@ -1,0 +1,55 @@
+name: CC2-46B Molasses Drag, Surface, Smear
+on:
+  push:
+    branches:
+      - feature/cc2-46b-molasses-smear-surface-20261119
+  pull_request:
+    paths:
+      - 'src/games/circuit-climb-2/features/creatureEcology30.ts'
+      - 'src/games/circuit-climb-2/features/creatureAbilitySDK30B.ts'
+      - 'src/games/circuit-climb-2/devtools/cc2-02a.ts'
+      - 'src/games/circuit-climb-2/devtools/cc2-30-creature.js'
+      - 'src/games/circuit-climb-2/devtools/cc2-16a.html'
+      - 'src/games/circuit-climb-2/devtools/cc2-46b-molasses.js'
+      - 'src/games/circuit-climb-2/devtools/cc2-46b-molasses.css'
+      - 'src/games/circuit-climb-2/devtools/cc2-46b-molasses-browser.mjs'
+      - 'src/games/circuit-climb-2/tests/molassesSmear46B.test.ts'
+      - 'src/games/circuit-climb-2/devtools/buildPortable16A.mjs'
+permissions:
+  contents: read
+jobs:
+  molasses-source-and-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Strict TypeScript and source-owned slowdown
+        run: |
+          npm run lint
+          npx vitest run src/games/circuit-climb-2/tests/molassesSmear46B.test.ts src/games/circuit-climb-2/tests/creatureRosterIntegrity32.test.ts src/games/circuit-climb-2/tests/futureNumberedRows45.test.ts src/games/circuit-climb-2/tests/threeUpOneDownSpacing44.test.ts
+      - name: Build actual self-contained Circuit Climb
+        run: npm run build
+      - name: 'CC2-46B browser: 20% source slowdown, syrup field under bot, controls'
+        run: node src/games/circuit-climb-2/devtools/cc2-46b-molasses-browser.mjs
+      - name: 'CC2-46 regression: claimed mineral plasma and real conductor'
+        run: node src/games/circuit-climb-2/devtools/cc2-46-plasma-browser.mjs
+      - name: 'CC2-45 regression: real future numbers and consistent 46px bodies'
+        run: node src/games/circuit-climb-2/devtools/cc2-45-unified-platforms-browser.mjs
+      - name: 'CC2-44 regression: 3 up 1 down and live pitch slider'
+        run: node src/games/circuit-climb-2/devtools/cc2-44-three-one-browser.mjs
+      - name: Preserve device screenshots and browser receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc2-46b-molasses-owner-review
+          path: |
+            cc2-46b-evidence/
+            cc2-46-evidence/
+            cc2-45-evidence/
+            cc2-44-evidence/
+          if-no-files-found: ignore

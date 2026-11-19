@@ -7,6 +7,7 @@
 'use strict';
 if(new URLSearchParams(location.search).get('cc230')!=='1')return;
 const api=()=>window.__CC2_02A__;
+const cc246bSmear=new URLSearchParams(location.search).get('cc246b')==='1';
 const board=document.querySelector('#board');
 if(!board)return;
 const root=document.createElement('div');
@@ -118,7 +119,7 @@ function refresh(){
         const eased=fraction*fraction*(3-2*fraction);
         x=from.x+(dest.x-from.x)*eased;
         y=from.y+(dest.y-from.y)*eased-
-          Math.sin(Math.PI*fraction)*clamp(boardRect.width*.055,8,26);
+          (cc246bSmear?0:Math.sin(Math.PI*fraction)*clamp(boardRect.width*.055,8,26));
         hopFrames++;
       }
     }
@@ -167,7 +168,9 @@ function refresh(){
         const r=a.answerCreature(n);
         status.textContent=r.correct?
           (a.creature()?.activeField?.coverage==='BELOW_PLATFORM'?
-            'Molasses blanket active · Pursuer 50% speed below line':
+            'Molasses blanket active · Pursuer '+
+               Math.round((a.creature()?.fieldMultiplier??.5)*100)+
+               '% speed below line':
             'Field charged · Pursuer slows in gel'):
           'No field earned · keep climbing';
         sound(r.correct?320:130);lastStatus=status.textContent;
@@ -372,8 +375,8 @@ const numericalControls=[
   ['challengeWindowTicks',60,600,1,'Passkey time · ticks'],
   ['gateStep',2,9,1,'Skip-count increment'],
   ['fieldTicks',20,600,1,'Local field lifetime · blanket persists all run'],
-  ['slowMultiplier',sourceDraft?.fieldMode==='BELOW_PLATFORM'?.45:.55,
-    1,.01,'Pursuer speed multiplier'],
+  ['slowMultiplier',sourceDraft?.fieldMode==='BELOW_PLATFORM'?.10:.55,
+    1,.01,'Pursuer remaining speed (0.20 = 80% slowdown)'],
   ['fieldRadiusInRowGaps',.2,1.5,.05,'Gel collision radius · row gaps'],
 ];
 if(sourceDraft){

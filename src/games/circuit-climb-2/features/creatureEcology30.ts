@@ -84,7 +84,9 @@ export function validateCreatureConfig(raw:unknown):CreatureConfig{
   check(c.gateStep,2,9,true);check(c.fieldTicks,20,600,true);
   if(c.fieldMode!==undefined&&c.fieldMode!=='BELOW_PLATFORM')
     throw Error('CREATURE_FIELD_MODE');
-  check(c.slowMultiplier,c.fieldMode==='BELOW_PLATFORM'?.45:.55,1);
+  // CC2-46B allows an explicitly configured heavy 80% Pursuer slowdown.
+  // Keep historical defaults in serialized replays; the new value is opt-in.
+  check(c.slowMultiplier,c.fieldMode==='BELOW_PLATFORM'?.10:.55,1);
   check(c.fieldRadiusInRowGaps,0.2,1.5);
   if(!c.visual||!['clear-molasses','mineral-gel','glass'].includes(c.visual.material))
     throw Error('CREATURE_CONFIG_MATERIAL');
