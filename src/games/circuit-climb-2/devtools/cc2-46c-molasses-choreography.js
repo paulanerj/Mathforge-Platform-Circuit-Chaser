@@ -165,19 +165,22 @@
     const pos=project(bot.x,bot.y);
     const thick=clamp(config.thickness/100,0,1);
     const gleam=config.sheen/100,splash=config.splash/100;
-    let syrupDrawn=false,bolusVisible=false;
+    let syrupDrawn=false,bolusVisible=false,launchSpanPx=0;
     if(!Number.isFinite(pos.x)||!Number.isFinite(pos.y))
       return {...baseline,contact,phase,eventId:cast?.id??null};
     ctx.save();
     try{
       if(field){
-        const source=project(field.x,field.y);
-        // The FIELD_CAST origin is genuinely the platform where the
-        // Guardian was challenged. A detached copy of its source coords,
-        // never the current creature screen pos after another source hop.
+        const origin=project(field.x,field.y);
+        // REAL source: the platform whose Molasses gate emitted FIELD_CAST.
+        // The Guardian visibly sits about 31px above that source button.
+        // Compose its ejection LOCAL TO THAT PLATFORM, never a diagonal
+        // rope all the way to an offscreen Pursuer through Spark's choices.
+        const source={x:origin.x,y:origin.y-32};
+        const target={x:origin.x,
+          y:origin.y+clamp(height*.055,22,38)};
+        launchSpanPx=Math.hypot(target.x-source.x,target.y-source.y);
         if(Number.isFinite(source.x)&&Number.isFinite(source.y)){
-          const target=contact?pos:
-            project(field.x,field.y+state.world.geometry.rowGap*.55);
           if(age<75){
             const travel=ease((age-8)/31);
             const tetherFade=clamp((52-age)/20,0,1);
@@ -193,7 +196,7 @@
               ctx.beginPath();ctx.moveTo(source.x,source.y);
               ctx.quadraticCurveTo(
                 source.x+(target.x-source.x)*.27,
-                source.y-35,
+                source.y+10,
                 cx,cy);
               ctx.strokeStyle=color(45,129,55,.25*tetherFade);
               ctx.lineWidth=9+15*thick;ctx.stroke();
@@ -227,9 +230,15 @@
             }
           }
           if(field.coverage==='BELOW_PLATFORM'){
-            // A broad GREEN HONEY meniscus, not a full-height green screen.
-            const boundary=source.y;
-            if(boundary>=-25&&boundary<=height+25){
+            // This matches the real WORLD-Y field boundary. The near-field
+            // ejection ripples OUTWARDS from its source; it must not suddenly
+            // tint the entire board before the Guardian has released slime.
+            const boundary=origin.y;
+            const spread=ease((age-8)/42);
+            const extent=Math.max(origin.x,width-origin.x)*spread;
+            const bandLeft=clamp(origin.x-extent,0,width);
+            const bandRight=clamp(origin.x+extent,0,width);
+            if(boundary>=-25&&boundary<=height+25&&bandRight>bandLeft){
               const film=ctx.createLinearGradient(
                 0,boundary-8,0,boundary+27);
               film.addColorStop(0,color(62,118,48,0));
@@ -238,9 +247,10 @@
               film.addColorStop(.67,color(42,132,55,.31*thick));
               film.addColorStop(1,color(34,125,51,0));
               ctx.fillStyle=film;
-              ctx.fillRect(0,boundary-8,width,35);
-              ctx.beginPath();ctx.moveTo(0,boundary+4);
-              ctx.lineTo(width,boundary+4);
+              ctx.fillRect(bandLeft,boundary-8,
+                bandRight-bandLeft,35);
+              ctx.beginPath();ctx.moveTo(bandLeft,boundary+4);
+              ctx.lineTo(bandRight,boundary+4);
               ctx.strokeStyle=color(194,237,124,.55*gleam);
               ctx.lineWidth=1.4+2*thick;ctx.stroke();
               syrupDrawn=true;
@@ -300,7 +310,7 @@
       }else if(!contact)lastSquelchTick=-1;
     }finally{ctx.restore();}
     lastStage={enabled,phase,contact,
-      eventId:cast?.id??null,syrupDrawn,bolusVisible,
+      eventId:cast?.id??null,syrupDrawn,bolusVisible,launchSpanPx,
       played,surfaceLayer:'under-pursuer',greenHoney:true,
       sourceSpeed:contact?creature.fieldMultiplier:1};
     return {...lastStage};
@@ -340,6 +350,34 @@
     }else if(c.hop)phase='MOVING';
     else if(c.gate==='AVAILABLE')phase='READY';
     node.dataset.molassesPhase=phase;
+    // The owner approved one tier below Spark. When the REAL Pursuer is
+    // farther down, we must not secretly pan or teleport it into view.
+    // Instead, enrich the EXISTING truthful offscreen Pursuer indicator.
+    const indicator=document.querySelector('#threatIndicator');
+    const remote=Boolean(c.contactActive&&c.activeField&&indicator&&
+      !indicator.hidden&&indicator.dataset.direction==='below');
+    document.documentElement.classList.toggle(
+      'cc246c-contact-offscreen',remote);
+    if(indicator){
+      indicator.classList.toggle('cc246c-stuck-below',remote);
+      let badge=indicator.querySelector('.cc246c-live-lens');
+      if(!badge&&remote){
+        badge=document.createElement('span');
+        badge.className='cc246c-live-lens';
+        badge.setAttribute('aria-label','Source-verified offscreen stuck Pursuer');
+        badge.innerHTML='<span class="cc246c-live-orb"></span>';
+        indicator.appendChild(badge);
+      }
+      let label=indicator.querySelector('.cc246c-remote-state');
+      if(!label&&remote){
+        label=document.createElement('span');
+        label.className='cc246c-remote-state';
+        label.textContent='STUCK 20%';
+        indicator.appendChild(label);
+      }
+      if(badge)badge.hidden=!remote;
+      if(label)label.hidden=!remote;
+    }
     const status=document.querySelector('.cc230-status');
     // A compact causal label persists for the effects' visible life.
     if(status&&c.activeField&&c.contactActive&&
