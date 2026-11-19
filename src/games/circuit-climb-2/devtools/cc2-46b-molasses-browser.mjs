@@ -122,6 +122,14 @@ try{
       await page.waitForFunction(()=>
         window.__CC2_02A__?.creature?.()?.gate==='AVAILABLE',
         null,{timeout:12000});
+      // The source can become AVAILABLE during an immediate QA tick.
+      // Give the separate 30Hz DOM renderer its next animation frame
+      // before judging real visibility; never accept a permanently hidden
+      // interactive creature as a pass.
+      await page.waitForFunction(()=>{
+        const node=document.querySelector('.cc230-creature');
+        return node&&!node.hidden&&node.getBoundingClientRect().width>=44;
+      },null,{timeout:5000});
       const visibleGuardian=await inspect(page);
       assert(visibleGuardian.presentation.buttonWidth>=44 &&
         visibleGuardian.presentation.overlayDisplay==='none',
