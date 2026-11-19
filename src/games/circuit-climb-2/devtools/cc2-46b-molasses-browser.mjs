@@ -217,15 +217,35 @@ try{
   }
   const legacy=await browser.newPage({viewport:{width:390,height:844}});
   try {
-    await legacy.goto(base+'?cc246b=0',{waitUntil:'domcontentloaded'});
+    await legacy.goto(base+'?cc246b=0&manual=1',
+      {waitUntil:'domcontentloaded'});
+    await legacy.locator('#cc209c-enter').click();
+    await legacy.evaluate(()=>{window.__cc2ManualScenarioActive=true;});
     await legacy.waitForFunction(()=>
       window.__CC2_02A__?.creature?.()?.config,
       null,{timeout:16000});
+    await completeOneRow(legacy);
+    await legacy.waitForFunction(()=>
+      window.__CC2_02A__?.creature?.()?.gate==='AVAILABLE',
+      null,{timeout:12000});
+    await legacy.evaluate(()=>{
+      const a=window.__CC2_02A__,r=a.offerCreature();
+      if(!r.ok)throw Error('CC246B_OLD_GATE_OFFER_FAILED');
+      const q=a.creature().question;
+      const answer=q.sequence[2]+(q.sequence[1]-q.sequence[0]);
+      const out=a.answerCreature(answer);
+      if(!out.ok||!out.correct)throw Error('CC246B_OLD_GATE_ANSWER_FAILED');
+      a.advanceForQA(1);
+    });
+    await legacy.waitForFunction(()=>
+      window.__CC2_02A__?.creature?.()?.activeField &&
+      !document.querySelector('.cc230-gel').hidden,
+      null,{timeout:10000});
     const old=await inspect(legacy);
     assert(!old.presentation.enabled &&
       old.director.configMultiplier===.5 &&
       old.presentation.overlayDisplay!=='none',
-      'explicit opt-out restores unchanged CC2-46 50%-speed legacy experience',
+      'explicit opt-out restores genuine old 50%-speed green blanket',
       {config:old.director,display:old.presentation.overlayDisplay});
   }finally{await legacy.close();}
   console.log('CC2-46B browser assertions passed:',checks.length);
