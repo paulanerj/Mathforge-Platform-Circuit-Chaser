@@ -146,14 +146,19 @@ try{
       const panel=page.locator('#cc246-plasma-laboratory');
       assert(await panel.isVisible(),
         'visual tuning lives inside Developer Tools '+width);
+      // Opening Settings legitimately pauses the actual source game.
+      // Compare the two states on EITHER SIDE OF THE SLIDER, not against
+      // the pre-Settings active game; a real pause is not a plasma mutation.
+      const beforeControl=await state(page);
       const energy=page.locator('#cc246-energy');
       await energy.focus();
       await page.keyboard.press('Home');
       await page.waitForTimeout(70);
       const off=await state(page);
-      assert(off.settings.energy===0&&off.digest===claimed.digest &&
-        off.tick===claimed.tick&&off.rows===claimed.rows &&
-        off.plasma.verifiedHistory===claimed.plasma.verifiedHistory,
+      assert(off.settings.energy===0&&
+        off.digest===beforeControl.digest &&
+        off.tick===beforeControl.tick&&off.rows===beforeControl.rows &&
+        off.plasma.verifiedHistory===beforeControl.plasma.verifiedHistory,
         'energy slider never mutates math tick or solved path ledger '+width,
         {off:off.settings,claimed:claimed.settings});
       assert(initial.poweredPatch!==null&&off.poweredPatch!==null,
