@@ -172,6 +172,18 @@ try{
         stuck.errors===0&&stuck.failures===0&&pageErrors.length===0,
         'molasses never falsifies math, render, or browser state '+width,
         {source:stuck.source,pageErrors});
+      // This is the special's signature: after REAL source ticks at 20%
+      // speed, the syrup must retain at least one displaced wake sample.
+      // A bow wave without an accumulating wake would be an incomplete
+      // material simulation on slow tablets.
+      await page.evaluate(()=>window.__CC2_02A__.advanceForQA(28));
+      await page.waitForFunction(()=>
+        window.__CC2_09B__?.summary?.()?.molasses46B?.wakeCount>=1,
+        null,{timeout:5500});
+      const woke=await inspect(page);
+      assert(woke.presentation.awakeField.wakeCount>=1,
+        'real subpixel pursuit creates a persistent thick-syrup wake '+width,
+        woke.presentation.awakeField);
       await page.screenshot({
         path:'cc2-46b-evidence/honey-bot-stuck-'+width+'.png',
         fullPage:true,animations:'disabled',
