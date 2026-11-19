@@ -1620,20 +1620,32 @@ window.addEventListener("DOMContentLoaded", () => {
       else play(e.type);
       if(e.type==='ROW_COMPLETED'){justLandedAt=performance.now();lastLandingRow=state.completedRows;}
       if(e.type==='LANDING_CONFIRMED'&&
-        e.detail?.correct===true&&priorTravel?.kind==='outbound'&&
-        priorTravel?.correct&&
+        e.detail?.correct===true&&
         state.solved?.some(q=>q.attemptId===e.detail?.attemptId)){
-        // Source-verified REAL Spark path. No guessed line, wrong attempt,
-        // ghost landing, unearned scoring event or fabricated conductor.
+        // The actual source selection captured the accepted travel points.
+        // Never rely on the animation loop seeing an outbound snapshot:
+        // Spark can complete the whole trip between slow device frames.
+        const sourceReceipt=plasmaEnabled
+          ?api()?.correctTravelReceipts?.().find(route=>
+            route.runId===state.runId&&
+            route.attemptId===e.detail.attemptId&&
+            route.platformId===e.detail.platformId)
+          :null;
+        const legacyPoints=priorTravel?.kind==='outbound'&&
+          priorTravel.correct?priorTravel.points:null;
+        const points=sourceReceipt?.points||legacyPoints;
         const solved=state.solved.find(q=>q.attemptId===e.detail.attemptId);
-        log.pathHistory.push({
-          points:priorTravel.points,
-          born:performance.now(),
-          attemptId:solved.attemptId,row:solved.rowIndex,
-          verified:true,
-        });
-        if(log.pathHistory.length>(plasmaEnabled?16:5))
-          log.pathHistory.shift();
+        if(points?.length>=2&&solved){
+          // A source-recorded selection is necessary but NOT sufficient to
+          // illuminate: authoritative successful landing AND solved ledger
+          // must agree with the original accepted route's attempt ID.
+          log.pathHistory.push({
+            points, born:performance.now(),
+            attemptId:solved.attemptId,row:solved.rowIndex,verified:true,
+          });
+          if(log.pathHistory.length>(plasmaEnabled?16:5))
+            log.pathHistory.shift();
+        }
       }
     }lastSeenEvent=events.length;
     let features=api()?.featureEvents?.()||[];
