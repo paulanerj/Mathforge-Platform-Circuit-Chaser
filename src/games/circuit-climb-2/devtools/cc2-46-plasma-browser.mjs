@@ -139,6 +139,10 @@ try{
       await page.locator('#cc209-settings-btn').click();
       await page.locator('#cc209-settings > .cc209-dialog > details').last()
         .locator('summary').first().click();
+      // The user's Developer Laboratory is a SECOND nested details panel.
+      // Open it before checking controls; do not confuse its intentionally
+      // collapsed state with a missing plasma implementation.
+      await page.locator('#tuningPanel > summary').click();
       const panel=page.locator('#cc246-plasma-laboratory');
       assert(await panel.isVisible(),
         'visual tuning lives inside Developer Tools '+width);
