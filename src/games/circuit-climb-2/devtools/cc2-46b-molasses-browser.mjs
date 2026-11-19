@@ -105,10 +105,13 @@ try{
         initial.presentation.enabled,
         'exact 20% physical Pursuer speed is configured '+width,
         initial.director);
+      // The Guardian is legitimately hidden before its first earned row.
+      // Check its authored 51px pseudo-body now; assert the actual 44px
+      // touch target AFTER source makes the Guardian available below.
       assert(initial.presentation.overlayDisplay==='none' &&
         initial.presentation.pseudoImage!=='none' &&
-        initial.presentation.buttonWidth>=44,
-        'no full green overlay; Guardian is a wide hittable smear '+width,
+        initial.presentation.pseudoWidth==='51px',
+        'no full green overlay; authored snail-smear material is installed '+width,
         initial.presentation);
       assert(initial.camera.flowRowsAbove===3 &&
         initial.camera.flowRowsBelow===1 &&
@@ -119,6 +122,11 @@ try{
       await page.waitForFunction(()=>
         window.__CC2_02A__?.creature?.()?.gate==='AVAILABLE',
         null,{timeout:12000});
+      const visibleGuardian=await inspect(page);
+      assert(visibleGuardian.presentation.buttonWidth>=44 &&
+        visibleGuardian.presentation.overlayDisplay==='none',
+        'Guardian is visible and thumb-sized after genuine row progress '+width,
+        {width:visibleGuardian.presentation.buttonWidth});
       await page.screenshot({
         path:'cc2-46b-evidence/smear-guardian-'+width+'.png',
         fullPage:true,animations:'disabled',
