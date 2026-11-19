@@ -1231,7 +1231,9 @@ window.addEventListener("DOMContentLoaded", () => {
   const api=()=>window.__CC2_02A__;
   const plasma=window.__CC2_46__;
   const molasses46B=window.__CC2_46B__;
+  const molasses46C=window.__CC2_46C__;
   const molasses46BEnabled=Boolean(molasses46B?.enabled);
+  const molasses46CEnabled=Boolean(molasses46C?.enabled);
   const plasmaEnabled=Boolean(plasma?.enabled &&
     document.body.classList.contains('cc245-unified-platforms'));
   const board=get('board');
@@ -1270,6 +1272,9 @@ window.addEventListener("DOMContentLoaded", () => {
   let plasmaVisiblePaths=0,plasmaVisibleCores=0;
   let molassesSurfaceReport={enabled:false,contact:false,
     sourceMultiplier:1,wakeCount:0,bowWave:false,layer:'off'};
+  let molassesChoreographyReport={enabled:false,phase:'IDLE',
+    contact:false,syrupDrawn:false,bolusVisible:false};
+  let molassesRenderSourceTick=0;
   let lastPos=null,lastLandingRow=0,justLandedAt=0,lastRunId=null;
   let enabled=true,audioCtx=null,lastSoundAt=0,lastCornerIndex=0;
   let previousSourceSoundEnabled=null;
@@ -1596,6 +1601,11 @@ window.addEventListener("DOMContentLoaded", () => {
       // surface: broad leading edge, flattened body, delayed tail. This
       // deliberately modifies only its paint, NEVER its actual world body.
       if(sticky)ctx.scale(1.17,.87);
+      // On true source contact, the extra push–recoil transform changes
+      // only the red Pursuer's painted silhouette. World physics remain
+      // owned entirely by the pursuer engine and MolassesAbility.
+      if(sticky&&molasses46CEnabled)
+        molasses46C.transformBot(ctx,molassesRenderSourceTick);
       ctx.globalAlpha=searching?.8:1;
       ctx.shadowColor='#fb345a';ctx.shadowBlur=searching?12+breathing:26+breathing*3;
       ctx.fillStyle='#f03853';ctx.strokeStyle='#a62645';ctx.lineWidth=2;
@@ -1689,6 +1699,7 @@ window.addEventListener("DOMContentLoaded", () => {
       if(a.feedbackSettings?.()?.enabled)sourceMute();
       if(!renderer)return;
       detectEvents(state);
+      molassesRenderSourceTick=state.tick;
       const [w,h]=resize();if(!w||!h)return;
       ctx.save();parallax(ctx,w,h,now);
       // CC2-09E: no redundant center-screen ghost target. The equation remains in-board.
@@ -1744,6 +1755,17 @@ window.addEventListener("DOMContentLoaded", () => {
         enabled:false,contact:false,sourceMultiplier:1,
         wakeCount:0,bowWave:false,layer:'off',
       };
+      if(molasses46CEnabled&&sourceBot&&sourceCreature){
+        // The FULL source-backed activation is painted on the SAME visible
+        // canvas and beneath the actual bot body, never as a DOM scrim.
+        molassesChoreographyReport=molasses46C.paintStage(ctx,{
+          state,creature:sourceCreature,bot:sourceBot,
+          project:(x,y)=>pt(x,y,renderer,w),width:w,height:h,
+        });
+      }else molassesChoreographyReport={
+        enabled:false,phase:'IDLE',contact:false,
+        syrupDrawn:false,bolusVisible:false,
+      };
       // Source's display interpolation affects visuals only; it never edits
       // the real Spark/Bot world positions or game physics.
       // CC2-19 presentation ownership: during a VERIFIED visual assimilation
@@ -1796,6 +1818,7 @@ window.addEventListener("DOMContentLoaded", () => {
         visibleClaimed:plasmaVisibleCores,
       },
       molasses46B:{...molassesSurfaceReport},
+      molasses46C:{...molassesChoreographyReport},
       audioHistory:[...audioHistory]}),
   };
   requestAnimationFrame(frame);

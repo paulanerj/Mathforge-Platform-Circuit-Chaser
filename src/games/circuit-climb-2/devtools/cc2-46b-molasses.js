@@ -121,7 +121,11 @@
     // If the source blanket has been cast, paint ONLY a thin horizontal
     // meniscus at its actual physical world boundary. The old full-screen
     // green overlay is gone. Blankets with no contact NEVER fake a wake.
-    if(field?.coverage==='BELOW_PLATFORM'){
+    // The CC2-46C owner-accepted activation sequence progressively paints
+    // this very same source boundary instead; suppress the old immediate
+    // full-width band so it visibly grows FROM the special on a true cast.
+    if(field?.coverage==='BELOW_PLATFORM'&&
+      new URLSearchParams(location.search).get('cc246c')!=='1'){
       const boundary=project(field.x,field.y).y;
       if(boundary>0&&boundary<height){
         const band=ctx.createLinearGradient(0,boundary-4,0,boundary+15);
