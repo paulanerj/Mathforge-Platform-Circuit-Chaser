@@ -1230,6 +1230,8 @@ window.addEventListener("DOMContentLoaded", () => {
   const get=id=>document.getElementById(id);
   const api=()=>window.__CC2_02A__;
   const plasma=window.__CC2_46__;
+  const molasses46B=window.__CC2_46B__;
+  const molasses46BEnabled=Boolean(molasses46B?.enabled);
   const plasmaEnabled=Boolean(plasma?.enabled &&
     document.body.classList.contains('cc245-unified-platforms'));
   const board=get('board');
@@ -1266,6 +1268,8 @@ window.addEventListener("DOMContentLoaded", () => {
     maxObservedSpeed:0,sourceDigestOnLoad:null};
   let lastTime=0,lastTick=-1,priorTravel=null,lastSeenEvent=0,lastSeenFeatureEvent=0;
   let plasmaVisiblePaths=0,plasmaVisibleCores=0;
+  let molassesSurfaceReport={enabled:false,contact:false,
+    sourceMultiplier:1,wakeCount:0,bowWave:false,layer:'off'};
   let lastPos=null,lastLandingRow=0,justLandedAt=0,lastRunId=null;
   let enabled=true,audioCtx=null,lastSoundAt=0,lastCornerIndex=0;
   let previousSourceSoundEnabled=null;
@@ -1580,11 +1584,18 @@ window.addEventListener("DOMContentLoaded", () => {
     futureTierReport=report;
   }
   function actor(x,y,value,mode,r,w,t){
-    const pos=pt(x,y,r,w),isBot=mode==='bot-search'||mode==='bot-pursuit',radius=isBot?11:19;
+    const pos=pt(x,y,r,w);
+    const isBot=mode.startsWith('bot-');
+    const sticky=isBot&&mode.startsWith('bot-sticky-');
+    const radius=isBot?11:19;
     const breathing=reduceMotion?0:Math.sin(t*(isBot?.004:.006))*2;
     ctx.save();ctx.translate(pos.x,pos.y);
     if(isBot){
-      const searching=mode==='bot-search';
+      const searching=mode==='bot-search'||mode==='bot-sticky-search';
+      // A source-contacted Pursuer visibly strains against the sticky
+      // surface: broad leading edge, flattened body, delayed tail. This
+      // deliberately modifies only its paint, NEVER its actual world body.
+      if(sticky)ctx.scale(1.17,.87);
       ctx.globalAlpha=searching?.8:1;
       ctx.shadowColor='#fb345a';ctx.shadowBlur=searching?12+breathing:26+breathing*3;
       ctx.fillStyle='#f03853';ctx.strokeStyle='#a62645';ctx.lineWidth=2;
@@ -1718,6 +1729,21 @@ window.addEventListener("DOMContentLoaded", () => {
         total+(renderer.flowRowsBelow===1&&
           (row.index<state.spark.row-1||row.index>state.spark.row+3)
           ?0:row.platforms.filter(p=>p.powered&&!p.dead).length),0):0;
+      // Surface layer is painted under the red Pursuer and Spark, never
+      // above them as a green screen-space gel overlay. Only source TRUE
+      // contact may create displaced liquid or bow-wave graphics.
+      const sourceBot=renderer.visualBotPosition||bot?.body;
+      const sourceCreature=molasses46BEnabled?a.creature?.():null;
+      if(molasses46BEnabled&&sourceBot){
+        molassesSurfaceReport=molasses46B.paintSurface(ctx,{
+          state,creature:sourceCreature,bot:sourceBot,
+          project:(x,y)=>pt(x,y,renderer,w),
+          width:w,height:h,
+        });
+      }else molassesSurfaceReport={
+        enabled:false,contact:false,sourceMultiplier:1,
+        wakeCount:0,bowWave:false,layer:'off',
+      };
       // Source's display interpolation affects visuals only; it never edits
       // the real Spark/Bot world positions or game physics.
       // CC2-19 presentation ownership: during a VERIFIED visual assimilation
@@ -1732,12 +1758,16 @@ window.addEventListener("DOMContentLoaded", () => {
       if(!assimilationVisible){
         const spark=renderer.visualSparkPosition||state.spark;
         actor(spark.x,spark.y,state.spark.value,'spark',renderer,w,now);
-        const sourceBot=renderer.visualBotPosition||bot?.body;
         if(sourceBot){
           const bpos=pt(sourceBot.x,sourceBot.y,renderer,w);
-          if(bpos.y>=-18&&bpos.y<=h+18)
+          if(bpos.y>=-18&&bpos.y<=h+18){
+            const sticky=Boolean(molasses46BEnabled&&
+              sourceCreature?.contactActive&&sourceCreature?.activeField);
             actor(sourceBot.x,sourceBot.y,null,
-              bot?.belief?.mode==='SEARCH'?'bot-search':'bot-pursuit',renderer,w,now);
+              (sticky?'bot-sticky-':'bot-')+
+                (bot?.belief?.mode==='SEARCH'?'search':'pursuit'),
+              renderer,w,now);
+          }
         }
       }
       ctx.restore();log.frames++;
@@ -1765,6 +1795,7 @@ window.addEventListener("DOMContentLoaded", () => {
         visibleConductors:plasmaVisiblePaths,
         visibleClaimed:plasmaVisibleCores,
       },
+      molasses46B:{...molassesSurfaceReport},
       audioHistory:[...audioHistory]}),
   };
   requestAnimationFrame(frame);
