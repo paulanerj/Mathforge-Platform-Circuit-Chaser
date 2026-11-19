@@ -7,6 +7,7 @@
 'use strict';
 if(new URLSearchParams(location.search).get('cc230')!=='1')return;
 const api=()=>window.__CC2_02A__;
+const cc246bSmear=new URLSearchParams(location.search).get('cc246b')==='1';
 const board=document.querySelector('#board');
 if(!board)return;
 const root=document.createElement('div');
@@ -118,7 +119,7 @@ function refresh(){
         const eased=fraction*fraction*(3-2*fraction);
         x=from.x+(dest.x-from.x)*eased;
         y=from.y+(dest.y-from.y)*eased-
-          Math.sin(Math.PI*fraction)*clamp(boardRect.width*.055,8,26);
+          (cc246bSmear?0:Math.sin(Math.PI*fraction)*clamp(boardRect.width*.055,8,26));
         hopFrames++;
       }
     }
@@ -167,7 +168,9 @@ function refresh(){
         const r=a.answerCreature(n);
         status.textContent=r.correct?
           (a.creature()?.activeField?.coverage==='BELOW_PLATFORM'?
-            'Molasses blanket active · Pursuer 50% speed below line':
+            'Molasses blanket active · Pursuer '+
+               Math.round((a.creature()?.fieldMultiplier??.5)*100)+
+               '% speed below line':
             'Field charged · Pursuer slows in gel'):
           'No field earned · keep climbing';
         sound(r.correct?320:130);lastStatus=status.textContent;
