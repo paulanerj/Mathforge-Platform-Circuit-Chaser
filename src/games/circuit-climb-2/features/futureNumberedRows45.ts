@@ -61,6 +61,9 @@ export function projectFutureNumberedRows45(
   const copy=replayCore(original.replayExport());
   if(copy.stateDigest()!==digest)
     throw Error('CC245_PROJECTION_REPLAY_PARITY');
+  // A paused live run can still display future architecture. Resume ONLY
+  // the disconnected clone after exact replay parity has been established.
+  if(copy.snapshot().paused)copy.resume();
   const results:FutureNumberedRow45[]=[];
   const ready=():EngineStateV1|null=>{
     let s=copy.snapshot();
