@@ -28,7 +28,8 @@
     smearLength:68,wakePersistence:65,bowWaveSize:72,recoveryTime:58,
   });
   let settings={...defaults};
-  let lastRunId=null,lastTick=-1,lastBot=null,head={x:0,y:-1};
+  let lastRunId=null,lastTick=-1,lastBot=null,lastWakeAnchor=null,
+    head={x:0,y:-1};
   let wake=[];
   let frames=0,contactFrames=0,visibleRipples=0;
   const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
@@ -49,7 +50,8 @@
   const source=()=>window.__CC2_02A__?.creature?.()??null;
   const snapshot=()=>window.__CC2_02A__?.snapshot?.()??null;
   function resetObservation(){
-    lastTick=-1;lastBot=null;head={x:0,y:-1};wake=[];
+    lastTick=-1;lastBot=null;lastWakeAnchor=null;
+    head={x:0,y:-1};wake=[];
   }
   function drawShape(ctx,x,y,rx,ry,colors,alpha){
     ctx.beginPath();ctx.ellipse(x,y,Math.max(.1,rx),Math.max(.1,ry),
@@ -86,17 +88,31 @@
       if(lastBot){
         const dx=pos.x-lastBot.x,dy=pos.y-lastBot.y;
         const d=Math.hypot(dx,dy);
-        if(contact&&d>0.32){
+        // Slow source movement can be <0.3 CSS px PER FRAME at 20% speed.
+        // Accumulate against the previous deposited wake mark; do not throw
+        // away tiny but real source motion or deposit wake at rest.
+        if(contact&&d>.018){
           head={x:dx/d,y:dy/d};
-          if(wake.length===0||tick-wake[wake.length-1].tick>=2)
+          const traveled=lastWakeAnchor
+            ?Math.hypot(pos.x-lastWakeAnchor.x,pos.y-lastWakeAnchor.y)
+            :d;
+          if(traveled>=.48&&
+            (wake.length===0||tick-wake[wake.length-1].tick>=2)){
             wake.push({x:pos.x,y:pos.y,tick,
               dx:head.x,dy:head.y,runId:state.runId});
+            lastWakeAnchor={x:pos.x,y:pos.y};
+          }
         }
       }
       lastBot={x:pos.x,y:pos.y};
       lastTick=tick;
     }
-    const life=Math.round(24+settings.recoveryTime*4.0);
+    // RecoveryTime owns absolute source-tick decay. WakePersistence owns
+    // trailing syrup density AND some additional staying power. Both sliders
+    // therefore produce observable differences rather than being decoration.
+    const life=Math.round(24+settings.recoveryTime*3.2+
+      settings.wakePersistence*.8);
+    const wakeStrength=settings.wakePersistence/100;
     wake=wake.filter(p=>p.runId===state.runId&&tick-p.tick<=life);
     if(wake.length>72)wake=wake.slice(-72);
     frames++;
@@ -124,24 +140,25 @@
     ctx.save();
     // Wakes remain on the surface when the Pursuer exits the syrup but
     // decay by SOURCE ticks. They never affect a physical Pursuer position.
-    for(let i=0;i<wake.length;i++){
+    for(let i=0;i<wake.length&&wakeStrength>0;i++){
       const node=wake[i],age=tick-node.tick;
       const remaining=clamp(1-age/life,0,1);
       if(remaining<=0)continue;
-      const spread=(7+settings.smearLength*.30)*remaining;
+      const spread=(7+settings.smearLength*.30)*remaining*
+        (.35+wakeStrength*.65);
       const across={x:-node.dy,y:node.dx};
       ctx.save();
       ctx.translate(node.x,node.y);
       ctx.rotate(Math.atan2(node.dy,node.dx));
       const ink=ctx.createLinearGradient(-spread,0,spread,0);
       ink.addColorStop(0,rgba(120,139,99,0));
-      ink.addColorStop(.4,rgba(133,151,107,.10*remaining));
-      ink.addColorStop(1,rgba(95,131,101,.23*remaining));
+      ink.addColorStop(.4,rgba(133,151,107,.10*remaining*wakeStrength));
+      ink.addColorStop(1,rgba(95,131,101,.23*remaining*wakeStrength));
       drawShape(ctx,-spread*.45,3,spread,8*remaining+3,
-        [105,136,102],.11*remaining);
+        [105,136,102],.11*remaining*wakeStrength);
       ctx.beginPath();ctx.moveTo(-spread*1.6,-1);
       ctx.quadraticCurveTo(0,-4-remaining*4,spread,0);
-      ctx.strokeStyle=rgba(74,121,106,.25*remaining);
+      ctx.strokeStyle=rgba(74,121,106,.25*remaining*wakeStrength);
       ctx.lineWidth=1.7;ctx.stroke();
       ctx.restore();
     }
