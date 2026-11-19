@@ -127,7 +127,7 @@ const standalonePreviewBootstrap=String.raw`
   const url=new URL(location.href),p=url.searchParams;
   const explicitCreature=p.has('cc230');
   const defaults={
-    cc2Ui:'slate-focus',cc230:'1',cc230Blanket:'1',cc2Flow:'1',
+    cc2Ui:'slate-focus',cc230:'1',cc230Blanket:'1',cc2Flow:'1',cc245:'1',
   };
   for(const [key,value] of Object.entries(defaults)){
     if(!p.has(key))p.set(key,value);
