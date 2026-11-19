@@ -1,0 +1,53 @@
+name: CC2-46C Molasses Signature Choreography
+on:
+  push:
+    branches:
+      - feature/cc2-46c-molasses-activation-choreography-20261119
+  pull_request:
+    paths:
+      - 'src/games/circuit-climb-2/devtools/cc2-46c-molasses-choreography.js'
+      - 'src/games/circuit-climb-2/devtools/cc2-46c-molasses-choreography.css'
+      - 'src/games/circuit-climb-2/devtools/cc2-16a.html'
+      - 'src/games/circuit-climb-2/devtools/buildPortable16A.mjs'
+      - 'src/games/circuit-climb-2/devtools/cc2-46c-molasses-browser.mjs'
+permissions:
+  contents: read
+jobs:
+  source-and-visible-game:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Preserve source mechanics and type contracts
+        run: |
+          npm run lint
+          npx vitest run src/games/circuit-climb-2/tests/molassesSmear46B.test.ts src/games/circuit-climb-2/tests/futureNumberedRows45.test.ts src/games/circuit-climb-2/tests/threeUpOneDownSpacing44.test.ts src/games/circuit-climb-2/tests/coreTransactions.test.ts
+      - name: Assemble exact single-file standalone
+        run: npm run build
+      - name: 'Actual gameplay: click, correct math, spit, splat, 20% stuck, sound cues'
+        run: node src/games/circuit-climb-2/devtools/cc2-46c-molasses-browser.mjs
+      - name: CC2-46B accepted slowdown and thick wake
+        run: node src/games/circuit-climb-2/devtools/cc2-46b-molasses-browser.mjs
+      - name: CC2-46 plasma material/connection regression
+        run: node src/games/circuit-climb-2/devtools/cc2-46-plasma-browser.mjs
+      - name: CC2-45 uniform source-numbered platforms regression
+        run: node src/games/circuit-climb-2/devtools/cc2-45-unified-platforms-browser.mjs
+      - name: CC2-44 camera/row spacing/hitbox regression
+        run: node src/games/circuit-climb-2/devtools/cc2-44-three-one-browser.mjs
+      - name: Capture five viewport 4-stage gameplay screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc2-46c-syrup-choreography-owner-review
+          path: |
+            cc2-46c-evidence/
+            cc2-46b-evidence/
+            cc2-46-evidence/
+            cc2-45-evidence/
+            cc2-44-evidence/
+          if-no-files-found: ignore
