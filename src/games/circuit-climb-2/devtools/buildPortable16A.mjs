@@ -128,7 +128,7 @@ const standalonePreviewBootstrap=String.raw`
   const explicitCreature=p.has('cc230');
   const defaults={
     cc2Ui:'slate-focus',cc230:'1',cc230Blanket:'1',cc2Flow:'1',cc245:'1',
-    cc246:'1',
+    cc246:'1',cc246b:'1',
   };
   for(const [key,value] of Object.entries(defaults)){
     if(!p.has(key))p.set(key,value);
@@ -189,6 +189,23 @@ html=html.replace(cc246Anchor,()=>'<script id="cc246-plasma-conductor">\n'+
 if(!html.includes('cc246-plasma-conductor')||
   !html.includes('cc246-plasma-laboratory'))
   throw Error('CC246_OFFLINE_BUNDLE_MISSING');
+
+// CC2-46B syrup is a genuinely source-reactive production-art laboratory,
+// injected BEFORE the visible Heritage adapter. It is disabled on all
+// historical URLs unless explicitly cc246b=1. No screen-covering DOM gel.
+const cc246bCss=await readFile(resolve(dir,'cc2-46b-molasses.css'),'utf8');
+const cc246bJs=await readFile(resolve(dir,'cc2-46b-molasses.js'),'utf8');
+if(html.split('</head>').length!==2)
+  throw Error('CC246B_STYLE_ANCHOR_MISSING');
+html=html.replace('</head>',()=>'<style id="cc246b-syrup-style">\n'+
+  cc246bCss+'\n</style>\n</head>');
+if(html.split(cc246Anchor).length!==2)
+  throw Error('CC246B_PAINTER_ANCHOR_MISSING');
+html=html.replace(cc246Anchor,()=>'<script id="cc246b-syrup-controller">\n'+
+  escapeScript(cc246bJs)+'\n</script>\n'+cc246Anchor);
+if(!html.includes('cc246b-syrup-style')||
+  !html.includes('cc246b-syrup-controller'))
+  throw Error('CC246B_SOURCED_SURFACE_MISSING');
 
 // CC2-34/39A: opt-in, in-game Relay hologram/Studio surface. Never load
 // external files into the standalone page, and preserve legacy URLs exactly.
