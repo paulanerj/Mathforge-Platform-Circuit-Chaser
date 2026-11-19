@@ -163,6 +163,9 @@ try{
           struggle.diagnostics.cues.length,
         'cast/trap suction sound cues each linked exactly once to source receipts '+width,
         struggle.diagnostics.cues);
+      check(struggle.diagnostics.squelches>=1,
+        'ongoing sticky sound cadence tracks REAL slowed Pursuer displacement, including offscreen '+width,
+        {squelches:struggle.diagnostics.squelches,tick:struggle.tick});
       // If the Pursuer is honestly offscreen, inspect its existing
       // "PURSUER BELOW" radar for the LIVE stuck-reaction miniature.
       const remote=await page.evaluate(()=>{
