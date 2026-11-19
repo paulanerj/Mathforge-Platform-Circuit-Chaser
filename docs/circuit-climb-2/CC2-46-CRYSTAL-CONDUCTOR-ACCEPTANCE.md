@@ -21,7 +21,7 @@ Development: `feature/cc2-46-source-plasma-conduction-20261119` (candidate, not 
 
 **Claimed/powered:** exactly the SAME rectangular volume, now internally energized. Luminous refracted core (white-hot/cyan), a few low-frequency liquid crystal conductive ribbons, transparent center, controlled outer halo. The original extra green point/squiggle is suppressed *only* in CC2-46 so it cannot compete visually with Spark's value. No unnecessary floating particles or opaque overlay, no resizing or visual cardinality changes.
 
-**Connected trails:** only real source-traveled successful paths, preserved from `LANDING_CONFIRMED` with `correct===true` AND matching authoritative `state.solved.attemptId`. They use the real `priorTravel.points` from Spark's own movement, not straight guesses between platform centers. Paths paint behind the platform bodies with a restrained 3-stroke crystalline ribbon and optionally slow moving white electrical glints. No path from a wrong attempt, hypothetical future, demo, or mere visual touch event.
+**Connected trails:** a real user selection captures a detached read-only copy of the source core's accepted outbound `travel.points` and attempt ID **at the selection boundary**, not when a render frame happens to observe Spark traveling. At `LANDING_CONFIRMED` with `correct===true`, the visible painter must also verify a matching authoritative `state.solved.attemptId` and source platform ID before it can create the conductor. This survives a journey that completes between frames on low-FPS devices or in a deterministic QA jump. Paths paint behind platform bodies with a restrained 3-stroke crystalline ribbon and slow optional white electrical glints. No invented straight-line connection, wrong attempt, future prediction, or merely touched selection becomes a conductor.
 
 **Animation:** phase comes from source `state.tick`, so Pause freezes energy flow; ambient visual frame rate does not become game authority. `prefers-reduced-motion: reduce` freezes glints without disabling clarity.
 
@@ -58,3 +58,14 @@ Before claiming success verify the newest GitHub Actions run conclusion and depl
 - **CC2-47**: deterministic authored side-biased, aligned, zig-zag patterns, preserving safe phone edges and source solvability.
 - **CC2-48**: authentic two-choice five-row mathematics section with explicit education and pacing rules.
 - **CC2-QA**: prolonged phone/tablet performance, no white canvas, real sound and rendering acceptance.
+
+## Final candidate gate (source code commit `72b3c0a1a9d45fbbb738bef9e1888b18334789d1`)
+
+CI: https://github.com/paulanerj/Mathforge-Platform-Circuit-Chaser/actions/runs/44547887938 — **success**.
+
+- 21 TypeScript/mathematical source tests passed.
+- 47 new CC2-46 packaged-browser assertions passed: five viewport widths, developer energy/flow/trail controls, reset, correct source-issued path after landing, reduced-motion, explicit CC2-45 opt-out and no score/tick/replay mutations by visual controls.
+- 46 CC2-45 visible-platform regression assertions passed.
+- 56 CC2-44 camera/slider regression assertions passed.
+- Screenshot artifact: https://github.com/paulanerj/Mathforge-Platform-Circuit-Chaser/actions/runs/44547887938/artifacts/14541223398
+- Vercel Git-source deployment `dpl_DiPrgXciSpUbbhtxFAyxEWhkGrGA`, source commit `72b3c0a`, READY at https://mathforge-circuit-climb-cc2-preview-hr3fhopsx.vercel.app/cc2-30.html . External public page access could not be independently verified. Owner mobile acceptance pending.
