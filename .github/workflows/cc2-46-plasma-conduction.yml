@@ -1,0 +1,46 @@
+name: CC2-46 Source-Verified Liquid-Crystal Conduction
+on:
+  push:
+    branches:
+      - feature/cc2-46-source-plasma-conduction-20261119
+  pull_request:
+    paths:
+      - 'src/games/circuit-climb-2/devtools/cc2-16a.html'
+      - 'src/games/circuit-climb-2/devtools/cc2-46-plasma-conductor.js'
+      - 'src/games/circuit-climb-2/devtools/cc2-46-plasma-browser.mjs'
+      - 'src/games/circuit-climb-2/devtools/buildPortable16A.mjs'
+permissions:
+  contents: read
+jobs:
+  qualify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: TypeScript, math and existing platform authority
+        run: |
+          npm run lint
+          npx vitest run src/games/circuit-climb-2/tests/futureNumberedRows45.test.ts src/games/circuit-climb-2/tests/threeUpOneDownSpacing44.test.ts src/games/circuit-climb-2/tests/coreTransactions.test.ts
+      - name: Rebuild exact self-contained production candidate
+        run: npm run build
+      - name: 'CC2-46 real game: plasma, correct source trails and reduced motion'
+        run: node src/games/circuit-climb-2/devtools/cc2-46-plasma-browser.mjs
+      - name: 'CC2-45 real game: unified bodies, numbered future, canvas recovery'
+        run: node src/games/circuit-climb-2/devtools/cc2-45-unified-platforms-browser.mjs
+      - name: 'CC2-44 real game: camera, spacing and hitbox safety'
+        run: node src/games/circuit-climb-2/devtools/cc2-44-three-one-browser.mjs
+      - name: Preserve screenshots and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc2-46-real-plasma-conduction-browser
+          path: |
+            cc2-46-evidence/
+            cc2-45-evidence/
+            cc2-44-evidence/
+          if-no-files-found: ignore
